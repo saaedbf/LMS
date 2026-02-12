@@ -17,6 +17,10 @@ module.exports = {
         IransansLight: "Iransans Light",
         Yekan: "Yekan",
       },
+      colors: {
+        DarkPurple: "#081A51",
+        LightWhite: "rgba(255,255,255,0.18)",
+      },
     },
   },
   plugins: [],
