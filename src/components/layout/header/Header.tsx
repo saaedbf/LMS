@@ -3,10 +3,10 @@ import React from "react";
 
 export default function Header() {
   return (
-    <header className="bg-white flex shadow sticky top-0 px-6 py-4 justify-between ">
+    <header className="bg-violet-800 flex shadow sticky top-0 px-6 py-4 justify-between text-white ">
       <div className="flex  items-center  gap-6">
         <div className="w-8 h-8 rounded-lg bg-indigo-500"></div>
-        <nav className="hidden md:flex gap-4 text-sm text-slate-500">
+        <nav className="hidden md:flex gap-4 text-sm text-white">
           <Link href="/" className="hover:font-IransansBold transition">
             تماس با ما
           </Link>

@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { AiFillEnvironment } from "react-icons/ai";
+
 import { BsArrowRightShort } from "react-icons/bs";
 
 import NewAsideMenu from "./NewAsideMenu";
+import { MdManageHistory } from "react-icons/md";
 export default function NewAside() {
   const [open, setOpen] = useState(true);
   // const [open, setOpen] = useState(true);
@@ -24,7 +25,7 @@ export default function NewAside() {
         top-9 border border-DarkPurple cursor-pointer z-10 ${!open && "rotate-180"} `}
         />
         <div className="inline-flex border-b-2 border-LightWhite pb-4">
-          <AiFillEnvironment
+          <MdManageHistory
             className={`bg-amber-300 text-4xl w-10 rounded cursor-pointer block ml-2 float-right duration-500 ${open && "rotate-[360deg]"}`}
           />
           <h1
