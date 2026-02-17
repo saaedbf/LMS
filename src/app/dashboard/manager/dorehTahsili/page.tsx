@@ -1,27 +1,27 @@
 "use client";
-import { Button } from "@/components/ui/button";
+
 import ActionModal from "@/components/widgets/ActionModal";
 import TitlePage from "@/components/widgets/TitlePage";
 import React, { useState } from "react";
+import CreateDoreh from "./CreateDoreh";
+import CreateBtn from "@/components/widgets/Elements/CreateBtn";
 
 export default function ListDorehTahsiliPage() {
   const [open, setOpen] = useState(false);
   return (
     <div className="p-2">
       <TitlePage> لیست دوره تحصیلی</TitlePage>
-
-      <ActionModal
-        btnText="ذخیره"
-        btnclass=""
-        desc="lorem*1fsdf"
-        onclick={() => alert("hi")}
-        open={open}
-        setOpen={() => setOpen(!open)}
-        title="ثبت دوره تحصیلی"
-        trigger={<Button>مودال</Button>}
-      >
-        <h1>saeed</h1>
-      </ActionModal>
+      <div className="p-2">
+        <ActionModal
+          desc="فرم ثبت مشخصات دوره تحصیلی"
+          open={open}
+          setOpen={() => setOpen(true)}
+          title="ثبت دوره تحصیلی"
+          trigger={<CreateBtn>ثبت دوره تحصیلی جدید</CreateBtn>}
+        >
+          <CreateDoreh setOpen={setOpen} />
+        </ActionModal>
+      </div>
     </div>
   );
 }

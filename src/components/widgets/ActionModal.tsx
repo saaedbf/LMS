@@ -1,26 +1,19 @@
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ReactNode } from "react";
-import { GoIssueClosed } from "react-icons/go";
 
 type Props = {
   children: ReactNode;
   trigger: ReactNode;
   title: string;
   desc: string;
-  btnText: string;
-  btnclass: string;
-  onclick: () => void;
-  setOpen: () => void;
+  setOpen: (arg0: boolean) => void;
   open: boolean;
 };
 export default function ActionModal({
@@ -28,9 +21,6 @@ export default function ActionModal({
   trigger,
   title,
   desc = "",
-  btnText,
-  btnclass = "",
-  onclick,
   setOpen,
   open,
 }: Props) {
@@ -43,26 +33,11 @@ export default function ActionModal({
             <AlertDialogTitle className="text-right p-3 rounded-t-lg bg-DarkPurple">
               {title}
             </AlertDialogTitle>
-            <AlertDialogDescription className="p-2 text-right">
+            <AlertDialogDescription className="px-2 text-right">
               {desc}
             </AlertDialogDescription>
           </AlertDialogHeader>
-
-          <div className="p-2">{children}</div>
-
-          <AlertDialogFooter className="flex gap-2 p-3 bg-blue-200 rounded-b-lg">
-            <AlertDialogCancel className="bg-gray-300">
-              {btnText ? "انصراف" : "بستن"}{" "}
-            </AlertDialogCancel>
-            {btnText && (
-              <AlertDialogAction
-                className={`bg-lime-600 hover:bg-lime-800 ${btnclass}`}
-                onClick={onclick}
-              >
-                {btnText} <GoIssueClosed />
-              </AlertDialogAction>
-            )}
-          </AlertDialogFooter>
+          {children}
         </AlertDialogContent>
       </AlertDialog>
     </div>

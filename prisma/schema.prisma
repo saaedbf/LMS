@@ -12,7 +12,7 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-model doreTahsili{
+model DoreTahsili{
   id Int @id
   title String
 }
