@@ -20,7 +20,7 @@ export default function Header() {
           </Link>
         </nav>
       </div>
-      <div className="flex items-center gap-4">
+      {/* <div className="flex items-center gap-4">
         <input
           type="text"
           name=""
@@ -28,7 +28,7 @@ export default function Header() {
           placeholder="جست وجو ..."
           className="border rounded-lg py-2 px-3 text-sm focus:outline-none"
         />
-      </div>
+      </div> */}
     </header>
   );
 }

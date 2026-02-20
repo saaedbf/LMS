@@ -8,16 +8,20 @@ import NewAsideMenu from "./NewAsideMenu";
 import { MdManageHistory } from "react-icons/md";
 export default function NewAside() {
   const [open, setOpen] = useState(true);
+  const [innerWidth, setInnerWidth] = useState(0);
   // const [open, setOpen] = useState(true);
   useEffect(() => {
     if (window.innerWidth < 800) {
       setOpen(false);
     }
+    setInnerWidth(window.innerWidth);
   }, []);
   return (
-    <aside className="flex">
+    <aside
+      className={`${open && innerWidth < 800 ? "flex absolute z-30" : "flex"}`}
+    >
       <div
-        className={`bg-DarkPurple h-screen p-5 pt-8 transition-all flex flex-col duration-300  relative ${open ? "w-72" : "w-20"}`}
+        className={`bg-DarkPurple h-screen p-5 pt-8 transition-all flex flex-col duration-300  relative ${open ? "w-72 absolute z-30" : "w-20"}`}
       >
         <BsArrowRightShort
           onClick={() => setOpen(!open)}

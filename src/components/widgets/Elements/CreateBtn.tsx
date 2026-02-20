@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 import { IoIosAddCircle } from "react-icons/io";
-export default function TestBtn({
+export default function CreateBtn({
   children,
   ...props
 }: {

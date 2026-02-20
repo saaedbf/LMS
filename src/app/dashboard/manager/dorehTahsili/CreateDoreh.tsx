@@ -30,14 +30,10 @@ export default function CreateDoreh({
     mode: "onTouched",
   });
   async function onSubmit(data: CreateDorehSchema) {
-    console.log("data");
-    console.log(data);
-
     const result = await createDorehTahiliAction(data);
-    console.log("hi");
+
     if (result.status === "success") {
       toast.success("دوره با موفقیت ثبت شد");
-      // router.refresh();
       reset({ ...data });
       setOpen(false);
     } else {
@@ -68,7 +64,11 @@ export default function CreateDoreh({
           </p>
         )}
       </FormContainer>
-      <FromActionBtns txtSubmit="ذخیره" isValid={isValid} setOpen={setOpen} />
+      <FromActionBtns
+        txtSubmit="ذخیره"
+        isSubmitting={isSubmitting}
+        setOpen={setOpen}
+      />
     </form>
   );
 }

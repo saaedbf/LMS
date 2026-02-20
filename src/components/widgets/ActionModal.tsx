@@ -14,6 +14,7 @@ type Props = {
   title: string;
   desc: string;
   setOpen: (arg0: boolean) => void;
+
   open: boolean;
 };
 export default function ActionModal({
@@ -22,6 +23,7 @@ export default function ActionModal({
   title,
   desc = "",
   setOpen,
+
   open,
 }: Props) {
   return (
