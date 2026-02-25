@@ -5,82 +5,121 @@ import HeadTr from "@/components/widgets/Elements/table/HeaddTr";
 import Table from "@/components/widgets/Elements/table/Table";
 import Tbody from "@/components/widgets/Elements/table/Tbody";
 import Td from "@/components/widgets/Elements/table/Td";
-import Th from "@/components/widgets/Elements/table/Th";
+
 import Tr from "@/components/widgets/Elements/table/Tr";
 import TitlePage from "@/components/widgets/TitlePage";
 import React, { useState } from "react";
-import CreateDoreh from "./CreateDoreh";
+
 import { DoreTahsili } from "@prisma/client";
 import DeleteBtn from "@/components/widgets/Elements/DeleteBtn";
-import DeleteDoreh from "./DeleteDoreh";
+
 import DeleteConfirmModal from "@/components/widgets/DeleteConfirmModal";
 import { DeleteDorehTahiliAction } from "@/actions/dorehTahsiliActions";
-import { toast } from "react-toastify";
+
+import DorehForm from "./DorehForm";
+import TdActions from "@/components/widgets/Elements/table/TdActions";
+import EditBtn from "@/components/widgets/Elements/EditBtn";
+import ThActions from "@/components/widgets/Elements/table/ThActions";
+import DataTableLayout from "@/components/widgets/DataTableLayout";
+import Pagination from "@/components/widgets/Pagination";
+import SortableTh from "@/components/widgets/Elements/table/SortableTh";
+import ColumnSearch from "@/components/widgets/Elements/table/ColumnSearch";
 
 export default function DoreTahsiliComp({
   doreTahisilis,
+  totalCount,
 }: {
   doreTahisilis: DoreTahsili[];
+  totalCount: number;
+  currentPage: number;
+  search: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openCreate, setOpenCreate] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
   const [selectedItem, setSelectedItem] = useState<DoreTahsili | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [openDelete, setOpenDelete] = useState(false);
   return (
     <div className="p-2">
       <TitlePage> لیست دوره تحصیلی</TitlePage>
 
       <div className="container mx-auto px-4 py-2">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-          <ActionModal
-            desc="فرم ثبت مشخصات دوره تحصیلی"
-            open={open}
-            setOpen={() => setOpen(true)}
-            title="ثبت دوره تحصیلی"
-            trigger={<CreateBtn>ثبت دوره تحصیلی جدید</CreateBtn>}
-          >
-            <CreateDoreh setOpen={setOpen} />
-          </ActionModal>
-          <div className="w-full md:w-1/3 mb-4 md:mb-0">
-            <input
-              type="text"
-              placeholder="Search users..."
-              className="w-full px-4 py-2 rounded-md border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
+        <DataTableLayout
+          totalCount={totalCount}
+          action={
+            <ActionModal
+              desc="فرم ثبت مشخصات دوره تحصیلی"
+              open={openCreate}
+              setOpen={() => setOpenCreate(true)}
+              title="ثبت دوره تحصیلی"
+              trigger={<CreateBtn>ثبت دوره تحصیلی جدید</CreateBtn>}
+            >
+              <DorehForm setOpen={setOpenCreate} mode="create" />
+            </ActionModal>
+          }
+        >
+          <Table>
+            <thead>
+              <HeadTr>
+                <SortableTh field="id" sortable>
+                  <div className="flex gap-2 items-center justify-center">
+                    <span> کد</span>
+                    <ColumnSearch field="id" />
+                  </div>
+                </SortableTh>
 
-        <Table>
-          <thead>
-            <HeadTr>
-              <Th>کد</Th>
-              <Th>نام</Th>
-              <Th>عملیات</Th>
-            </HeadTr>
-          </thead>
-          <Tbody>
-            {doreTahisilis &&
-              doreTahisilis.map((item) => (
-                <Tr key={item.id}>
-                  <Td>{item.id}</Td>
-                  <Td> {item.title}</Td>
+                <SortableTh field="title" sortable>
+                  <div className="flex gap-2 items-center justify-center">
+                    <span> نام</span>
+                    <ColumnSearch field="title" />
+                  </div>
+                </SortableTh>
+                <ThActions>عملیات</ThActions>
+              </HeadTr>
+            </thead>
+            <Tbody>
+              {doreTahisilis &&
+                doreTahisilis.map((item) => (
+                  <Tr key={item.id}>
+                    <Td>{item.id}</Td>
+                    <Td> {item.title}</Td>
 
-                  <Td>
-                    <DeleteBtn
-                      onClick={() => {
-                        setSelectedItem(item);
-                        setDeleteOpen(true);
-                      }}
-                    />
-                  </Td>
-                </Tr>
-              ))}
-          </Tbody>
-        </Table>
-
+                    <TdActions>
+                      <DeleteBtn
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setOpenDelete(true);
+                        }}
+                      />
+                      <EditBtn
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setOpenEdit(true);
+                        }}
+                      />
+                    </TdActions>
+                  </Tr>
+                ))}
+            </Tbody>
+          </Table>
+        </DataTableLayout>
+        {/* مودال ویرایش */}
+        <ActionModal
+          desc="فرم ویرایش مشخصات دوره تحصیلی"
+          open={openEdit}
+          setOpen={() => setOpenEdit(true)}
+          title="ویرایش دوره تحصیلی"
+          trigger={null}
+        >
+          <DorehForm
+            setOpen={setOpenEdit}
+            mode="edit"
+            defaultValues={selectedItem || undefined}
+          />
+        </ActionModal>
         <DeleteConfirmModal
-          open={deleteOpen}
+          open={openDelete}
           setOpen={(v) => {
-            setDeleteOpen(v);
+            setOpenDelete(v);
             if (!v) setSelectedItem(null);
           }}
           item={selectedItem}
@@ -91,12 +130,8 @@ export default function DoreTahsiliComp({
           onDelete={async (item) => {
             return await DeleteDorehTahiliAction(item.id);
           }}
-          // onDeleted={(item) => {
-          //   // 🔥 optimistic update
-          //   setData((prev) => prev.filter((x) => x.id !== item.id));
-          // }}
         />
-        <div className="flex justify-between items-center mt-6">
+        {/* <div className="flex justify-between items-center mt-6">
           <div>
             <span className="text-sm text-gray-700">
               Showing 1 to 5 of 5 entries
@@ -114,7 +149,8 @@ export default function DoreTahsiliComp({
               </button>
             </a>
           </div>
-        </div>
+        </div> */}
+        <Pagination pageSize={2} totalCount={totalCount} />
       </div>
     </div>
   );
