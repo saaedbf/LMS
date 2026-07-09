@@ -50,6 +50,14 @@ const menuItem = [
     subMenuItems: [{ title: "", href: "" }],
   },
   {
+    title: "مدیریت رشته تدریس",
+    href: "/dashboard/manager/reshtehTadris",
+    spacing: true,
+    icon: <FaAddressBook />,
+    subMenu: false,
+    subMenuItems: [{ title: "", href: "" }],
+  },
+  {
     title: "مدیریت  پست",
     href: "/",
     spacing: false,

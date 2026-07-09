@@ -24,3 +24,7 @@ model Ostan{
   id Int @id
   title String
 }
+model ReshtehTadris{
+  id    String   @id @default(uuid())
+  title String @unique
+}
