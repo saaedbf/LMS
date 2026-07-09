@@ -2,16 +2,16 @@
 "use client";
 
 import {
-  createDorehTahiliAction,
-  updateDorehTahiliAction,
-} from "@/actions/dorehTahsiliActions";
+  updateReshtehTahiliAction,
+  CreateReshtehTahiliAction,
+} from "@/actions/reshtehTahsiliActions";
 import CoolInput from "@/components/widgets/Elements/CoolInput";
 import FormContainer from "@/components/widgets/Elements/FormContainer";
 import FromActionBtns from "@/components/widgets/Elements/FromActionBtns";
 import {
-  createDorehSchema,
-  CreateDorehSchema,
-} from "@/lib/schemas/deorehSchemas";
+  reshtehTahsiliSchema,
+  ReshtehTahsiliSchema,
+} from "@/lib/schemas/reshtehTahsiliSchemas";
 import { handleFormServerErrors } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React from "react";
@@ -21,10 +21,14 @@ import { toast } from "react-toastify";
 type Props = {
   mode: "create" | "edit";
   setOpen: (value: boolean) => void;
-  defaultValues?: CreateDorehSchema;
+  defaultValues?: ReshtehTahsiliSchema;
 };
 
-export default function DorehForm({ mode, setOpen, defaultValues }: Props) {
+export default function ReshteTahsiliForm({
+  mode,
+  setOpen,
+  defaultValues,
+}: Props) {
   const isEdit = mode === "edit";
 
   const {
@@ -34,7 +38,7 @@ export default function DorehForm({ mode, setOpen, defaultValues }: Props) {
     setError,
     handleSubmit,
   } = useForm<any>({
-    resolver: zodResolver(createDorehSchema),
+    resolver: zodResolver(reshtehTahsiliSchema),
     mode: "onTouched",
     defaultValues: defaultValues || {
       id: undefined,
@@ -42,14 +46,14 @@ export default function DorehForm({ mode, setOpen, defaultValues }: Props) {
     },
   });
 
-  async function onSubmit(data: CreateDorehSchema) {
+  async function onSubmit(data: ReshtehTahsiliSchema) {
     const result = isEdit
-      ? await updateDorehTahiliAction(data)
-      : await createDorehTahiliAction(data);
+      ? await updateReshtehTahiliAction(data)
+      : await CreateReshtehTahiliAction(data);
 
     if (result.status === "success") {
       toast.success(
-        isEdit ? "ویرایش با موفقیت انجام شد" : "دوره با موفقیت ثبت شد",
+        isEdit ? "ویرایش با موفقیت انجام شد" : "رشته تحصیلی با موفقیت ثبت شد",
       );
 
       reset(data);
@@ -63,18 +67,18 @@ export default function DorehForm({ mode, setOpen, defaultValues }: Props) {
     <form onSubmit={handleSubmit(onSubmit)}>
       <FormContainer>
         <CoolInput
-          title="کد دوره تحصیلی:"
+          title="کد رشته تحصیلی:"
           type="number"
-          placeholder="کد دوره ..."
+          placeholder="کد رشته تحصیلی ..."
           disabled={isEdit} // فقط در حالت ویرایش غیرقابل تغییر
           {...register("id", { valueAsNumber: true })}
           error={errors.id?.message as string}
         />
 
         <CoolInput
-          title="نام دوره تحصیلی:"
+          title="نام رشته تحصیلی:"
           type="text"
-          placeholder="نام دوره ..."
+          placeholder="نام رشته تحصیلی ..."
           {...register("title")}
           error={errors.title?.message as string}
         />

@@ -16,3 +16,11 @@ model DoreTahsili{
   id Int @id
   title String
 }
+model ReshtehTahsili{
+  id Int @id
+  title String
+}
+model Ostan{
+  id Int @id
+  title String
+}

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import {
@@ -20,7 +21,7 @@ type Props<T> = {
   item: T | null;
   getTitle: (item: T) => string;
   getDescription: (item: T) => string;
-  onDelete: (item: T) => Promise<ActionResult<string>>;
+  onDelete: (item: T) => Promise<ActionResult<any>>;
   onDeleted?: (item: T) => void; // برای optimistic update
 };
 
@@ -31,7 +32,6 @@ export default function DeleteConfirmModal<T>({
   getTitle,
   getDescription,
   onDelete,
-  onDeleted,
 }: Props<T>) {
   const [loading, setLoading] = useState(false);
 

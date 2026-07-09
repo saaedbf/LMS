@@ -35,7 +35,15 @@ const menuItem = [
   },
   {
     title: "مدیریت دوره تحصیلی",
-    href: "/",
+    href: "/dashboard/manager/dorehTahisli",
+    spacing: true,
+    icon: <FaAddressBook />,
+    subMenu: false,
+    subMenuItems: [{ title: "", href: "" }],
+  },
+  {
+    title: "مدیریت رشته تحصیلی",
+    href: "/dashboard/manager/reshtehTahsili",
     spacing: true,
     icon: <FaAddressBook />,
     subMenu: false,
@@ -44,6 +52,14 @@ const menuItem = [
   {
     title: "مدیریت  پست",
     href: "/",
+    spacing: false,
+    subMenu: false,
+    icon: <BsPostcardFill />,
+    subMenuItems: [{ title: "", href: "" }],
+  },
+  {
+    title: "مدیریت  استان",
+    href: "/dashboard/manager/ostan",
     spacing: false,
     subMenu: false,
     icon: <BsPostcardFill />,

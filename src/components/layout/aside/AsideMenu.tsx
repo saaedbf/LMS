@@ -7,6 +7,7 @@ export default function AsideMenu() {
     { title: "مدیریت کاربران", href: "/" },
     { title: "مدیریت دروس", href: "/" },
     { title: "مدیریت دوره تحصیلی", href: "/" },
+    { title: "مدیریت دوره تحصیلی", href: "/" },
     { title: "مدیریت  پست", href: "/" },
   ];
   return (
