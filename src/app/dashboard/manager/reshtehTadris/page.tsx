@@ -1,16 +1,7 @@
 import { getReshteTadrises } from "@/actions/reshtehTadrisesActions";
 import ListComponent from "./ReshtehTadrisComp";
-
-type Props = {
-  searchParams: {
-    page?: string;
-    search?: string;
-    sortOrder?: string;
-    sortField?: string;
-    searchField?: string;
-    searchValue?: string;
-  };
-};
+import { Props } from "@/types/myTypes";
+import { PAGE_SIZE } from "@/lib/schemas/env";
 
 export default async function ListReshTadrisPage({ searchParams }: Props) {
   const page = Number(searchParams.page) || 1;
@@ -19,7 +10,7 @@ export default async function ListReshTadrisPage({ searchParams }: Props) {
   const searchField = searchParams.searchField;
   const searchValue = searchParams.searchValue;
 
-  const data = await getReshteTadrises(page, 2, {
+  const data = await getReshteTadrises(page, PAGE_SIZE, {
     sortField,
     sortOrder,
     searchField,
@@ -30,8 +21,7 @@ export default async function ListReshTadrisPage({ searchParams }: Props) {
     <ListComponent
       listItems={data.items}
       totalCount={data.total}
-      currentPage={page}
-      search={searchValue || ""}
+      pageSize={PAGE_SIZE}
     />
   );
 }

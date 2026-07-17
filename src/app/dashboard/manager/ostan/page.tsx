@@ -1,17 +1,7 @@
 import { getOstans } from "@/actions/ostanActions";
 import ListComponent from "./OstanComp";
-
-type Props = {
-  searchParams: {
-    page?: string;
-    search?: string;
-    sortOrder?: string;
-    sortField?: string;
-    searchField?: string;
-    searchValue?: string;
-  };
-};
-
+import { Props } from "@/types/myTypes";
+import { PAGE_SIZE } from "@/lib/schemas/env";
 export default async function ListOstanPage({ searchParams }: Props) {
   const page = Number(searchParams.page) || 1;
   const sortField = searchParams.sortField;
@@ -19,7 +9,7 @@ export default async function ListOstanPage({ searchParams }: Props) {
   const searchField = searchParams.searchField;
   const searchValue = searchParams.searchValue;
 
-  const data = await getOstans(page, 2, {
+  const data = await getOstans(page, PAGE_SIZE, {
     sortField,
     sortOrder,
     searchField,
@@ -30,8 +20,7 @@ export default async function ListOstanPage({ searchParams }: Props) {
     <ListComponent
       listItems={data.items}
       totalCount={data.total}
-      currentPage={page}
-      search={searchValue || ""}
+      pageSize={PAGE_SIZE}
     />
   );
 }

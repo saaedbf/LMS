@@ -7,9 +7,15 @@ type Props = {
   field: string;
   children: React.ReactNode;
   sortable?: boolean;
+  title?: string;
 };
 
-export default function SortableTh({ field, children, sortable }: Props) {
+export default function SortableTh({
+  field,
+  children,
+  sortable,
+  title,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -46,7 +52,12 @@ export default function SortableTh({ field, children, sortable }: Props) {
   return (
     <th className=" select-none px-8">
       <div className="flex items-center justify-between">
-        {children}
+        <div className="flex gap-2 items-center justify-center">
+          <span>{title}</span>
+
+          {children}
+        </div>
+
         {sortable && (
           <button className="cursor-pointer" onClick={handleSort}>
             {arrow}

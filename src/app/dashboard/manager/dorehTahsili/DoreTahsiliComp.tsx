@@ -24,16 +24,13 @@ import DataTableLayout from "@/components/widgets/DataTableLayout";
 import Pagination from "@/components/widgets/Pagination";
 import SortableTh from "@/components/widgets/Elements/table/SortableTh";
 import ColumnSearch from "@/components/widgets/Elements/table/ColumnSearch";
+import { ListProps } from "@/types/myTypes";
 
 export default function DoreTahsiliComp({
-  doreTahisilis,
+  listItems,
   totalCount,
-}: {
-  doreTahisilis: DoreTahsili[];
-  totalCount: number;
-  currentPage: number;
-  search: string;
-}) {
+  pageSize,
+}: ListProps<DoreTahsili>) {
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedItem, setSelectedItem] = useState<DoreTahsili | null>(null);
@@ -60,25 +57,19 @@ export default function DoreTahsiliComp({
           <Table>
             <thead>
               <HeadTr>
-                <SortableTh field="id" sortable>
-                  <div className="flex gap-2 items-center justify-center">
-                    <span> کد</span>
-                    <ColumnSearch field="id" />
-                  </div>
+                <SortableTh field="id" sortable title="کد">
+                  <ColumnSearch field="id" />
                 </SortableTh>
 
-                <SortableTh field="title" sortable>
-                  <div className="flex gap-2 items-center justify-center">
-                    <span> نام</span>
-                    <ColumnSearch field="title" />
-                  </div>
+                <SortableTh field="title" sortable title="نام">
+                  <ColumnSearch field="title" />
                 </SortableTh>
                 <ThActions>عملیات</ThActions>
               </HeadTr>
             </thead>
             <Tbody>
-              {doreTahisilis &&
-                doreTahisilis.map((item) => (
+              {listItems &&
+                listItems.map((item) => (
                   <Tr key={item.id}>
                     <Td>{item.id}</Td>
                     <Td> {item.title}</Td>
@@ -131,26 +122,8 @@ export default function DoreTahsiliComp({
             return await DeleteDorehTahiliAction(item.id);
           }}
         />
-        {/* <div className="flex justify-between items-center mt-6">
-          <div>
-            <span className="text-sm text-gray-700">
-              Showing 1 to 5 of 5 entries
-            </span>
-          </div>
-          <div className="flex space-x-2">
-            <a href="https://abhirajk.vercel.app/" target="blank">
-              <button className="px-3 py-1 rounded-md bg-gray-200 text-gray-700 opacity-50">
-                Previous
-              </button>
-            </a>
-            <a href="https://abhirajk.vercel.app/" target="blank">
-              <button className="px-3 py-1 rounded-md bg-gray-200 text-gray-700 opacity-50">
-                Next
-              </button>
-            </a>
-          </div>
-        </div> */}
-        <Pagination pageSize={2} totalCount={totalCount} />
+
+        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 import { prisma } from "@/lib/prisma";
 // import { getAuthUserId } from "./authActions";
@@ -6,10 +5,12 @@ import { ReshtehTahsiliSchema } from "@/lib/schemas/reshtehTahsiliSchemas";
 import { ActionResult } from "@/types/index";
 import { ReshtehTahsili } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+
 import {
-  buildOrderBy,
-  buildSafeWhere,
-} from "@/components/widgets/Elements/table/table-utils";
+  Column,
+  getTableData,
+} from "@/components/widgets/Elements/table/table-utils2";
+import { ListOptions } from "@/types/myTypes";
 
 export async function CreateReshtehTahiliAction(
   data: ReshtehTahsiliSchema,
@@ -88,39 +89,23 @@ export async function DeleteReshteTahiliAction(
     return { status: "error", error: " خطا در عملیات " };
   }
 }
-const Columns = [
+// ✅ تعریف ستون‌ها
+const columns: Column[] = [
   { field: "id", type: "number", searchable: true, sortable: true },
   { field: "title", type: "string", searchable: true, sortable: true },
-] as const;
+];
+
+// ✅ تابع  با استفاده از تابع عمومی
 export async function getReshteTahsilis(
   page: number,
   pageSize: number,
-  options: {
-    sortField?: string;
-    sortOrder?: "asc" | "desc";
-    searchField?: string;
-    searchValue?: string;
-  },
-) {
-  const skip = (page - 1) * pageSize;
-
-  const where = buildSafeWhere(
-    Columns,
-    options.searchField,
-    options.searchValue,
+  options: ListOptions,
+): Promise<{ items: ReshtehTahsili[]; total: number }> {
+  return getTableData<ReshtehTahsili>(
+    prisma.reshtehTahsili,
+    columns,
+    page,
+    pageSize,
+    options,
   );
-
-  const orderBy = buildOrderBy(Columns, options.sortField, options.sortOrder);
-
-  const [items, total] = await Promise.all([
-    prisma.reshtehTahsili.findMany({
-      where: where as any,
-      orderBy: orderBy as any,
-      skip,
-      take: pageSize,
-    }),
-    prisma.reshtehTahsili.count({ where }),
-  ]);
-
-  return { items, total };
 }

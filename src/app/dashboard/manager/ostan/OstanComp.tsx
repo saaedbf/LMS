@@ -24,17 +24,14 @@ import DataTableLayout from "@/components/widgets/DataTableLayout";
 import Pagination from "@/components/widgets/Pagination";
 import SortableTh from "@/components/widgets/Elements/table/SortableTh";
 import ColumnSearch from "@/components/widgets/Elements/table/ColumnSearch";
-import { OstanSchemas } from "@/lib/schemas/ostanSchemas";
+
+import { ListProps } from "@/types/myTypes";
 
 export default function OstanComp({
   listItems,
   totalCount,
-}: {
-  listItems: OstanSchemas[];
-  totalCount: number;
-  currentPage: number;
-  search: string;
-}) {
+  pageSize,
+}: ListProps<Ostan>) {
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Ostan | null>(null);
@@ -61,18 +58,12 @@ export default function OstanComp({
           <Table>
             <thead>
               <HeadTr>
-                <SortableTh field="id" sortable>
-                  <div className="flex gap-2 items-center justify-center">
-                    <span> کد</span>
-                    <ColumnSearch field="id" />
-                  </div>
+                <SortableTh field="id" sortable title="کد">
+                  <ColumnSearch field="id" />
                 </SortableTh>
 
-                <SortableTh field="title" sortable>
-                  <div className="flex gap-2 items-center justify-center">
-                    <span> نام</span>
-                    <ColumnSearch field="title" />
-                  </div>
+                <SortableTh field="title" sortable title="نام">
+                  <ColumnSearch field="title" />
                 </SortableTh>
                 <ThActions>عملیات</ThActions>
               </HeadTr>
@@ -133,7 +124,7 @@ export default function OstanComp({
           }}
         />
 
-        <Pagination pageSize={2} totalCount={totalCount} />
+        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

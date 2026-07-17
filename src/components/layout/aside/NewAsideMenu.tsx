@@ -35,7 +35,7 @@ const menuItem = [
   },
   {
     title: "مدیریت دوره تحصیلی",
-    href: "/dashboard/manager/dorehTahisli",
+    href: "/dashboard/manager/dorehTahsili",
     spacing: true,
     icon: <FaAddressBook />,
     subMenu: false,
@@ -68,6 +68,14 @@ const menuItem = [
   {
     title: "مدیریت  استان",
     href: "/dashboard/manager/ostan",
+    spacing: false,
+    subMenu: false,
+    icon: <BsPostcardFill />,
+    subMenuItems: [{ title: "", href: "" }],
+  },
+  {
+    title: "مدیریت  مناطق",
+    href: "/dashboard/manager/region",
     spacing: false,
     subMenu: false,
     icon: <BsPostcardFill />,

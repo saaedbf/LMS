@@ -29,11 +29,11 @@ import ColumnSearch from "@/components/widgets/Elements/table/ColumnSearch";
 export default function ReshtehTadrisComp({
   listItems,
   totalCount,
+  pageSize,
 }: {
   listItems: ReshtehTadris[];
   totalCount: number;
-  currentPage: number;
-  search: string;
+  pageSize: number;
 }) {
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
@@ -68,11 +68,8 @@ export default function ReshtehTadrisComp({
                   </div>
                 </SortableTh> */}
 
-                <SortableTh field="title" sortable>
-                  <div className="flex gap-2 items-center justify-center">
-                    <span> نام</span>
-                    <ColumnSearch field="title" />
-                  </div>
+                <SortableTh field="title" sortable title="نام">
+                  <ColumnSearch field="title" />
                 </SortableTh>
                 <ThActions>عملیات</ThActions>
               </HeadTr>
@@ -132,7 +129,7 @@ export default function ReshtehTadrisComp({
           }}
         />
 
-        <Pagination pageSize={2} totalCount={totalCount} />
+        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

@@ -1,15 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 import { prisma } from "@/lib/prisma";
 // import { getAuthUserId } from "./authActions";
 import { OstanSchemas } from "@/lib/schemas/ostanSchemas";
 import { ActionResult } from "@/types/index";
-import { Ostan, ReshtehTahsili } from "@prisma/client";
+import { Ostan } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import {
-  buildOrderBy,
-  buildSafeWhere,
-} from "@/components/widgets/Elements/table/table-utils";
+  getTableData,
+  Column,
+} from "@/components/widgets/Elements/table/table-utils2";
 
 export async function createOstanAction(
   data: OstanSchemas,
@@ -86,10 +85,11 @@ export async function DeleteOstanAction(
     return { status: "error", error: " خطا در عملیات " };
   }
 }
-const Columns = [
+const columns: Column[] = [
   { field: "id", type: "number", searchable: true, sortable: true },
   { field: "title", type: "string", searchable: true, sortable: true },
 ] as const;
+// ✅ تابع getRegions با استفاده از تابع عمومی
 export async function getOstans(
   page: number,
   pageSize: number,
@@ -99,26 +99,6 @@ export async function getOstans(
     searchField?: string;
     searchValue?: string;
   },
-) {
-  const skip = (page - 1) * pageSize;
-
-  const where = buildSafeWhere(
-    Columns,
-    options.searchField,
-    options.searchValue,
-  );
-
-  const orderBy = buildOrderBy(Columns, options.sortField, options.sortOrder);
-
-  const [items, total] = await Promise.all([
-    prisma.ostan.findMany({
-      where: where as any,
-      orderBy: orderBy as any,
-      skip,
-      take: pageSize,
-    }),
-    prisma.ostan.count({ where }),
-  ]);
-
-  return { items, total };
+): Promise<{ items: Ostan[]; total: number }> {
+  return getTableData<Ostan>(prisma.ostan, columns, page, pageSize, options);
 }

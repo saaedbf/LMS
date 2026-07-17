@@ -1,16 +1,7 @@
 import DoreTahsiliComp from "./DoreTahsiliComp";
 import { getDoreTahsilis } from "@/actions/dorehTahsiliActions";
-
-type Props = {
-  searchParams: {
-    page?: string;
-    search?: string;
-    sortOrder?: string;
-    sortField?: string;
-    searchField?: string;
-    searchValue?: string;
-  };
-};
+import { PAGE_SIZE } from "@/lib/schemas/env";
+import { Props } from "@/types/myTypes";
 
 export default async function ListDorehTahsiliPage({ searchParams }: Props) {
   const page = Number(searchParams.page) || 1;
@@ -19,7 +10,7 @@ export default async function ListDorehTahsiliPage({ searchParams }: Props) {
   const searchField = searchParams.searchField;
   const searchValue = searchParams.searchValue;
 
-  const data = await getDoreTahsilis(page, 2, {
+  const data = await getDoreTahsilis(page, PAGE_SIZE, {
     sortField,
     sortOrder,
     searchField,
@@ -28,10 +19,9 @@ export default async function ListDorehTahsiliPage({ searchParams }: Props) {
 
   return (
     <DoreTahsiliComp
-      doreTahisilis={data.items}
+      listItems={data.items}
       totalCount={data.total}
-      currentPage={page}
-      search={searchValue || ""}
+      pageSize={PAGE_SIZE}
     />
   );
 }

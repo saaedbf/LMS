@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 import { prisma } from "@/lib/prisma";
 // import { getAuthUserId } from "./authActions";
@@ -9,10 +8,11 @@ import {
 import { ActionResult } from "@/types/index";
 import { ReshtehTadris } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { ListOptions } from "@/types/myTypes";
 import {
-  buildOrderBy,
-  buildSafeWhere,
-} from "@/components/widgets/Elements/table/table-utils";
+  Column,
+  getTableData,
+} from "@/components/widgets/Elements/table/table-utils2";
 
 export async function CreateReshtehTadrisAction(
   data: CreateReshtehTadrisSchemas,
@@ -96,38 +96,23 @@ export async function DeleteReshteTadrisAction(
     return { status: "error", error: " خطا در عملیات " };
   }
 }
-const Columns = [
+
+// ✅ تعریف ستون‌ها
+const columns: Column[] = [
   { field: "title", type: "string", searchable: true, sortable: true },
-] as const;
+];
+
+// ✅ تابع  با استفاده از تابع عمومی
 export async function getReshteTadrises(
   page: number,
   pageSize: number,
-  options: {
-    sortField?: string;
-    sortOrder?: "asc" | "desc";
-    searchField?: string;
-    searchValue?: string;
-  },
-) {
-  const skip = (page - 1) * pageSize;
-
-  const where = buildSafeWhere(
-    Columns,
-    options.searchField,
-    options.searchValue,
+  options: ListOptions,
+): Promise<{ items: ReshtehTadris[]; total: number }> {
+  return getTableData<ReshtehTadris>(
+    prisma.reshtehTadris,
+    columns,
+    page,
+    pageSize,
+    options,
   );
-
-  const orderBy = buildOrderBy(Columns, options.sortField, options.sortOrder);
-
-  const [items, total] = await Promise.all([
-    prisma.reshtehTadris.findMany({
-      where: where as any,
-      orderBy: orderBy as any,
-      skip,
-      take: pageSize,
-    }),
-    prisma.reshtehTadris.count({ where }),
-  ]);
-
-  return { items, total };
 }

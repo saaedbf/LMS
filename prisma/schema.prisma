@@ -23,6 +23,16 @@ model ReshtehTahsili{
 model Ostan{
   id Int @id
   title String
+  regions Region[] // ✅ ارتباط یک به چند - هر استان چندین منطقه
+  @@map("ostans")
+}
+model Region{
+  id Int @id
+  title String
+  ostanId  Int    // ✅ کلید خارجی
+  ostan    Ostan  @relation(fields: [ostanId], references: [id]) // ✅ ارتباط
+
+  @@map("regions")
 }
 model ReshtehTadris{
   id    String   @id @default(uuid())

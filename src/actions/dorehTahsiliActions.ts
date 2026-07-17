@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 import { prisma } from "@/lib/prisma";
 // import { getAuthUserId } from "./authActions";
@@ -7,13 +6,9 @@ import { ActionResult } from "@/types/index";
 import { DoreTahsili } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import {
-  buildOrderBy,
-  buildSafeWhere,
-} from "@/components/widgets/Elements/table/table-utils";
-const dorehColumns = [
-  { field: "id", type: "number", searchable: true, sortable: true },
-  { field: "title", type: "string", searchable: true, sortable: true },
-] as const;
+  Column,
+  getTableData,
+} from "@/components/widgets/Elements/table/table-utils2";
 export async function createDorehTahiliAction(
   data: CreateDorehSchema,
 ): Promise<ActionResult<DoreTahsili>> {
@@ -88,7 +83,10 @@ export async function DeleteDorehTahiliAction(
     return { status: "error", error: " خطا در عملیات " };
   }
 }
-
+const columns: Column[] = [
+  { field: "id", type: "number", searchable: true, sortable: true },
+  { field: "title", type: "string", searchable: true, sortable: true },
+] as const;
 export async function getDoreTahsilis(
   page: number,
   pageSize: number,
@@ -98,30 +96,12 @@ export async function getDoreTahsilis(
     searchField?: string;
     searchValue?: string;
   },
-) {
-  const skip = (page - 1) * pageSize;
-
-  const where = buildSafeWhere(
-    dorehColumns,
-    options.searchField,
-    options.searchValue,
+): Promise<{ items: DoreTahsili[]; total: number }> {
+  return getTableData<DoreTahsili>(
+    prisma.doreTahsili,
+    columns,
+    page,
+    pageSize,
+    options,
   );
-
-  const orderBy = buildOrderBy(
-    dorehColumns,
-    options.sortField,
-    options.sortOrder,
-  );
-
-  const [items, total] = await Promise.all([
-    prisma.doreTahsili.findMany({
-      where: where as any,
-      orderBy: orderBy as any,
-      skip,
-      take: pageSize,
-    }),
-    prisma.doreTahsili.count({ where }),
-  ]);
-
-  return { items, total };
 }
