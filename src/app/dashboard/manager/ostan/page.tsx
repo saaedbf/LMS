@@ -3,11 +3,12 @@ import ListComponent from "./OstanComp";
 import { Props } from "@/types/myTypes";
 import { PAGE_SIZE } from "@/lib/schemas/env";
 export default async function ListOstanPage({ searchParams }: Props) {
-  const page = Number(searchParams.page) || 1;
-  const sortField = searchParams.sortField;
-  const sortOrder = searchParams.sortOrder as "asc" | "desc";
-  const searchField = searchParams.searchField;
-  const searchValue = searchParams.searchValue;
+  const params = await searchParams;
+  const page = Number(params.page) || 1;
+  const sortField = params.sortField;
+  const sortOrder = params.sortOrder as "asc" | "desc";
+  const searchField = params.searchField;
+  const searchValue = params.searchValue;
 
   const data = await getOstans(page, PAGE_SIZE, {
     sortField,

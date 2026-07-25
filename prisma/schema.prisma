@@ -12,29 +12,115 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-model DoreTahsili{
-  id Int @id
+
+model DoreTahsili {
+  id    Int    @id
   title String
 }
-model ReshtehTahsili{
-  id Int @id
+
+model ReshtehTahsili {
+  id    Int    @id
   title String
 }
-model Ostan{
-  id Int @id
-  title String
+
+model Ostan {
+  id      Int      @id
+  title   String
   regions Region[] // ✅ ارتباط یک به چند - هر استان چندین منطقه
+
   @@map("ostans")
 }
-model Region{
-  id Int @id
-  title String
-  ostanId  Int    // ✅ کلید خارجی
-  ostan    Ostan  @relation(fields: [ostanId], references: [id]) // ✅ ارتباط
+
+model Region {
+  id      Int    @id
+  title   String
+  ostanId Int // ✅ کلید خارجی
+  ostan   Ostan  @relation(fields: [ostanId], references: [id]) // ✅ ارتباط
 
   @@map("regions")
 }
-model ReshtehTadris{
-  id    String   @id @default(uuid())
+
+model ReshtehTadris {
+  id    String @id @default(uuid())
   title String @unique
+}
+
+// prisma/schema.prisma
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique // ← ذخیره: 123456@lms.local
+  name          String?
+  role          Role    @default(STUDENT)
+  firstName     String?
+  lastName      String?
+  isActive      Boolean   @default(true)
+  sessions      Session[]
+  accounts      Account[]
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("user")
+}
+
+enum Role {
+  MASTER // مدیر کل سیستم
+  MANAGER // مدیر ارشد
+  ADMIN // ادمین
+  SCHOOL // مدیر مدرسه
+  TEACHER // معلم
+  STUDENT // دانش‌آموز
+}
+
+// ====== مدل‌های Better Auth ======
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String? // برای Credential Provider
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
