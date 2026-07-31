@@ -10,13 +10,13 @@ import Tr from "@/components/widgets/Elements/table/Tr";
 import TitlePage from "@/components/widgets/TitlePage";
 import React, { useState } from "react";
 
-import { DoreTahsili } from "@prisma/client";
+import { Paye } from "@prisma/client";
 import DeleteBtn from "@/components/widgets/Elements/DeleteBtn";
 
 import DeleteConfirmModal from "@/components/widgets/DeleteConfirmModal";
-import { DeleteDorehTahiliAction } from "@/actions/dorehTahsiliActions";
+import { DeletePayeAction } from "@/actions/payeActions";
 
-import DorehForm from "./DorehForm";
+import PayeForm from "./PayeForm";
 import TdActions from "@/components/widgets/Elements/table/TdActions";
 import EditBtn from "@/components/widgets/Elements/EditBtn";
 import ThActions from "@/components/widgets/Elements/table/ThActions";
@@ -25,34 +25,32 @@ import Pagination from "@/components/widgets/Pagination";
 import SortableTh from "@/components/widgets/Elements/table/SortableTh";
 import ColumnSearch from "@/components/widgets/Elements/table/ColumnSearch";
 import { ListProps } from "@/types/myTypes";
-import Link from "next/link";
-import { Settings } from "lucide-react";
 
-export default function DoreTahsiliComp({
+export default function PayeComp({
   listItems,
   totalCount,
   pageSize,
-}: ListProps<DoreTahsili>) {
+}: ListProps<Paye>) {
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<DoreTahsili | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Paye | null>(null);
   const [openDelete, setOpenDelete] = useState(false);
   return (
     <div className="p-2">
-      <TitlePage> لیست دوره تحصیلی</TitlePage>
+      <TitlePage> لیست پایه ها </TitlePage>
 
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
           action={
             <ActionModal
-              desc="فرم ثبت مشخصات دوره تحصیلی"
+              desc="فرم ثبت مشخصات  پایه"
               open={openCreate}
               setOpen={() => setOpenCreate(true)}
-              title="ثبت دوره تحصیلی"
-              trigger={<CreateBtn>ثبت دوره تحصیلی جدید</CreateBtn>}
+              title="ثبت پایه "
+              trigger={<CreateBtn>ثبت پایه جدید</CreateBtn>}
             >
-              <DorehForm setOpen={setOpenCreate} mode="create" />
+              <PayeForm setOpen={setOpenCreate} mode="create" />
             </ActionModal>
           }
         >
@@ -89,14 +87,6 @@ export default function DoreTahsiliComp({
                           setOpenEdit(true);
                         }}
                       />
-                      {/* دکمه مدیریت پایه‌های دوره */}
-                      <Link
-                        href={`/dashboard/manager/dorehTahsili/${item.id}/payes`}
-                        className="p-1 text-blue-600 hover:text-blue-800 transition-colors tooltip"
-                        title="مدیریت پایه‌ها"
-                      >
-                        <Settings className="w-5 h-5" />
-                      </Link>
                     </TdActions>
                   </Tr>
                 ))}
@@ -105,13 +95,13 @@ export default function DoreTahsiliComp({
         </DataTableLayout>
         {/* مودال ویرایش */}
         <ActionModal
-          desc="فرم ویرایش مشخصات دوره تحصیلی"
+          desc="فرم ویرایش مشخصات  پایه"
           open={openEdit}
           setOpen={() => setOpenEdit(true)}
-          title="ویرایش دوره تحصیلی"
+          title="ویرایش پایه "
           trigger={null}
         >
-          <DorehForm
+          <PayeForm
             setOpen={setOpenEdit}
             mode="edit"
             defaultValues={selectedItem || undefined}
@@ -124,12 +114,12 @@ export default function DoreTahsiliComp({
             if (!v) setSelectedItem(null);
           }}
           item={selectedItem}
-          getTitle={() => "حذف دوره تحصیلی"}
+          getTitle={() => "حذف پایه "}
           getDescription={(item) =>
-            `آیا از حذف دوره با کد ${item.id} و نام ${item.title} مطمئن هستید؟`
+            `آیا از حذف پایه با کد ${item.id} و نام ${item.title} مطمئن هستید؟`
           }
           onDelete={async (item) => {
-            return await DeleteDorehTahiliAction(item.id);
+            return await DeletePayeAction(item.id);
           }}
         />
 

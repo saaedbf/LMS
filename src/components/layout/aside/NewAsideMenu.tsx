@@ -81,6 +81,14 @@ const menuItem = [
     icon: <BsPostcardFill />,
     subMenuItems: [{ title: "", href: "" }],
   },
+  {
+    title: "مدیریت  پایه",
+    href: "/dashboard/manager/paye",
+    spacing: false,
+    subMenu: false,
+    icon: <BsPostcardFill />,
+    subMenuItems: [{ title: "", href: "" }],
+  },
 ];
 export default function NewAsideMenu({ open }: { open: boolean }) {
   return (

@@ -16,6 +16,12 @@ datasource db {
 model DoreTahsili {
   id    Int    @id
   title String
+  payes Paye[] // ✅ ارتباط چند به چند با مدل پایه
+}
+model Paye {
+  id    Int    @id
+  title String
+  doreTahsilis DoreTahsili[] // ✅ ارتباط چند به چند با مدل دوره
 }
 
 model ReshtehTahsili {
