@@ -14,24 +14,25 @@ type Props = {
   title: string;
   desc: string;
   setOpen: (arg0: boolean) => void;
-
   open: boolean;
+  contentClassName?: string; // اضافه کردن این خط
 };
+
 export default function ActionModal({
   children,
   trigger,
   title,
   desc = "",
   setOpen,
-
   open,
+  contentClassName = "", // مقدار پیش‌فرض
 }: Props) {
   return (
     <div dir="rtl">
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-        <AlertDialogContent className="p-0" dir="rtl">
-          <AlertDialogHeader className="   text-white">
+        <AlertDialogContent className={`p-0 ${contentClassName}`} dir="rtl">
+          <AlertDialogHeader className="text-white">
             <AlertDialogTitle className="text-right p-3 rounded-t-lg bg-DarkPurple">
               {title}
             </AlertDialogTitle>

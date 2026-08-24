@@ -1,24 +1,38 @@
-// src/app/dashboard/page.tsx
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth-server";
+import { getCurrentContext } from "@/actions/authActions";
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
+  const { user, context, isMaster } = await getCurrentContext();
 
-  if (!user) redirect("/login");
+  if (!user) {
+    redirect("/login");
+  }
 
-  switch (user.role) {
-    case "MASTER":
+  if (user.isActive === false) {
+    redirect("/login?error=account_disabled");
+  }
+
+  // ✅ نقش سیستمی MASTER
+  if (isMaster) {
+    redirect("/dashboard/master");
+  }
+
+  // ✅ کاربران غیر MASTER باید context داشته باشند
+  if (!context) {
+    redirect("/select-context");
+  }
+
+  switch (context.role) {
     case "MANAGER":
-    case "ADMIN":
       redirect("/dashboard/manager");
-    case "SCHOOL":
-      redirect("/dashboard/school");
+
     case "TEACHER":
       redirect("/dashboard/teacher");
+
     case "STUDENT":
       redirect("/dashboard/student");
+
     default:
-      redirect("/login");
+      redirect("/select-context");
   }
 }

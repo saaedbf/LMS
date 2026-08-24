@@ -1,80 +1,115 @@
-// components/widgets/Elements/SearchableSelect.tsx
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 
-type Option = {
-  id: number;
+type SelectValue = string | number;
+
+export type SearchableSelectOption<T extends SelectValue = number> = {
+  id: T;
   title: string;
 };
 
-type Props = {
+type SearchableSelectProps<T extends SelectValue = number> = {
   title: string;
-  options: Option[];
-  value?: number;
-  onChange: (value: number) => void;
+  options: SearchableSelectOption<T>[];
+  value?: T;
+  onChange: (value: T) => void;
+  clearValue?: T;
   onBlur?: () => void;
   placeholder?: string;
   error?: string;
   wrapperClass?: string;
   disabled?: boolean;
+  required?: boolean;
 };
 
-export default function SearchableSelect({
+export default function SearchableSelect<T extends SelectValue = number>({
   title,
-  options,
+  options = [],
   value,
   onChange,
+  clearValue,
   onBlur,
   placeholder = "انتخاب کنید...",
   error,
-  wrapperClass,
+  wrapperClass = "",
   disabled = false,
-}: Props) {
+  required = false,
+}: SearchableSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Option | null>(null);
+  const [selected, setSelected] = useState<SearchableSelectOption<T> | null>(
+    null,
+  );
+
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // پیدا کردن گزینه انتخاب شده
+  const resolvedClearValue = (clearValue ?? 0) as T;
+
+  // پیدا کردن گزینه انتخاب‌شده
   useEffect(() => {
-    if (value) {
-      const found = options.find((opt) => opt.id === value);
-      setSelected(found || null);
+    if (value !== undefined && value !== resolvedClearValue && value !== "") {
+      const found = options.find((option) => option.id === value);
+      setSelected(found ?? null);
     } else {
       setSelected(null);
     }
-  }, [value, options]);
+  }, [value, options, resolvedClearValue]);
 
-  // بستن dropdown با کلیک خارج
+  // اگر options تغییر کرد و value معتبر نیست، ریست کن
+  useEffect(() => {
+    if (options.length > 0 && value) {
+      const isValid = options.some((option) => option.id === value);
+      if (!isValid) {
+        onChange(options[0].id);
+      }
+    }
+  }, [options, value, onChange]);
+
+  // بستن Dropdown با کلیک خارج از کامپوننت
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+
       if (
         wrapperRef.current &&
-        !wrapperRef.current.contains(event.target as Node)
+        !wrapperRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
       ) {
         setIsOpen(false);
       }
     }
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
-  // فوکوس روی input جستجو هنگام باز شدن
+  // فوکوس روی input جست‌وجو هنگام بازشدن
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (!isOpen) return;
+
+    const timeoutId = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [isOpen]);
 
-  // فیلتر کردن گزینه‌ها بر اساس جستجو
-  const filteredOptions = options.filter((opt) =>
-    opt.title.toLowerCase().includes(search.toLowerCase()),
+  // فیلترکردن گزینه‌ها بر اساس جست‌وجو
+  const filteredOptions = options.filter((option) =>
+    option.title.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
 
-  const handleSelect = (option: Option) => {
+  const handleSelect = (option: SearchableSelectOption<T>) => {
     setSelected(option);
     onChange(option.id);
     setIsOpen(false);
@@ -83,87 +118,129 @@ export default function SearchableSelect({
 
   const clearSelection = () => {
     setSelected(null);
-    onChange(0);
+    onChange(resolvedClearValue);
     setSearch("");
+    setIsOpen(false);
+  };
+
+  const toggleDropdown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!disabled && options.length > 0) {
+      setIsOpen((prev) => !prev);
+      if (!isOpen) {
+        setSearch("");
+      }
+    }
   };
 
   const inputId = `select-${title.replace(/\s/g, "-")}`;
 
-  // ✅ تعیین کلاس border بر اساس error و selected
+  // تعیین کلاس border بر اساس error و selected
   const getBorderClass = () => {
     if (error) return "border-red-500";
     if (selected) return "border-[#3447f7]";
     return "border-[#3447f7]";
   };
 
+  // تعیین placeholder بر اساس وضعیت
+  const getPlaceholder = () => {
+    if (disabled && options.length === 0) return "گزینه‌ای موجود نیست";
+    if (disabled) return placeholder;
+    if (options.length === 0) return "گزینه‌ای موجود نیست";
+    return placeholder;
+  };
+
   return (
-    <div className={`flex flex-col w-60 ${wrapperClass ?? ""}`}>
+    <div className={`flex w-full flex-col ${wrapperClass}`}>
       <label
         htmlFor={inputId}
-        className="text-[#283df5] relative top-3 mr-2 px-2 bg-white w-fit z-10"
+        className="relative top-3 z-10 mr-2 w-fit bg-white px-2 text-[#283df5]"
       >
         {title}
+        {required && <span className="mr-1 text-red-500">*</span>}
       </label>
 
       <div className="relative" ref={wrapperRef}>
         {/* نمایشگر انتخاب */}
         <div
           className={`
-            p-3 border-2 rounded-md bg-white cursor-pointer
-            flex items-center justify-between
+            flex w-full cursor-pointer items-center justify-between
+            rounded-md border-2 bg-white p-3
             ${getBorderClass()}
-            ${disabled ? "bg-gray-100 cursor-not-allowed opacity-70" : "hover:border-blue-500"}
+            ${
+              disabled
+                ? "cursor-not-allowed bg-gray-100 opacity-70"
+                : "hover:border-blue-500"
+            }
             transition-colors duration-200
-            w-full
           `}
-          onClick={() => !disabled && setIsOpen(!isOpen)}
+          onClick={toggleDropdown}
           onBlur={onBlur}
         >
           <span className={selected ? "text-gray-900" : "text-gray-400"}>
-            {selected ? selected.title : placeholder}
+            {selected ? selected.title : getPlaceholder()}
           </span>
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex shrink-0 items-center gap-1">
             {selected && !disabled && (
               <X
-                className="w-4 h-4 text-gray-400 hover:text-red-500 cursor-pointer"
+                className="h-4 w-4 cursor-pointer text-gray-400 hover:text-red-500"
                 onClick={(e) => {
                   e.stopPropagation();
                   clearSelection();
                 }}
               />
             )}
+
             <ChevronDown
-              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+              className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${
                 isOpen ? "rotate-180" : ""
               }`}
             />
           </div>
         </div>
 
-        {/* منوی dropdown */}
-        {isOpen && !disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-[#3447f7] rounded-md shadow-lg max-h-60 flex flex-col overflow-hidden">
-            {/* جستجو */}
-            <div className="p-2 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center px-3 py-1 bg-white border border-[#3447f7] rounded-md">
-                <Search className="w-4 h-4 text-gray-400" />
+        {/* Dropdown با استفاده از position: sticky و max-height */}
+        {isOpen && !disabled && options.length > 0 && (
+          <div
+            ref={dropdownRef}
+            className="absolute left-0 z-[9999] w-full rounded-md border border-[#3447f7] bg-white shadow-lg"
+            style={{
+              maxHeight: "300px",
+              position: "absolute",
+              top: "100%",
+              marginTop: "4px",
+            }}
+          >
+            {/* جست‌وجو */}
+            <div className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 p-2">
+              <div className="flex items-center rounded-md border border-[#3447f7] bg-white px-3 py-1">
+                <Search className="h-4 w-4 text-gray-400" />
+
                 <input
+                  id={inputId}
                   ref={inputRef}
                   type="text"
-                  className="w-full px-2 py-1 bg-transparent outline-none text-sm"
-                  placeholder="جستجو..."
+                  className="w-full bg-transparent px-2 py-1 text-sm outline-none"
+                  placeholder="جست‌وجو..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                  }}
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setIsOpen(false);
+                    }
+                  }}
                 />
               </div>
             </div>
 
             {/* لیست گزینه‌ها */}
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto" style={{ maxHeight: "240px" }}>
               {filteredOptions.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                <div className="px-4 py-3 text-center text-sm text-gray-500">
                   موردی یافت نشد
                 </div>
               ) : (
@@ -171,11 +248,18 @@ export default function SearchableSelect({
                   <div
                     key={option.id}
                     className={`
-                      px-4 py-2.5 text-sm cursor-pointer hover:bg-blue-50 transition-colors
-                      ${selected?.id === option.id ? "bg-blue-100 text-blue-700" : "text-gray-900"}
-                      border-b border-gray-100 last:border-b-0
+                      cursor-pointer border-b border-gray-100 px-4
+                      py-2.5 text-sm transition-colors
+                      last:border-b-0 hover:bg-blue-50
+                      ${
+                        selected?.id === option.id
+                          ? "bg-blue-100 text-blue-700"
+                          : "text-gray-900"
+                      }
                     `}
-                    onClick={() => handleSelect(option)}
+                    onClick={() => {
+                      handleSelect(option);
+                    }}
                   >
                     {option.title}
                   </div>
@@ -186,7 +270,7 @@ export default function SearchableSelect({
         )}
       </div>
 
-      {error && <span className="text-red-600 text-sm mt-1 mr-1">{error}</span>}
+      {error && <span className="mr-1 mt-1 text-sm text-red-600">{error}</span>}
     </div>
   );
 }

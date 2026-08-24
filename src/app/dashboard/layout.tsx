@@ -1,16 +1,15 @@
-// src/app/dashboard/layout.tsx
 import React, { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth-server";
 import Header from "@/components/layout/header/Header";
 import NewAside from "@/components/layout/aside/NewAside";
+import { getCurrentContext } from "@/actions/authActions";
 
-export default async function Dashboardlayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const user = await getCurrentUser();
+  const { user, context, isMaster } = await getCurrentContext();
 
   if (!user) {
     redirect("/login");
@@ -20,12 +19,20 @@ export default async function Dashboardlayout({
     redirect("/login?error=account_disabled");
   }
 
+  if (!isMaster && !context) {
+    redirect("/select-context");
+  }
+
   return (
     <div className="flex">
-      <NewAside />
+      <NewAside user={user} role={context?.role ?? null} />
+
       <main className="flex-1">
-        <Header />
-        {children}
+        <Header
+          schoolName={isMaster ? "پنل مدیریت کل" : context!.school.title}
+          year={isMaster ? "-" : context!.academicYear.title}
+        />
+        <div className="p-4">{children}</div>
       </main>
     </div>
   );

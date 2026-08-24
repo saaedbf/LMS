@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
-
+import { admin } from "better-auth/plugins";
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
@@ -10,22 +10,16 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-
+  plugins: [admin()],
   user: {
     additionalFields: {
-      role: {
-        type: "string", // بهتر است اینجا string بماند چون Better Auth با رشته کار می‌کند
-        required: false,
-        defaultValue: "STUDENT",
-      },
-      isActive: {
-        type: "boolean",
-        required: false,
-        defaultValue: true,
-      },
-      // اگر فیلدهای نام و نام خانوادگی را در پریزما اضافه کردید:
+      // این‌ها ویژگی‌های هویتی/پروفایلی کاربر هستند
+      isActive: { type: "boolean", required: false, defaultValue: true },
       firstName: { type: "string", required: false },
       lastName: { type: "string", required: false },
+      systemRole: { type: "string", required: false },
+
+      // role را اینجا نمی‌گذاریم چون نقش وابسته به مدرسه/سال است
     },
   },
 

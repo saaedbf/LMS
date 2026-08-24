@@ -5,6 +5,7 @@ export type Props = {
     sortField?: string;
     searchField?: string;
     searchValue?: string;
+    selectSearch?: string;
   };
 };
 export type ListProps<T> = {

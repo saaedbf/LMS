@@ -8,7 +8,19 @@ import {
 } from "@/actions/dorehPayeActions";
 import { toast } from "react-toastify";
 import { Plus, Trash2 } from "lucide-react";
+import TdActions from "@/components/widgets/Elements/table/TdActions";
+import ThActions from "@/components/widgets/Elements/table/ThActions";
+import SortableTh from "@/components/widgets/Elements/table/SortableTh";
+import ColumnSearch from "@/components/widgets/Elements/table/ColumnSearch";
+import HeadTr from "@/components/widgets/Elements/table/HeaddTr";
+import Table from "@/components/widgets/Elements/table/Table";
+import Tbody from "@/components/widgets/Elements/table/Tbody";
+import Td from "@/components/widgets/Elements/table/Td";
 
+import Tr from "@/components/widgets/Elements/table/Tr";
+import TitlePage from "@/components/widgets/TitlePage";
+import DeleteBtn from "@/components/widgets/Elements/DeleteBtn";
+import DeleteConfirmModal from "@/components/widgets/DeleteConfirmModal";
 interface Props {
   dorehId: number;
   assignedPayes: Paye[];
@@ -22,7 +34,8 @@ export default function ManageDorehPayesForm({
 }: Props) {
   const [selectedToAdd, setSelectedToAdd] = useState<string>("");
   const [loadingId, setLoadingId] = useState<number | null>(null);
-
+  const [selectedItem, setSelectedItem] = useState<Paye | null>(null);
+  const [openDelete, setOpenDelete] = useState(false);
   const handleAdd = async () => {
     if (!selectedToAdd) return;
     setLoadingId(Number(selectedToAdd));
@@ -31,19 +44,7 @@ export default function ManageDorehPayesForm({
       toast.success("پایه با موفقیت اضافه شد");
       setSelectedToAdd("");
     } else {
-      toast.error(res.error);
-    }
-    setLoadingId(null);
-  };
-
-  const handleRemove = async (payeId: number) => {
-    if (!confirm("آیا از حذف این پایه از این دوره اطمینان دارید؟")) return;
-    setLoadingId(payeId);
-    const res = await disconnectPayeFromDoreh(dorehId, payeId);
-    if (res.status === "success") {
-      toast.info("پایه از لیست دوره حذف شد");
-    } else {
-      toast.error(res.error);
+      toast.error(res.error.toString());
     }
     setLoadingId(null);
   };
@@ -96,40 +97,55 @@ export default function ManageDorehPayesForm({
           </p>
         ) : (
           <div className="overflow-hidden border rounded-lg">
-            <table className="w-full text-right">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="p-3 text-sm font-bold text-gray-600">
-                    عنوان پایه
-                  </th>
-                  <th className="p-3 text-sm font-bold text-gray-600 w-24 text-center">
-                    عملیات
-                  </th>
-                </tr>
+            <Table>
+              <thead>
+                <HeadTr>
+                  <SortableTh field="id" sortable title="کد">
+                    <ColumnSearch field="id" />
+                  </SortableTh>
+
+                  <SortableTh field="title" sortable title="نام">
+                    <ColumnSearch field="title" />
+                  </SortableTh>
+                  <ThActions>عملیات</ThActions>
+                </HeadTr>
               </thead>
-              <tbody>
-                {assignedPayes.map((paye) => (
-                  <tr
-                    key={paye.id}
-                    className="border-b last:border-0 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="p-3 text-sm text-gray-700">{paye.title}</td>
-                    <td className="p-3 text-center">
-                      <button
-                        onClick={() => handleRemove(paye.id)}
-                        disabled={loadingId === paye.id}
-                        className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-all disabled:opacity-30"
-                        title="حذف از دوره"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              <Tbody>
+                {assignedPayes &&
+                  assignedPayes.map((item) => (
+                    <Tr key={item.id}>
+                      <Td>{item.id}</Td>
+                      <Td> {item.title}</Td>
+
+                      <TdActions>
+                        <DeleteBtn
+                          onClick={() => {
+                            setSelectedItem(item);
+                            setOpenDelete(true);
+                          }}
+                        />
+                      </TdActions>
+                    </Tr>
+                  ))}
+              </Tbody>
+            </Table>
           </div>
         )}
+        <DeleteConfirmModal
+          open={openDelete}
+          setOpen={(v) => {
+            setOpenDelete(v);
+            if (!v) setSelectedItem(null);
+          }}
+          item={selectedItem}
+          getTitle={() => "حذف پایه از دوره  تحصیلی"}
+          getDescription={(item) =>
+            `آیا از حذف پایه با کد ${item.id} و نام ${item.title} مطمئن هستید؟`
+          }
+          onDelete={async (item) => {
+            return await disconnectPayeFromDoreh(dorehId, item.id);
+          }}
+        />
       </div>
     </div>
   );

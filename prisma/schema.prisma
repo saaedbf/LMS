@@ -17,17 +17,86 @@ model DoreTahsili {
   id    Int    @id
   title String
   payes Paye[] // ✅ ارتباط چند به چند با مدل پایه
+  schools  School[]   // یک دوره -> چند مدرسه
+  reshtehTahsilis ReshtehTahsili[] // ✅ ارتباط چند به چند با مدل رشته تحصیلی
+}
+model ReshtehTahsili {
+  id    Int    @id
+  title String
+  doreTahsilis DoreTahsili[] // ✅ ارتباط چند به چند با مدل دوره
+  darsPayeReshteh DarsPayeReshteh[]
+  klasses Klass[]
+  studentEnrollments StudentEnrollment[]
+}
+model ReshtehTadris {
+  id    String @id @default(uuid())
+  title String @unique
+  darsPayeReshteh DarsPayeReshteh[]
 }
 model Paye {
   id    Int    @id
   title String
   doreTahsilis DoreTahsili[] // ✅ ارتباط چند به چند با مدل دوره
+  darsPayeReshteh DarsPayeReshteh[]
+  klasses Klass[]
+  studentEnrollments StudentEnrollment[]
 }
 
-model ReshtehTahsili {
-  id    Int    @id
-  title String
+model DarsPayeReshteh {
+  id String @id @default(uuid())
+
+  // تعداد واحد درس
+  units Int @default(1)
+
+  reshtehTahsiliId Int
+  reshtehTahsili   ReshtehTahsili @relation(fields: [reshtehTahsiliId],references: [id],onDelete: Cascade)
+
+  payeId Int
+  paye   Paye @relation(fields: [payeId],references: [id],onDelete: Cascade)
+
+  reshtehTadrisId String
+  reshtehTadris   ReshtehTadris @relation(fields: [reshtehTadrisId],references: [id],onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // یک درس نباید برای یک رشته و یک پایه، دوبار تعریف شود
+  @@unique([reshtehTahsiliId, payeId, reshtehTadrisId])
+
+  @@index([reshtehTahsiliId, payeId])
+  @@map("dars_paye_reshteh")
 }
+model Klass {
+  id        String   @id @default(uuid())
+  title     String   // مثلاً: دهم برق ۱، دهم برق ۲
+
+  // ارتباط با مدرسه
+  schoolId  Int
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  // ارتباط با سال تحصیلی
+  academicYearId Int
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  // ارتباط با پایه (محدود به پایه‌های دوره مدرسه)
+  payeId    Int
+  paye      Paye     @relation(fields: [payeId], references: [id], onDelete: Restrict)
+
+  // ارتباط با رشته تحصیلی (محدود به رشته‌های دوره مدرسه)
+  reshtehTahsiliId Int
+  reshtehTahsili   ReshtehTahsili @relation(fields: [reshtehTahsiliId], references: [id], onDelete: Restrict)
+  studentEnrollments StudentEnrollment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // جلوگیری از ثبت نام کلاس تکراری در یک سال تحصیلی، مدرسه، پایه و رشته مشخص
+  @@unique([title, schoolId, academicYearId, payeId, reshtehTahsiliId])
+  
+  @@index([schoolId, academicYearId])
+
+  @@map("klass")
+}
+
 
 model Ostan {
   id      Int      @id
@@ -46,87 +115,204 @@ model Region {
   @@map("regions")
 }
 
-model ReshtehTadris {
-  id    String @id @default(uuid())
-  title String @unique
-}
+
 
 // prisma/schema.prisma
+enum SystemRole {
+  MASTER
+  USER
+}
+
+enum SchoolRole {
+  MANAGER
+  DEPUTY
+  TEACHER
+  STUDENT
+}
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique // ← ذخیره: 123456@lms.local
+  id            String      @id @default(cuid())
   name          String?
-  role          Role    @default(STUDENT)
+  email         String?     @unique
+  emailVerified Boolean     @default(false)
+  image         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // فیلدهای الزامی پلاگین Admin در Better Auth
+  role          String?     @default("user")
+  banned        Boolean?    @default(false)
+  banReason     String?
+  banExpires    DateTime?
+
+  // فیلدهای پروژه شما
+  isActive      Boolean     @default(true)
+  systemRole    SystemRole  @default(USER)
   firstName     String?
   lastName      String?
-  isActive      Boolean   @default(true)
+
   sessions      Session[]
   accounts      Account[]
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  assignments   UserAssignment[]
 
   @@map("user")
 }
 
-enum Role {
-  MASTER // مدیر کل سیستم
-  MANAGER // مدیر ارشد
-  ADMIN // ادمین
-  SCHOOL // مدیر مدرسه
-  TEACHER // معلم
-  STUDENT // دانش‌آموز
-}
-
-// ====== مدل‌های Better Auth ======
 
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  expiresAt DateTime
-  ipAddress String?
-  userAgent String?
+  id                 String          @id @default(cuid())
+  token              String          @unique
+  expiresAt          DateTime
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  ipAddress          String?
+  userAgent          String?
+
+  userId             String
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  activeAssignmentId Int?
+  activeAssignment   UserAssignment? @relation("ActiveSessionAssignment", fields: [activeAssignmentId], references: [id], onDelete: SetNull)
+
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   @@index([userId])
-  @@map("sessions")
+  @@index([activeAssignmentId])
+  @@map("session")
 }
 
 model Account {
-  id                    String    @id @default(cuid())
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId             String
+  id                    String   @id @default(cuid())
   providerId            String
+  accountId             String
+
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   accessToken           String?
   refreshToken          String?
+  idToken               String?
+  scope                 String?
+
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
-  scope                 String?
-  idToken               String?
-  password              String? // برای Credential Provider
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+
+  password              String?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@unique([providerId, accountId])
   @@index([userId])
-  @@map("accounts")
+  @@map("account")
+}
+enum Sex {
+  Boy
+  Girl
+  Mixed
+}
+enum SchoolType {
+  Dolati
+  GheireDolati
 }
 
-model Verification {
-  id         String   @id
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model School {
+  id      Int    @id
+  title       String
+  subTitle       String?
+  modirName       String @default("")
+  isActive    Boolean          @default(true)
+  sex    Sex  @default(Boy)
+  schoolType    SchoolType  @default(Dolati)
+  assignments UserAssignment[]
+  doreTahsiliId  Int @default(1)
+  doreTahsili    DoreTahsili @relation(fields: [doreTahsiliId], references: [id], onDelete: Restrict)
+  klasses Klass[]
+  studentEnrollments StudentEnrollment[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  @@map("school")
+}
 
-  @@index([identifier])
-  @@map("verification")
+model AcademicYear {
+  id          Int              @id @default(autoincrement())
+  title       String
+  isActive    Boolean          @default(true)
+  assignments UserAssignment[]
+  klasses Klass[]
+  studentEnrollments StudentEnrollment[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  @@map("academic_year")
+}
+
+model UserAssignment {
+  id             Int              @id @default(autoincrement())
+
+  userId         String
+  schoolId       Int
+  academicYearId Int
+  role           SchoolRole
+  isActive       Boolean          @default(true)
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school         School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear   AcademicYear     @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  activeSessions Session[]        @relation("ActiveSessionAssignment")
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([userId, schoolId, academicYearId, role])
+  @@index([userId])
+  @@index([schoolId, academicYearId])
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@map("user_assignment")
+}
+model Student {
+  id                   String   @id @default(cuid())
+  firstName            String
+  lastName             String
+  nationalCode         String   @unique
+  phone                String
+  address              String?
+  fatherName           String?
+  lastEditedByUsername String?
+
+  enrollments          StudentEnrollment[]
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([lastEditedByUsername])
+  @@map("student")
+}
+
+model StudentEnrollment {
+  id                   String   @id @default(cuid())
+  studentId            String
+  schoolId             Int
+  academicYearId       Int
+  payeId               Int
+  reshtehTahsiliId     Int
+  klassId              String
+  lastEditedByUsername String?
+
+  student          Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  school           School         @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  academicYear     AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  paye             Paye            @relation(fields: [payeId], references: [id], onDelete: Restrict)
+  reshtehTahsili   ReshtehTahsili @relation(fields: [reshtehTahsiliId], references: [id], onDelete: Restrict)
+  klass            Klass           @relation(fields: [klassId], references: [id], onDelete: Restrict)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([studentId, schoolId, academicYearId])
+  @@index([schoolId, academicYearId])
+  @@index([payeId, reshtehTahsiliId])
+  @@index([klassId])
+  @@map("student_enrollment")
 }

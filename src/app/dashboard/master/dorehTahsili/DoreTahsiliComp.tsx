@@ -91,9 +91,16 @@ export default function DoreTahsiliComp({
                       />
                       {/* دکمه مدیریت پایه‌های دوره */}
                       <Link
-                        href={`/dashboard/manager/dorehTahsili/${item.id}/payes`}
+                        href={`/dashboard/master/dorehTahsili/${item.id}/payes`}
                         className="p-1 text-blue-600 hover:text-blue-800 transition-colors tooltip"
                         title="مدیریت پایه‌ها"
+                      >
+                        <Settings className="w-5 h-5" />
+                      </Link>
+                      <Link
+                        href={`/dashboard/master/dorehTahsili/${item.id}/reshtehs`}
+                        className="p-1 text-indigo-600 hover:text-indigo-800 transition-colors tooltip"
+                        title="مدیریت رشته‌ها"
                       >
                         <Settings className="w-5 h-5" />
                       </Link>

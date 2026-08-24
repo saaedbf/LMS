@@ -24,6 +24,8 @@ import DataTableLayout from "@/components/widgets/DataTableLayout";
 import Pagination from "@/components/widgets/Pagination";
 import SortableTh from "@/components/widgets/Elements/table/SortableTh";
 import ColumnSearch from "@/components/widgets/Elements/table/ColumnSearch";
+import Link from "next/link";
+import { BookOpen } from "lucide-react";
 
 export default function ReshtehTahsiliComp({
   listItems,
@@ -90,6 +92,14 @@ export default function ReshtehTahsiliComp({
                           setOpenEdit(true);
                         }}
                       />
+                      {/* دکمه انتقال به بخش مدیریت دروس رشته */}
+                      <Link
+                        href={`/dashboard/master/reshtehTahsili/${item.id}/courses`}
+                        className="p-1 text-indigo-600 hover:text-indigo-900 transition-colors"
+                        title="مدیریت دروس و واحدها"
+                      >
+                        <BookOpen size={18} />
+                      </Link>
                     </TdActions>
                   </Tr>
                 ))}

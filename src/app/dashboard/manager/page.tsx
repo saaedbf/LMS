@@ -1,5 +1,7 @@
 import React from "react";
 
-export default function page() {
-  return <div>salam</div>;
+function page() {
+  return <div>School</div>;
 }
+
+export default page;

@@ -2,7 +2,7 @@
 
 export type Column = {
   field: string;
-  type: "string" | "number";
+  type: "string" | "number" | "boolean";
   searchable?: boolean;
   sortable?: boolean;
   // برای فیلدهای relation
@@ -102,6 +102,8 @@ export function buildInclude(columns: Column[]): any {
 }
 
 // lib/table-helpers.ts
+// src/components/widgets/Elements/table/table-utils2.ts (یا آدرس فایل مربوطه)
+
 export async function getTableData<T>(
   model: any,
   columns: Column[],
@@ -112,15 +114,27 @@ export async function getTableData<T>(
     sortOrder?: "asc" | "desc";
     searchField?: string;
     searchValue?: string;
-    extraInclude?: any; // ✅ اضافه کردن include اضافی
+    extraInclude?: any;
+    extraWhere?: any; // ✅ اضافه شدن این پارامتر برای فیلترهای خاص
   },
 ): Promise<{ items: T[]; total: number }> {
   const skip = (page - 1) * pageSize;
 
-  const where = buildWhere(columns, options.searchField, options.searchValue);
+  // ۱. ساخت WHERE اصلی بر اساس جستجوی کاربر در جدول
+  const searchWhere = buildWhere(
+    columns,
+    options.searchField,
+    options.searchValue,
+  );
+
+  // ۲. ترکیب WHERE جستجو با فیلترهای اضافی (مثل dorehId)
+  const where = {
+    ...searchWhere,
+    ...options.extraWhere, // ✅ اعمال فیلترهای اختصاصی
+  };
+
   const orderBy = buildOrderBy(columns, options.sortField, options.sortOrder);
 
-  // ✅ ترکیب include از columns با include اضافی
   const include = {
     ...buildInclude(columns),
     ...options.extraInclude,
