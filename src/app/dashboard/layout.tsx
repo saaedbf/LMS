@@ -24,10 +24,10 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex">
+    <div className="flex h-screen">
       <NewAside user={user} role={context?.role ?? null} />
 
-      <main className="flex-1">
+      <main className="flex-1 overflow-y-auto">
         <Header
           schoolName={isMaster ? "پنل مدیریت کل" : context!.school.title}
           year={isMaster ? "-" : context!.academicYear.title}

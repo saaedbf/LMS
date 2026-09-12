@@ -56,7 +56,7 @@ model DarsPayeReshteh {
 
   reshtehTadrisId String
   reshtehTadris   ReshtehTadris @relation(fields: [reshtehTadrisId],references: [id],onDelete: Restrict)
-
+ classCourses    ClassCourse[] // ✅ این باید باشد (نه teacherAssignments)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -86,6 +86,7 @@ model Klass {
   reshtehTahsiliId Int
   reshtehTahsili   ReshtehTahsili @relation(fields: [reshtehTahsiliId], references: [id], onDelete: Restrict)
   studentEnrollments StudentEnrollment[]
+  classCourses       ClassCourse[] // ✅ این باید باشد (نه teacherAssignments)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -150,7 +151,7 @@ model User {
   systemRole    SystemRole  @default(USER)
   firstName     String?
   lastName      String?
-
+  teacher Teacher? 
   sessions      Session[]
   accounts      Account[]
   assignments   UserAssignment[]
@@ -229,6 +230,7 @@ model School {
   doreTahsili    DoreTahsili @relation(fields: [doreTahsiliId], references: [id], onDelete: Restrict)
   klasses Klass[]
   studentEnrollments StudentEnrollment[]
+     teacherAssignments TeacherAssignment[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   @@map("school")
@@ -241,6 +243,7 @@ model AcademicYear {
   assignments UserAssignment[]
   klasses Klass[]
   studentEnrollments StudentEnrollment[]
+     teacherAssignments TeacherAssignment[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   @@map("academic_year")
@@ -309,10 +312,135 @@ model StudentEnrollment {
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-
+ absences StudentAbsence[]
+ disciplinaris StudentDisciplinary[]
   @@unique([studentId, schoolId, academicYearId])
   @@index([schoolId, academicYearId])
   @@index([payeId, reshtehTahsiliId])
   @@index([klassId])
   @@map("student_enrollment")
+}
+// ==========================================
+// 1. پروفایل معلم (مشخصات هویتی و پرسنلی)
+// ==========================================
+model Teacher {
+  id                   String   @id @default(cuid())
+  firstName            String
+  lastName             String
+  nationalCode         String   @unique // کد ملی به عنوان کلید یکتا
+  personnelCode        String?  // کد پرسنلی (می‌تواند در سطح کشور یا منطقه یونیک باشد)
+  phone                String
+  address              String?
+  lastEditedByUsername String?
+
+  // اگر معلم اکانت ورود به سیستم دارد (اختیاری جهت لاگین)
+  userId               String?  @unique
+  user                 User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // رابطه‌ها
+  assignments          TeacherAssignment[]
+  classCourses         ClassCourse[]
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([personnelCode])
+  @@index([phone])
+  @@map("teacher")
+}
+
+// ==========================================
+// 2. انتساب معلم به مدرسه در سال تحصیلی مشخص
+// (امکان تدریس یک معلم در چند مدرسه در یک سال)
+// ==========================================
+model TeacherAssignment {
+  id                   String       @id @default(cuid())
+  teacherId            String
+  schoolId             Int
+  academicYearId       Int
+  isActive             Boolean      @default(true)
+  lastEditedByUsername String?
+
+  teacher              Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  school               School       @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  academicYear         AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  // جلوگیری از ثبت انتساب تکراری یک معلم در یک سال و مدرسه یکسان
+  @@unique([teacherId, schoolId, academicYearId])
+  @@index([schoolId, academicYearId])
+  @@map("teacher_assignment")
+}
+
+// ==========================================
+// 3. تخصیص معلم به درس یک کلاس
+// ==========================================
+model ClassCourse {
+  id                   String          @id @default(cuid())
+  klassId              String
+  darsPayeReshtehId    String
+  teacherId            String?         // در صورت نیاز می‌تواند نال‌پذیر باشد (کلاس درس تعریف شده اما هنوز معلم مشخص نیست)
+  lastEditedByUsername String?
+
+  klass                Klass           @relation(fields: [klassId], references: [id], onDelete: Cascade)
+  darsPayeReshteh      DarsPayeReshteh @relation(fields: [darsPayeReshtehId], references: [id], onDelete: Restrict)
+  teacher              Teacher?        @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  // هر درس در یک کلاس فقط یک‌بار تعریف می‌شود
+  @@unique([klassId, darsPayeReshtehId])
+  @@index([klassId])
+  @@index([teacherId])
+  @@map("class_course")
+}
+enum AbsenceType {
+  UNKNOWN    // نامشخص (پیش‌فرض هنگام ثبت)
+  EXCUSED    // موجه
+  UNEXCUSED  // غیرموجه
+}
+
+model StudentAbsence {
+  id               String      @id @default(cuid())
+  studentEnrollmentId String
+  date             DateTime    @db.Date
+  startTime        String      // فرمت "HH:mm"
+  endTime          String      // فرمت "HH:mm"
+  absenceType      AbsenceType @default(UNKNOWN)
+  reason           String?
+  lastEditedByUsername String?
+
+  studentEnrollment StudentEnrollment @relation(fields: [studentEnrollmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // جلوگیری از ثبت غیبت تکراری برای یک دانش‌آموز در یک بازه زمانی
+  @@unique([studentEnrollmentId, date, startTime, endTime])
+  @@index([date])
+  @@index([studentEnrollmentId])
+  @@map("student_absence")
+}
+//موارد انضباطی
+model StudentDisciplinary {
+  id               String      @id @default(cuid())
+  studentEnrollmentId String
+  date             DateTime    @db.Date
+  startTime        String      // فرمت "HH:mm"
+  reason           String
+  lastEditedByUsername String?
+
+  studentEnrollment StudentEnrollment @relation(fields: [studentEnrollmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // جلوگیری از ثبت موارد انضباطی تکراری برای یک دانش‌آموز در یک بازه زمانی
+  @@unique([studentEnrollmentId, date, startTime])
+  @@index([date])
+  @@index([studentEnrollmentId])
+  @@map("student_disciplinary")
 }

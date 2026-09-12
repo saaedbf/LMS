@@ -153,6 +153,38 @@ const managerMenuItems: MenuItem[] = [
     icon: <SiBookstack />,
     subMenuItems: [],
   },
+  {
+    title: "مدیریت  معلمان",
+    href: "/dashboard/manager/teachers",
+    spacing: false,
+    subMenu: false,
+    icon: <SiBookstack />,
+    subMenuItems: [],
+  },
+  {
+    title: " تخصیص معلم به کلاس",
+    href: "/dashboard/manager/class-course",
+    spacing: false,
+    subMenu: false,
+    icon: <SiBookstack />,
+    subMenuItems: [],
+  },
+  {
+    title: "مدیریت  غیبت",
+    href: "/dashboard/manager/absence",
+    spacing: false,
+    subMenu: false,
+    icon: <SiBookstack />,
+    subMenuItems: [],
+  },
+  {
+    title: "مدیریت  موارد انضباطی",
+    href: "/dashboard/manager/disiplinary",
+    spacing: false,
+    subMenu: false,
+    icon: <SiBookstack />,
+    subMenuItems: [],
+  },
 ];
 
 const teacherMenuItems: MenuItem[] = [

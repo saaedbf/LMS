@@ -50,7 +50,7 @@ export default function SortableTh({
     );
 
   return (
-    <th className=" select-none px-8">
+    <th className=" select-none px-2">
       <div className="flex items-center justify-between">
         <div className="flex gap-2 items-center justify-center">
           <span>{title}</span>

@@ -6,7 +6,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ReactNode } from "react";
+import React, { ReactNode } from "react";
 
 type Props = {
   children: ReactNode;
@@ -15,7 +15,7 @@ type Props = {
   desc: string;
   setOpen: (arg0: boolean) => void;
   open: boolean;
-  contentClassName?: string; // اضافه کردن این خط
+  contentClassName?: string;
 };
 
 export default function ActionModal({
@@ -25,7 +25,7 @@ export default function ActionModal({
   desc = "",
   setOpen,
   open,
-  contentClassName = "", // مقدار پیش‌فرض
+  contentClassName = "",
 }: Props) {
   return (
     <div dir="rtl">

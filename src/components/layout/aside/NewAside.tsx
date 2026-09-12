@@ -128,7 +128,7 @@ export default function NewAside({ user, role }: NewAsideProps) {
   return (
     <>
       <aside
-        className={`${open && innerWidth < 800 ? "flex absolute z-30" : "flex"}`}
+        className={`${open && innerWidth < 800 ? "flex absolute z-30" : "flex z-30"}`}
       >
         <div
           className={`bg-DarkPurple h-screen p-5 pt-8 transition-all flex flex-col duration-300 relative ${
