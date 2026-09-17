@@ -120,23 +120,17 @@ const managerMenuItems: MenuItem[] = [
     icon: <MdDashboard />,
   },
   {
-    title: "مدیریت کاربران مدرسه",
-    href: "/dashboard/manager/users",
-    subMenu: true,
-    icon: <FaUsersGear />,
-    subMenuItems: [
-      { title: "افزودن کاربر", href: "/dashboard/manager/users/create" },
-      { title: "لیست کاربران", href: "/dashboard/manager/users" },
-    ],
-  },
-  {
-    title: "مدیریت دروس",
-    href: "/dashboard/manager/lessons",
+    title: "تنظیمات اولیه",
+    href: "/dashboard/manager/settings",
     spacing: false,
     subMenu: false,
-    icon: <SiBookstack />,
-    subMenuItems: [],
+    icon: <FaUsersGear />,
+    subMenuItems: [
+      //  { title: "افزودن کاربر", href: "/dashboard/manager/users/create" },
+      //   { title: "لیست کاربران", href: "/dashboard/manager/users" },
+    ],
   },
+
   {
     title: "مدیریت کلاس",
     href: "/dashboard/manager/classes",
@@ -164,6 +158,14 @@ const managerMenuItems: MenuItem[] = [
   {
     title: " تخصیص معلم به کلاس",
     href: "/dashboard/manager/class-course",
+    spacing: false,
+    subMenu: false,
+    icon: <SiBookstack />,
+    subMenuItems: [],
+  },
+  {
+    title: " تعریف دوره ثبت نمره",
+    href: "/dashboard/manager/grade-periods",
     spacing: false,
     subMenu: false,
     icon: <SiBookstack />,

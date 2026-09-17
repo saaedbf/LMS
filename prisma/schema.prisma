@@ -57,6 +57,7 @@ model DarsPayeReshteh {
   reshtehTadrisId String
   reshtehTadris   ReshtehTadris @relation(fields: [reshtehTadrisId],references: [id],onDelete: Restrict)
  classCourses    ClassCourse[] // ✅ این باید باشد (نه teacherAssignments)
+  gradePeriodLessons  GradePeriodLesson[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -86,6 +87,8 @@ model Klass {
   reshtehTahsiliId Int
   reshtehTahsili   ReshtehTahsili @relation(fields: [reshtehTahsiliId], references: [id], onDelete: Restrict)
   studentEnrollments StudentEnrollment[]
+    gradePeriodKlasses  GradePeriodKlass[]
+    gradePeriodLessons  GradePeriodLesson[]
   classCourses       ClassCourse[] // ✅ این باید باشد (نه teacherAssignments)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -229,8 +232,10 @@ model School {
   doreTahsiliId  Int @default(1)
   doreTahsili    DoreTahsili @relation(fields: [doreTahsiliId], references: [id], onDelete: Restrict)
   klasses Klass[]
+   gradePeriods        GradePeriod[] 
   studentEnrollments StudentEnrollment[]
      teacherAssignments TeacherAssignment[]
+      settings  SchoolSettings? 
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   @@map("school")
@@ -244,6 +249,7 @@ model AcademicYear {
   klasses Klass[]
   studentEnrollments StudentEnrollment[]
      teacherAssignments TeacherAssignment[]
+      gradePeriods        GradePeriod[] 
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   @@map("academic_year")
@@ -443,4 +449,113 @@ model StudentDisciplinary {
   @@index([date])
   @@index([studentEnrollmentId])
   @@map("student_disciplinary")
+}
+// prisma/schema.prisma
+
+model GradePeriod {
+  id                   String   @id @default(cuid())
+  title                String   // "نمرات مهرماه", "نمرات آبان‌ماه"
+  description          String?
+
+  // ارتباط با مدرسه و سال تحصیلی
+  schoolId             Int
+  academicYearId       Int
+
+  // وضعیت
+  isActive             Boolean  @default(true)  // فعال یا غیرفعال
+
+  // تاریخ شروع و پایان (اختیاری)
+  startDate            DateTime?
+  endDate              DateTime?
+
+  // فیلدهای سیستمی
+  lastEditedByUsername String?
+
+  school               School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear         AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  // روابط Many-to-Many
+  klassPeriods         GradePeriodKlass[]
+  lessonPeriods        GradePeriodLesson[]
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([schoolId, academicYearId])
+  @@map("grade_period")
+}
+
+// جدول واسط: دوره × کلاس
+model GradePeriodKlass {
+  id              String @id @default(cuid())
+  gradePeriodId   String
+  klassId         String
+
+  gradePeriod     GradePeriod @relation(fields: [gradePeriodId], references: [id], onDelete: Cascade)
+  klass           Klass       @relation(fields: [klassId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+
+  @@unique([gradePeriodId, klassId])
+  @@index([gradePeriodId])
+  @@index([klassId])
+  @@map("grade_period_klass")
+}
+
+// جدول واسط: دوره × درس (DarsPayeReshteh)
+// prisma/schema.prisma
+
+model GradePeriodLesson {
+  id                  String @id @default(cuid())
+  gradePeriodId       String
+  darsPayeReshtehId   String
+  klassId             String  // ⬅️ اضافه شد: به کدام کلاس تعلق دارد؟
+
+  gradePeriod         GradePeriod     @relation(fields: [gradePeriodId], references: [id], onDelete: Cascade)
+  darsPayeReshteh     DarsPayeReshteh @relation(fields: [darsPayeReshtehId], references: [id], onDelete: Cascade)
+  klass               Klass           @relation(fields: [klassId], references: [id], onDelete: Cascade)
+
+  createdAt           DateTime @default(now())
+
+  @@unique([gradePeriodId, darsPayeReshtehId, klassId])
+  @@index([gradePeriodId])
+  @@index([darsPayeReshtehId])
+  @@index([klassId])
+  @@map("grade_period_lesson")
+}
+// prisma/schema.prisma
+
+model SchoolSettings {
+  id        String   @id @default(cuid())
+  schoolId  Int      @unique  // ⬅️ یک‌به‌یک با School
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  // ==========================================
+  // ۱. نوع نمره‌دهی
+  // ==========================================
+  // DESCRIPTIVE: توصیفی (کیفی)
+  // NUMERIC: نمره‌ای (کمی)
+  gradingType  GradingType @default(NUMERIC)
+
+  // ==========================================
+  // ۲. نمایش در پنل دانش‌آموز
+  // ==========================================
+  showTuitionInStudentPanel       Boolean @default(true)   // پنل شهریه
+  showDisciplinaryInStudentPanel  Boolean @default(true)   // موارد انضباطی
+  showAbsencesInStudentPanel      Boolean @default(true)   // غیبت‌ها
+  showReportCardsInStudentPanel   Boolean @default(true)   // کارنامه‌ها
+
+  // ==========================================
+  // فیلدهای سیستمی
+  // ==========================================
+  lastEditedByUsername String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("school_settings")
+}
+
+enum GradingType {
+  DESCRIPTIVE   // توصیفی
+  NUMERIC       // نمره‌ای
 }
