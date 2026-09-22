@@ -173,7 +173,7 @@ model Session {
 
   userId             String
   user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+impersonatedBy     String?
   activeAssignmentId Int?
   activeAssignment   UserAssignment? @relation("ActiveSessionAssignment", fields: [activeAssignmentId], references: [id], onDelete: SetNull)
 
@@ -584,4 +584,15 @@ model Grade {
   @@index([studentEnrollmentId])
   @@index([gradePeriodLessonId])
   @@map("grade")
+}
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
