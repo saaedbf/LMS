@@ -21,8 +21,8 @@ export type MenuItem = {
   title: string;
   href: string;
   icon: React.ReactNode;
-  color: string;
-  bgColor: string;
+  color?: string; // ⬅️ اختیاری شود
+  bgColor?: string; // ⬅️ اختیاری شود
   spacing?: boolean;
   subMenu?: boolean;
   subMenuItems?: { title: string; href: string }[];
