@@ -21,12 +21,12 @@ export default function Header({
       </div>
 
       <nav className="hidden md:flex gap-4 text-sm text-white items-center">
-        <Link href="/" className="hover:font-bold transition">
+        {/* <Link href="/" className="hover:font-bold transition">
           تماس با ما
         </Link>
         <Link href="/" className="hover:font-bold transition">
           درباره ما
-        </Link>
+        </Link> */}
       </nav>
     </header>
   );

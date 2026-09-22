@@ -430,7 +430,8 @@ export async function createAbsencesAction(
         error: parsed.error.issues[0]?.message || "داده‌های ورودی نامعتبر است",
       };
     }
-    const { enrollmentIds, date, startTime, endTime } = parsed.data;
+
+    const { enrollmentIds, date, isFullDay, startTime, endTime } = parsed.data;
 
     const scope = await getManagerScope();
     if ("error" in scope) return { status: "error", error: scope.error };
@@ -439,6 +440,10 @@ export async function createAbsencesAction(
     if (isNaN(parsedDate.getTime())) {
       return { status: "error", error: "تاریخ نامعتبر است" };
     }
+
+    // ⬅️ برای روز کامل، ساعت‌ها خالی می‌شوند
+    const finalStartTime = isFullDay ? null : startTime || null;
+    const finalEndTime = isFullDay ? null : endTime || null;
 
     const enrollments = await prisma.studentEnrollment.findMany({
       where: {
@@ -456,30 +461,37 @@ export async function createAbsencesAction(
     const result = await prisma.$transaction(async (tx) => {
       let created = 0;
       let skipped = 0;
+
       for (const e of enrollments) {
+        // بررسی تکراری
         const exists = await tx.studentAbsence.findFirst({
           where: {
             studentEnrollmentId: e.id,
             date: parsedDate,
-            startTime,
-            endTime,
+            isFullDay,
+            startTime: finalStartTime,
+            endTime: finalEndTime,
           },
         });
+
         if (exists) {
           skipped++;
           continue;
         }
+
         await tx.studentAbsence.create({
           data: {
             studentEnrollmentId: e.id,
             date: parsedDate,
-            startTime,
-            endTime,
+            isFullDay,
+            startTime: finalStartTime,
+            endTime: finalEndTime,
             absenceType: "UNKNOWN",
           },
         });
         created++;
       }
+
       return { created, skipped };
     });
 
@@ -564,29 +576,64 @@ export async function updateAbsenceScheduleAction(
     });
     if (!absence) return { status: "error", error: "غیبت یافت نشد" };
 
-    const duplicate = await prisma.studentAbsence.findFirst({
-      where: {
-        studentEnrollmentId: absence.studentEnrollmentId,
-        date: parsedDate,
-        startTime: parsed.data.startTime,
-        endTime: parsed.data.endTime,
-        id: { not: absence.id },
-      },
-      select: { id: true },
-    });
-    if (duplicate) {
-      return {
-        status: "error",
-        error: "برای این دانش‌آموز در همین تاریخ و بازه زمانی غیبت ثبت شده است",
-      };
+    // ⬅️ برای روز کامل، ساعت‌ها خالی
+    const finalStartTime = parsed.data.isFullDay
+      ? null
+      : parsed.data.startTime || null;
+    const finalEndTime = parsed.data.isFullDay
+      ? null
+      : parsed.data.endTime || null;
+
+    // بررسی تکراری (فقط در حالت ساعتی)
+    if (!parsed.data.isFullDay && finalStartTime && finalEndTime) {
+      const duplicate = await prisma.studentAbsence.findFirst({
+        where: {
+          studentEnrollmentId: absence.studentEnrollmentId,
+          date: parsedDate,
+          isFullDay: false,
+          startTime: finalStartTime,
+          endTime: finalEndTime,
+          id: { not: absence.id },
+        },
+        select: { id: true },
+      });
+
+      if (duplicate) {
+        return {
+          status: "error",
+          error:
+            "برای این دانش‌آموز در همین تاریخ و بازه زمانی غیبت ثبت شده است",
+        };
+      }
+    }
+
+    // بررسی تکراری (در حالت روز کامل)
+    if (parsed.data.isFullDay) {
+      const duplicate = await prisma.studentAbsence.findFirst({
+        where: {
+          studentEnrollmentId: absence.studentEnrollmentId,
+          date: parsedDate,
+          isFullDay: true,
+          id: { not: absence.id },
+        },
+        select: { id: true },
+      });
+
+      if (duplicate) {
+        return {
+          status: "error",
+          error: "برای این دانش‌آموز در همین تاریخ، غیبت روز کامل ثبت شده است",
+        };
+      }
     }
 
     const result = await prisma.studentAbsence.update({
       where: { id: absence.id },
       data: {
         date: parsedDate,
-        startTime: parsed.data.startTime,
-        endTime: parsed.data.endTime,
+        isFullDay: parsed.data.isFullDay,
+        startTime: finalStartTime,
+        endTime: finalEndTime,
       },
     });
 

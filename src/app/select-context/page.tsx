@@ -1,3 +1,4 @@
+// app/(auth)/select-context/page.tsx  یا  app/select-context/page.tsx
 import {
   getCurrentContext,
   getUserAssignments,
@@ -5,6 +6,21 @@ import {
 } from "@/actions/authActions";
 import { redirect } from "next/navigation";
 import ContextSelectorClient from "./ContextSelectorClient";
+
+// ⬅️ تابع کمکی برای تعیین مسیر بر اساس نقش
+function getRedirectPathByRole(role: string | null): string {
+  switch (role) {
+    case "MANAGER":
+    case "DEPUTY":
+      return "/dashboard";
+    case "TEACHER":
+      return "/teacher";
+    case "STUDENT":
+      return "/student";
+    default:
+      return "/dashboard";
+  }
+}
 
 export default async function SelectContextPage() {
   const { user, isMaster } = await getCurrentContext();
@@ -17,12 +33,14 @@ export default async function SelectContextPage() {
     redirect("/login?error=account_disabled");
   }
 
+  // ⬅️ Master همیشه به /dashboard می‌رود
   if (isMaster || user.systemRole === "MASTER") {
     redirect("/dashboard");
   }
 
   const assignments = await getUserAssignments(true);
 
+  // اگر هیچ دسترسی فعالی نیست
   if (assignments.length === 0) {
     const allAssignments = await getUserAssignments(false);
 
@@ -44,9 +62,14 @@ export default async function SelectContextPage() {
     );
   }
 
+  // ⬅️ اگر فقط یک دسترسی فعال دارد، مستقیم به پنل مربوطه برود
   if (assignments.length === 1) {
-    await setActiveContext(assignments[0].id);
-    redirect("/dashboard");
+    const assignment = assignments[0];
+    await setActiveContext(assignment.id);
+
+    // ⬅️ بر اساس نقش، به پنل مربوطه هدایت شود
+    const redirectPath = getRedirectPathByRole(assignment.role);
+    redirect(redirectPath);
   }
 
   return (

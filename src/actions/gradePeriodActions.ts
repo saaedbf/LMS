@@ -271,8 +271,7 @@ export async function createGradePeriod(input: unknown) {
       return error("برخی از کلاس‌های انتخاب‌شده معتبر نیستند");
     }
 
-    // ⬅️ گسترش دروس: برای هر پایه، هر درس را به همه کلاس‌های آن پایه متصل کن
-    // دریافت کلاس‌های هر پایه
+    // گروه‌بندی کلاس‌ها بر اساس پایه
     const klassesByPaye = new Map<number, string[]>();
     for (const k of validKlasses) {
       if (!klassesByPaye.has(k.payeId)) {
@@ -309,7 +308,7 @@ export async function createGradePeriod(input: unknown) {
         },
       });
 
-      // روابط کلاس‌ها
+      // ۱. روابط کلاس‌ها
       await tx.gradePeriodKlass.createMany({
         data: parsed.data.klassIds.map((klassId) => ({
           gradePeriodId: period.id,
@@ -318,7 +317,7 @@ export async function createGradePeriod(input: unknown) {
         skipDuplicates: true,
       });
 
-      // ⬅️ روابط دروس: هر درس برای هر کلاسِ پایه‌اش
+      // ۲. ⬅️ روابط دروس: هر درس برای هر کلاسِ پایه‌اش
       const lessonPeriods: {
         gradePeriodId: string;
         darsPayeReshtehId: string;
@@ -338,8 +337,13 @@ export async function createGradePeriod(input: unknown) {
         }
       }
 
-      // ⚠️ باید مدل GradePeriodLesson را تغییر دهیم تا klassId داشته باشد
-      // (توضیح در ادامه)
+      // ⬅️ این بخش حیاتی است
+      if (lessonPeriods.length > 0) {
+        await tx.gradePeriodLesson.createMany({
+          data: lessonPeriods,
+          skipDuplicates: true,
+        });
+      }
 
       return period;
     });
@@ -382,21 +386,21 @@ export async function updateGradePeriod(input: unknown) {
 
     if (!existing) return error("دوره یافت نشد");
 
-    // ⬅️ ۱. اعتبارسنجی کلاس‌ها
+    // اعتبارسنجی کلاس‌ها
     const validKlasses = await prisma.klass.findMany({
       where: {
         id: { in: parsed.data.klassIds },
         schoolId: context.schoolId,
         academicYearId: context.academicYearId,
       },
-      select: { id: true, payeId: true },
+      select: { id: true, payeId: true, title: true },
     });
 
     if (validKlasses.length !== parsed.data.klassIds.length) {
       return error("برخی از کلاس‌های انتخاب‌شده معتبر نیستند");
     }
 
-    // ⬅️ ۲. اعتبارسنجی دروس
+    // اعتبارسنجی دروس
     const allLessonIds = parsed.data.lessonsByPaye.flatMap((l) => l.lessonIds);
     const validLessons = await prisma.darsPayeReshteh.findMany({
       where: { id: { in: allLessonIds } },
@@ -407,7 +411,7 @@ export async function updateGradePeriod(input: unknown) {
       return error("برخی از دروس انتخاب‌شده معتبر نیستند");
     }
 
-    // ⬅️ ۳. گروه‌بندی کلاس‌ها بر اساس پایه
+    // گروه‌بندی کلاس‌ها بر اساس پایه
     const klassesByPaye = new Map<number, string[]>();
     for (const k of validKlasses) {
       if (!klassesByPaye.has(k.payeId)) {
@@ -416,6 +420,112 @@ export async function updateGradePeriod(input: unknown) {
       klassesByPaye.get(k.payeId)!.push(k.id);
     }
 
+    // ⬅️ مرحله ۱: محاسبه لیست مورد نیاز GradePeriodLesson
+    const requiredLessonPeriods: {
+      gradePeriodId: string;
+      darsPayeReshtehId: string;
+      klassId: string;
+    }[] = [];
+
+    for (const { payeId, lessonIds } of parsed.data.lessonsByPaye) {
+      const payeKlassIds = klassesByPaye.get(payeId) || [];
+
+      for (const lessonId of lessonIds) {
+        for (const klassId of payeKlassIds) {
+          requiredLessonPeriods.push({
+            gradePeriodId: parsed.data.id,
+            darsPayeReshtehId: lessonId,
+            klassId,
+          });
+        }
+      }
+    }
+
+    // ⬅️ مرحله ۲: دریافت GradePeriodLessonهای موجود
+    const existingLessonPeriods = await prisma.gradePeriodLesson.findMany({
+      where: { gradePeriodId: parsed.data.id },
+      select: {
+        id: true,
+        darsPayeReshtehId: true,
+        klassId: true,
+      },
+    });
+
+    const existingKey = new Map(
+      existingLessonPeriods.map((l) => [
+        `${l.darsPayeReshtehId}-${l.klassId}`,
+        l.id,
+      ]),
+    );
+
+    const requiredKey = new Set(
+      requiredLessonPeriods.map((l) => `${l.darsPayeReshtehId}-${l.klassId}`),
+    );
+
+    // ⬅️ مرحله ۳: پیدا کردن GradePeriodLessonهایی که باید حذف شوند
+    const toDeleteIds: string[] = [];
+    for (const [key, id] of existingKey) {
+      if (!requiredKey.has(key)) {
+        toDeleteIds.push(id);
+      }
+    }
+
+    // ⬅️ مرحله ۴: بررسی اینکه کدام‌ها نمره دارند
+    if (toDeleteIds.length > 0) {
+      const gradesOnDeleted = await prisma.grade.findMany({
+        where: {
+          gradePeriodLessonId: { in: toDeleteIds },
+        },
+        select: {
+          gradePeriodLessonId: true,
+        },
+        distinct: ["gradePeriodLessonId"],
+      });
+
+      if (gradesOnDeleted.length > 0) {
+        // ⬅️ پیدا کردن اطلاعات کامل برای نمایش خطا
+        const deletedIdsWithGrades = gradesOnDeleted.map(
+          (g) => g.gradePeriodLessonId,
+        );
+
+        const details = await prisma.gradePeriodLesson.findMany({
+          where: { id: { in: deletedIdsWithGrades } },
+          include: {
+            darsPayeReshteh: {
+              include: {
+                reshtehTadris: { select: { title: true } },
+                paye: { select: { title: true } },
+              },
+            },
+            klass: { select: { title: true } },
+            _count: {
+              select: { grades: true },
+            },
+          },
+        });
+
+        const lines = details.map(
+          (d) =>
+            `• ${d.klass.title} - ${d.darsPayeReshteh.reshtehTadris.title} (${d._count.grades} نمره)`,
+        );
+
+        return error(
+          `امکان حذف دروس زیر وجود ندارد چون نمره ثبت شده دارند:\n${lines.join("\n")}\n\nابتدا نمرات را حذف کنید یا این دروس را در دوره نگه دارید.`,
+        );
+      }
+
+      // اگر نمره ندارند، حذف کن
+      await prisma.gradePeriodLesson.deleteMany({
+        where: { id: { in: toDeleteIds } },
+      });
+    }
+
+    // ⬅️ مرحله ۵: ساخت GradePeriodLessonهای جدید
+    const toCreate = requiredLessonPeriods.filter(
+      (l) => !existingKey.has(`${l.darsPayeReshtehId}-${l.klassId}`),
+    );
+
+    // ⬅️ حالا تراکنش اصلی
     const result = await prisma.$transaction(async (tx) => {
       // ۱. به‌روزرسانی خود دوره
       const period = await tx.gradePeriod.update({
@@ -432,48 +542,46 @@ export async function updateGradePeriod(input: unknown) {
         },
       });
 
-      // ۲. حذف روابط قبلی
+      // ۲. به‌روزرسانی کلاس‌ها
       await tx.gradePeriodKlass.deleteMany({
-        where: { gradePeriodId: period.id },
-      });
-      await tx.gradePeriodLesson.deleteMany({
-        where: { gradePeriodId: period.id },
-      });
-
-      // ۳. ایجاد روابط جدید کلاس‌ها
-      await tx.gradePeriodKlass.createMany({
-        data: parsed.data.klassIds.map((klassId) => ({
+        where: {
           gradePeriodId: period.id,
-          klassId,
-        })),
-        skipDuplicates: true,
+          klassId: { notIn: parsed.data.klassIds },
+        },
       });
 
-      // ⬅️ ۴. ایجاد روابط جدید دروس
-      //    برای هر پایه، هر درس را به همه کلاس‌های آن پایه متصل کن
-      const lessonPeriods: {
-        gradePeriodId: string;
-        darsPayeReshtehId: string;
-        klassId: string;
-      }[] = [];
+      const existingKlassIds = (
+        await tx.gradePeriodKlass.findMany({
+          where: { gradePeriodId: period.id },
+          select: { klassId: true },
+        })
+      ).map((k) => k.klassId);
 
-      for (const { payeId, lessonIds } of parsed.data.lessonsByPaye) {
-        const payeKlassIds = klassesByPaye.get(payeId) || [];
+      const newKlassIds = parsed.data.klassIds.filter(
+        (id) => !existingKlassIds.includes(id),
+      );
 
-        for (const lessonId of lessonIds) {
-          for (const klassId of payeKlassIds) {
-            lessonPeriods.push({
-              gradePeriodId: period.id,
-              darsPayeReshtehId: lessonId,
-              klassId,
-            });
-          }
-        }
+      if (newKlassIds.length > 0) {
+        await tx.gradePeriodKlass.createMany({
+          data: newKlassIds.map((klassId) => ({
+            gradePeriodId: period.id,
+            klassId,
+          })),
+          skipDuplicates: true,
+        });
       }
 
-      if (lessonPeriods.length > 0) {
+      // ۳. حذف GradePeriodLessonهای بدون نمره
+      if (toDeleteIds.length > 0) {
+        await tx.gradePeriodLesson.deleteMany({
+          where: { id: { in: toDeleteIds } },
+        });
+      }
+
+      // ۴. اضافه کردن GradePeriodLessonهای جدید
+      if (toCreate.length > 0) {
         await tx.gradePeriodLesson.createMany({
-          data: lessonPeriods,
+          data: toCreate,
           skipDuplicates: true,
         });
       }
@@ -482,7 +590,11 @@ export async function updateGradePeriod(input: unknown) {
     });
 
     revalidatePath(GRADE_PERIOD_ROUTE);
-    return success(result);
+    return success({
+      ...result,
+      added: toCreate.length,
+      removed: toDeleteIds.length,
+    });
   } catch (err) {
     console.error("updateGradePeriod error:", err);
     return error("خطا در ویرایش دوره");

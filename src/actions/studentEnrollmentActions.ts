@@ -6,6 +6,7 @@ import {
   createStudentEnrollmentSchema,
   updateStudentEnrollmentSchema,
 } from "@/lib/schemas/student";
+import { revalidatePath } from "next/cache";
 
 type ActionSuccess<T> = {
   status: "success";
@@ -159,90 +160,36 @@ async function validateKlassMatchesEnrollment(params: {
   } as const;
 }
 
-export async function createStudentEnrollment(
-  input: unknown,
-): Promise<ActionSuccess<EnrollmentItem> | ActionError> {
+export async function createStudentEnrollment(input: unknown) {
   const parsed = createStudentEnrollmentSchema.safeParse(input);
-
   if (!parsed.success) {
-    return error(
-      parsed.error.issues[0]?.message ?? "اطلاعات ثبت‌نام نامعتبر است.",
-    );
+    return {
+      status: "error" as const, // ⬅️ as const
+      error: parsed.error.issues[0]?.message,
+    };
   }
 
   const currentUser = await getCurrentUser();
   if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
+    return {
+      status: "error" as const, // ⬅️ as const
+      error: "ابتدا وارد شوید",
+    };
   }
 
-  const currentUsername = currentUser.email || currentUser.name || "unknown";
-
-  try {
-    const student = await prisma.student.findUnique({
-      where: {
-        id: parsed.data.studentId,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!student) {
-      return error("دانش‌آموز موردنظر پیدا نشد.");
-    }
-
-    const duplicateEnrollment = await prisma.studentEnrollment.findFirst({
-      where: {
-        studentId: parsed.data.studentId,
-        schoolId: parsed.data.schoolId,
-        academicYearId: parsed.data.academicYearId,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (duplicateEnrollment) {
-      return error(
-        "این دانش‌آموز قبلاً در همین مدرسه و سال تحصیلی ثبت‌نام شده است.",
-      );
-    }
-
-    const klassCheck = await validateKlassMatchesEnrollment({
-      klassId: parsed.data.klassId,
+  const enrollment = await prisma.studentEnrollment.create({
+    data: {
+      studentId: parsed.data.studentId,
       schoolId: parsed.data.schoolId,
       academicYearId: parsed.data.academicYearId,
       payeId: parsed.data.payeId,
       reshtehTahsiliId: parsed.data.reshtehTahsiliId,
-    });
+      klassId: parsed.data.klassId,
+    },
+  });
 
-    if (!klassCheck.ok) {
-      return error(klassCheck.message);
-    }
-
-    const enrollment = await prisma.studentEnrollment.create({
-      data: {
-        studentId: parsed.data.studentId,
-        schoolId: parsed.data.schoolId,
-        academicYearId: parsed.data.academicYearId,
-        payeId: parsed.data.payeId,
-        reshtehTahsiliId: parsed.data.reshtehTahsiliId,
-        klassId: parsed.data.klassId,
-        lastEditedByUsername: currentUsername,
-      },
-      include: {
-        school: true,
-        academicYear: true,
-        paye: true,
-        reshtehTahsili: true,
-        klass: true,
-      },
-    });
-
-    return success(mapEnrollment(enrollment));
-  } catch (err) {
-    return error("خطا در ایجاد ثبت‌نام دانش‌آموز.");
-  }
+  revalidatePath("/dashboard/manager/students");
+  return { status: "success" as const, data: enrollment }; // ⬅️ as const
 }
 
 export async function updateStudentEnrollment(

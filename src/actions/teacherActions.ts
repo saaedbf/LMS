@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-server";
+import { getCurrentContext } from "@/actions/authActions";
 import {
   findTeacherByNationalCodeSchema,
   teacherSchema,
@@ -202,14 +203,29 @@ export async function createTeacher(
     return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
   }
 
+  // ⬅️ دریافت کانتکست فعال
+  const context = await getCurrentContext();
+  if (!context?.schoolId || !context.academicYearId) {
+    return error("کانتکست فعال مدرسه یا سال تحصیلی یافت نشد.");
+  }
+
+  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
+    return error("شما دسترسی لازم برای این عملیات را ندارید.");
+  }
+
+  const schoolId = context.schoolId;
+  const academicYearId = context.academicYearId;
+
   const currentUsername = currentUser.email || currentUser.name || "unknown";
   const { firstName, lastName, nationalCode, phone, address, personnelCode } =
     parsed.data;
 
   const teacherEmail = `${nationalCode}@lms.local`.toLowerCase();
   let createdTeacherId: string | null = null;
+  let createdUserId: string | null = null;
 
   try {
+    // ۱. بررسی وجود معلم
     const existingTeacher = await prisma.teacher.findUnique({
       where: { nationalCode },
       select: { id: true },
@@ -219,7 +235,7 @@ export async function createTeacher(
       return error("معلمی با این کد ملی قبلاً ثبت شده است.");
     }
 
-    // ۱. ایجاد پروفایل معلم
+    // ۲. ایجاد پروفایل معلم
     const teacher = await prisma.teacher.create({
       data: {
         firstName,
@@ -230,19 +246,11 @@ export async function createTeacher(
         address: address || null,
         lastEditedByUsername: currentUsername,
       },
-      include: {
-        assignments: {
-          include: {
-            school: true,
-            academicYear: true,
-          },
-        },
-      },
     });
 
     createdTeacherId = teacher.id;
 
-    // ۲. بررسی یا ایجاد حساب در Better Auth
+    // ۳. بررسی یا ایجاد User در Better Auth
     let authUser = await prisma.user.findUnique({
       where: { email: teacherEmail },
       select: { id: true },
@@ -251,13 +259,17 @@ export async function createTeacher(
     if (!authUser) {
       try {
         await auth.api.signUpEmail({
+          headers: await headers(),
           body: {
             email: teacherEmail,
             password: phone.trim(),
+            firstName,
+            lastName,
             name: `${firstName} ${lastName}`,
           },
         });
 
+        // ⬅️ بعد از signUpEmail، کاربر را دوباره بخوان
         authUser = await prisma.user.findUnique({
           where: { email: teacherEmail },
           select: { id: true },
@@ -272,19 +284,70 @@ export async function createTeacher(
       }
     }
 
-    if (authUser) {
-      await prisma.teacher.update({
-        where: { id: teacher.id },
-        data: { userId: authUser.id },
-      });
+    if (!authUser) {
+      throw new Error("AUTH_USER_NOT_FOUND");
     }
 
+    createdUserId = authUser.id;
+
+    // ۴. اتصال Teacher به User
+    await prisma.teacher.update({
+      where: { id: teacher.id },
+      data: { userId: authUser.id },
+    });
+
+    // ۵. ⬅️ ساخت UserAssignment
+    await prisma.userAssignment.create({
+      data: {
+        userId: authUser.id,
+        schoolId,
+        academicYearId,
+        role: "TEACHER",
+        isActive: true,
+      },
+    });
+
+    // ۶. ⬅️ ساخت TeacherAssignment
+    await prisma.teacherAssignment.create({
+      data: {
+        teacherId: teacher.id,
+        schoolId,
+        academicYearId,
+        isActive: true,
+        lastEditedByUsername: currentUsername,
+      },
+    });
+
     revalidatePath("/dashboard/manager/teachers");
-    return success(mapTeacher(teacher));
+
+    // برگرداندن معلم با انتساب‌ها
+    const finalTeacher = await prisma.teacher.findUnique({
+      where: { id: teacher.id },
+      include: {
+        assignments: {
+          include: {
+            school: true,
+            academicYear: true,
+          },
+        },
+      },
+    });
+
+    return success(mapTeacher(finalTeacher));
   } catch (err: any) {
+    // rollback
     if (createdTeacherId) {
+      await prisma.teacherAssignment
+        .deleteMany({ where: { teacherId: createdTeacherId } })
+        .catch(() => {});
       await prisma.teacher
         .delete({ where: { id: createdTeacherId } })
+        .catch(() => {});
+    }
+
+    if (createdUserId) {
+      await prisma.userAssignment
+        .deleteMany({ where: { userId: createdUserId } })
         .catch(() => {});
     }
 
@@ -292,6 +355,7 @@ export async function createTeacher(
       return error("معلمی با این کد ملی قبلاً ثبت شده است.");
     }
 
+    console.error("CREATE_TEACHER_ERROR", err);
     return error("خطا در ایجاد معلم یا حساب کاربری.");
   }
 }
@@ -362,6 +426,8 @@ export async function updateTeacher(
   }
 }
 
+// actions/teacherActions.ts
+
 export async function getTeachers(
   page: number,
   pageSize: number,
@@ -370,33 +436,80 @@ export async function getTeachers(
     sortOrder?: "asc" | "desc";
     searchField?: string;
     searchValue?: string;
-    schoolId?: number;
-    academicYearId?: number;
   },
 ) {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    return { items: [], total: 0 };
+  }
+
+  // ⬅️ دریافت کانتکست فعال
+  const context = await getCurrentContext();
+
+  if (!context?.schoolId || !context.academicYearId) {
+    return { items: [], total: 0 };
+  }
+
+  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
+    return { items: [], total: 0 };
+  }
+
+  const schoolId = context.schoolId;
+  const academicYearId = context.academicYearId;
+
   const {
     sortField = "createdAt",
     sortOrder = "desc",
     searchField,
     searchValue,
-    schoolId,
-    academicYearId,
   } = options ?? {};
 
   const skip = (page - 1) * pageSize;
-  const where: any = {};
 
-  if (schoolId && academicYearId) {
-    where.assignments = {
-      some: { schoolId, academicYearId },
-    };
-  }
+  const allowedSortFields = [
+    "firstName",
+    "lastName",
+    "nationalCode",
+    "personnelCode",
+    "phone",
+    "createdAt",
+    "updatedAt",
+  ];
 
+  const orderByField = allowedSortFields.includes(sortField)
+    ? sortField
+    : "createdAt";
+
+  // ⬅️ فیلتر اصلی: فقط معلمانی که در این مدرسه و سال تحصیلی انتساب دارند
+  const where: any = {
+    assignments: {
+      some: {
+        schoolId,
+        academicYearId,
+        isActive: true,
+      },
+    },
+  };
+
+  // جستجو
   if (searchField && searchValue?.trim()) {
-    where[searchField] = {
-      contains: searchValue.trim(),
-      mode: "insensitive",
-    };
+    const value = searchValue.trim();
+
+    const allowedSearchFields = [
+      "firstName",
+      "lastName",
+      "nationalCode",
+      "personnelCode",
+      "phone",
+    ];
+
+    if (allowedSearchFields.includes(searchField)) {
+      where[searchField] = {
+        contains: value,
+        mode: "insensitive",
+      };
+    }
   }
 
   try {
@@ -405,27 +518,41 @@ export async function getTeachers(
         where,
         skip,
         take: pageSize,
-        orderBy: { [sortField]: sortOrder },
+        orderBy: {
+          [orderByField]: sortOrder,
+        },
         include: {
+          // ⬅️ فقط انتساب‌های این مدرسه و سال را بیار
           assignments: {
-            where:
-              schoolId && academicYearId
-                ? { schoolId, academicYearId }
-                : undefined,
-            include: {
-              school: { select: { id: true, title: true } },
-              academicYear: { select: { id: true, title: true } },
+            where: {
+              schoolId,
+              academicYearId,
             },
-            take: 1,
+            include: {
+              school: {
+                select: { id: true, title: true },
+              },
+              academicYear: {
+                select: { id: true, title: true },
+              },
+            },
           },
         },
       }),
+
       prisma.teacher.count({ where }),
     ]);
 
-    return { items, total };
+    return {
+      items,
+      total,
+    };
   } catch (error) {
     console.error("getTeachers error:", error);
-    return { items: [], total: 0 };
+
+    return {
+      items: [],
+      total: 0,
+    };
   }
 }

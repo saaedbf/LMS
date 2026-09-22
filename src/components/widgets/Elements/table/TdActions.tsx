@@ -1,9 +1,10 @@
+// components/widgets/Elements/table/TdActions.tsx
 import React, { ReactNode } from "react";
 
 export default function TdActions({ children }: { children: ReactNode }) {
   return (
-    <td className="py-3 px-6 flex gap-2  border justify-center border-gray-400 h-full ">
-      {children}
+    <td className="px-6 py-3 border border-gray-400">
+      <div className="flex items-center justify-center gap-2">{children}</div>
     </td>
   );
 }

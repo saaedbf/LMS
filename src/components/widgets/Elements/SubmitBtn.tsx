@@ -1,19 +1,22 @@
-import React from "react";
-import { GoIssueClosed } from "react-icons/go";
+// components/widgets/Elements/SubmitBtn.tsx
+"use client";
 
-export default function SubmitBtn({
-  txtSubmit,
-  className,
-}: {
-  txtSubmit?: string;
-  className?: string;
-}) {
+import React from "react";
+
+type Props = {
+  txtSubmit: string;
+};
+
+export default function SubmitBtn({ txtSubmit }: Props) {
   return (
     <button
       type="submit"
-      className={`bg-lime-600 flex gap-2 items-center transition-all hover:bg-lime-800 px-2 py-[4px] text-white rounded-md ${className}`}
+      // ⬅️ این دو خط کلید حل مشکل
+      onMouseDown={(e) => e.preventDefault()}
+      onPointerDown={(e) => e.preventDefault()}
+      className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
     >
-      {txtSubmit} <GoIssueClosed />
+      {txtSubmit}
     </button>
   );
 }

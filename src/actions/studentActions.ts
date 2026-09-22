@@ -1,6 +1,8 @@
 "use server";
 import { admin } from "better-auth/plugins";
 import { prisma } from "@/lib/prisma";
+
+import { getCurrentContext } from "@/actions/authActions";
 import { getCurrentUser } from "@/lib/auth-server";
 import {
   createStudentSchema,
@@ -253,99 +255,71 @@ export async function createStudent(
   }
 
   const currentUser = await getCurrentUser();
-
   if (!currentUser) {
     return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
   }
 
-  const currentUsername = currentUser.email || currentUser.name || "unknown";
+  // ⬅️ دریافت کانتکست فعال
+  const context = await getCurrentContext();
+  if (!context?.schoolId || !context.academicYearId) {
+    return error("کانتکست فعال مدرسه یا سال تحصیلی یافت نشد.");
+  }
 
+  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
+    return error("شما دسترسی لازم برای این عملیات را ندارید.");
+  }
+
+  const schoolId = context.schoolId;
+  const academicYearId = context.academicYearId;
+
+  const currentUsername = currentUser.email || currentUser.name || "unknown";
   const { firstName, lastName, nationalCode, phone, address, fatherName } =
     parsed.data;
 
-  /*
-   * برای ایجاد حساب کاربری دانش‌آموز، شماره تماس باید وجود داشته باشد؛
-   * چون شماره تماس به‌عنوان رمز عبور اولیه استفاده می‌شود.
-   */
   if (!phone?.trim()) {
-    return error(
-      "برای ایجاد حساب کاربری دانش‌آموز، وارد کردن شماره تماس الزامی است.",
-    );
+    return error("برای ایجاد حساب کاربری دانش‌آموز، شماره تماس الزامی است.");
   }
 
-  /*
-   * چون Better Auth با ایمیل ثبت‌نام می‌کند،
-   * کد ملی را به‌صورت یک ایمیل داخلی ذخیره می‌کنیم.
-   *
-   * نام کاربری منطقی دانش‌آموز همان nationalCode است.
-   */
   const studentEmail = `${nationalCode}@lms.local`.toLowerCase();
-
   let createdStudentId: string | null = null;
+  let createdUserId: string | null = null;
 
   try {
+    // ۱. بررسی وجود دانش‌آموز
     const existingStudent = await prisma.student.findUnique({
-      where: {
-        nationalCode,
-      },
-      select: {
-        id: true,
-      },
+      where: { nationalCode },
+      select: { id: true },
     });
 
     if (existingStudent) {
       return error("دانش‌آموزی با این کد ملی قبلاً ثبت شده است.");
     }
 
-    /*
-     * ابتدا دانش‌آموز مرکزی ایجاد می‌شود.
-     */
+    // ۲. ایجاد پروفایل دانش‌آموز
     const student = await prisma.student.create({
       data: {
         firstName,
         lastName,
         nationalCode,
-        phone: phone,
+        phone: phone.trim(),
         address: address || null,
         fatherName: fatherName || null,
         lastEditedByUsername: currentUsername,
-      },
-      include: {
-        enrollments: {
-          include: {
-            school: true,
-            academicYear: true,
-            paye: true,
-            reshtehTahsili: true,
-            klass: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
       },
     });
 
     createdStudentId = student.id;
 
-    /*
-     * بررسی می‌کنیم آیا قبلاً برای این کد ملی کاربر ساخته شده است یا خیر.
-     */
+    // ۳. بررسی یا ایجاد User
     let authUser = await prisma.user.findUnique({
-      where: {
-        email: studentEmail,
-      },
-      select: {
-        id: true,
-      },
+      where: { email: studentEmail },
+      select: { id: true },
     });
 
-    /*
-     * اگر کاربر وجود نداشته باشد، حساب جدید ایجاد می‌کنیم.
-     */
     if (!authUser) {
       try {
         await auth.api.signUpEmail({
+          headers: await headers(),
           body: {
             email: studentEmail,
             password: phone.trim(),
@@ -354,53 +328,84 @@ export async function createStudent(
             name: `${firstName} ${lastName}`,
           },
         });
-      } catch (authError) {
-        /*
-         * در شرایط Race Condition ممکن است هم‌زمان درخواست دیگری
-         * همین کاربر را ایجاد کرده باشد.
-         * بنابراین بعد از خطا دوباره کاربر را بررسی می‌کنیم.
-         */
+
+        // ⬅️ بعد از signUpEmail، کاربر را دوباره بخوان
         authUser = await prisma.user.findUnique({
-          where: {
-            email: studentEmail,
-          },
-          select: {
-            id: true,
-          },
+          where: { email: studentEmail },
+          select: { id: true },
+        });
+      } catch (authError) {
+        authUser = await prisma.user.findUnique({
+          where: { email: studentEmail },
+          select: { id: true },
         });
 
-        if (!authUser) {
-          throw authError;
-        }
+        if (!authUser) throw authError;
       }
     }
 
-    /*
-     * بررسی نهایی برای اطمینان از ایجاد یا وجود حساب کاربری.
-     */
     if (!authUser) {
       throw new Error("AUTH_USER_NOT_FOUND");
     }
 
-    revalidatePath("/dashboard/manager/students");
-    revalidatePath("/dashboard/manager/students/[page]", "page");
+    createdUserId = authUser.id;
 
-    return success(mapStudent(student));
-  } catch (err: any) {
-    /*
-     * اگر دانش‌آموز ساخته شده ولی ساخت حساب کاربری شکست خورد،
-     * دانش‌آموز ایجادشده حذف می‌شود.
-     */
-    if (createdStudentId !== null) {
-      try {
-        await prisma.student.delete({
-          where: {
-            id: createdStudentId,
+    // ۴. ⬅️ ساخت UserAssignment با نقش STUDENT
+    const existingUserAssignment = await prisma.userAssignment.findFirst({
+      where: {
+        userId: authUser.id,
+        schoolId,
+        academicYearId,
+        role: "STUDENT",
+      },
+    });
+
+    if (!existingUserAssignment) {
+      await prisma.userAssignment.create({
+        data: {
+          userId: authUser.id,
+          schoolId,
+          academicYearId,
+          role: "STUDENT",
+          isActive: true,
+        },
+      });
+    }
+
+    revalidatePath("/dashboard/manager/students");
+
+    // برگرداندن دانش‌آموز
+    const finalStudent = await prisma.student.findUnique({
+      where: { id: student.id },
+      include: {
+        enrollments: {
+          where: { schoolId, academicYearId },
+          include: {
+            school: true,
+            academicYear: true,
+            paye: true,
+            reshtehTahsili: true,
+            klass: true,
           },
-        });
-      } catch (rollbackError) {
-        console.error("STUDENT_ROLLBACK_ERROR", rollbackError);
-      }
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    return success(mapStudent(finalStudent));
+  } catch (err: any) {
+    // rollback
+    if (createdStudentId) {
+      await prisma.student
+        .delete({ where: { id: createdStudentId } })
+        .catch(() => {});
+    }
+
+    if (createdUserId) {
+      await prisma.userAssignment
+        .deleteMany({ where: { userId: createdUserId } })
+        .catch(() => {});
     }
 
     if (err?.code === "P2002") {
@@ -408,8 +413,7 @@ export async function createStudent(
     }
 
     console.error("CREATE_STUDENT_ERROR", err);
-
-    return error("خطا در ایجاد دانش‌آموز یا حساب کاربری او. عملیات لغو شد.");
+    return error("خطا در ایجاد دانش‌آموز یا حساب کاربری.");
   }
 }
 
@@ -539,6 +543,8 @@ export async function getStudentById(
     return error("خطا در دریافت دانش‌آموز.");
   }
 }
+// actions/studentActions.ts
+
 export async function getStudents(
   page: number,
   pageSize: number,
@@ -557,6 +563,26 @@ export async function getStudents(
       total: 0,
     };
   }
+
+  // ⬅️ دریافت کانتکست فعال
+  const context = await getCurrentContext();
+
+  if (!context?.schoolId || !context.academicYearId) {
+    return {
+      items: [],
+      total: 0,
+    };
+  }
+
+  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
+    return {
+      items: [],
+      total: 0,
+    };
+  }
+
+  const schoolId = context.schoolId;
+  const academicYearId = context.academicYearId;
 
   const {
     sortField = "createdAt",
@@ -581,8 +607,17 @@ export async function getStudents(
     ? sortField
     : "createdAt";
 
-  const where: any = {};
+  // ⬅️ فیلتر اصلی: فقط دانش‌آموزانی که در این مدرسه و سال تحصیلی ثبت‌نام شده‌اند
+  const where: any = {
+    enrollments: {
+      some: {
+        schoolId,
+        academicYearId,
+      },
+    },
+  };
 
+  // جستجو
   if (searchField && searchValue?.trim()) {
     const value = searchValue.trim();
 
@@ -613,6 +648,11 @@ export async function getStudents(
         },
         include: {
           enrollments: {
+            // ⬅️ فقط ثبت‌نام‌های این مدرسه و سال را بیار
+            where: {
+              schoolId,
+              academicYearId,
+            },
             include: {
               school: {
                 select: {

@@ -320,6 +320,7 @@ model StudentEnrollment {
   updatedAt        DateTime @updatedAt
  absences StudentAbsence[]
  disciplinaris StudentDisciplinary[]
+ grades  Grade[]
   @@unique([studentId, schoolId, academicYearId])
   @@index([schoolId, academicYearId])
   @@index([payeId, reshtehTahsiliId])
@@ -413,8 +414,9 @@ model StudentAbsence {
   id               String      @id @default(cuid())
   studentEnrollmentId String
   date             DateTime    @db.Date
-  startTime        String      // فرمت "HH:mm"
-  endTime          String      // فرمت "HH:mm"
+    isFullDay           Boolean     @default(false)  // ⬅️ اضافه شود
+  startTime           String?     // ⬅️ nullable شود (در روز کامل خالی است)
+  endTime             String?     // ⬅️ nullable شود
   absenceType      AbsenceType @default(UNKNOWN)
   reason           String?
   lastEditedByUsername String?
@@ -514,7 +516,7 @@ model GradePeriodLesson {
   gradePeriod         GradePeriod     @relation(fields: [gradePeriodId], references: [id], onDelete: Cascade)
   darsPayeReshteh     DarsPayeReshteh @relation(fields: [darsPayeReshtehId], references: [id], onDelete: Cascade)
   klass               Klass           @relation(fields: [klassId], references: [id], onDelete: Cascade)
-
+grades  Grade[]
   createdAt           DateTime @default(now())
 
   @@unique([gradePeriodId, darsPayeReshtehId, klassId])
@@ -558,4 +560,28 @@ model SchoolSettings {
 enum GradingType {
   DESCRIPTIVE   // توصیفی
   NUMERIC       // نمره‌ای
+}
+// prisma/schema.prisma
+
+model Grade {
+  id                   String   @id @default(cuid())
+  studentEnrollmentId  String
+  gradePeriodLessonId  String
+
+  // نمره
+  score                Float?   // برای نمره‌ای (0-20)
+  descriptiveValue     String?  // برای توصیفی ("خیلی خوب"، "خوب"، ...)
+
+  lastEditedByUsername String?
+
+  studentEnrollment    StudentEnrollment  @relation(fields: [studentEnrollmentId], references: [id], onDelete: Cascade)
+  gradePeriodLesson    GradePeriodLesson  @relation(fields: [gradePeriodLessonId], references: [id], onDelete: Cascade)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([studentEnrollmentId, gradePeriodLessonId])
+  @@index([studentEnrollmentId])
+  @@index([gradePeriodLessonId])
+  @@map("grade")
 }
