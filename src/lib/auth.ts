@@ -12,7 +12,12 @@ export const auth = betterAuth({
   // ⬅️ اینجا trustedOrigins لازم است
   trustedOrigins: process.env.TRUSTED_ORIGINS
     ? process.env.TRUSTED_ORIGINS.split(",").map((s) => s.trim())
-    : ["*"],
+    : [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://sch7.ir",
+        "https://www.sch7.ir",
+      ],
   emailAndPassword: {
     enabled: true,
   },

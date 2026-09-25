@@ -6,8 +6,9 @@ import { getCurrentUser } from "@/lib/auth-server";
 import { getCurrentContext } from "@/actions/authActions";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getScope, isScopeError } from "@/lib/auth-helpers";
+import { getScope } from "@/lib/auth-helpers";
 import { PERMISSIONS } from "@/lib/permissions";
+import { isScopeError } from "@/lib/auth-helpers-utils";
 
 const CLASS_COURSES_ROUTE = "/dashboard/manager/class-courses";
 
