@@ -6,6 +6,8 @@ import { getCurrentUser } from "@/lib/auth-server";
 import { getCurrentContext } from "@/actions/authActions";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getScope, isScopeError } from "@/lib/auth-helpers";
+import { PERMISSIONS } from "@/lib/permissions";
 
 const CLASS_COURSES_ROUTE = "/dashboard/manager/class-courses";
 
@@ -33,20 +35,10 @@ export async function getClassCoursesWithJoin(options?: {
   page?: number;
   pageSize?: number;
 }) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return { items: [], total: 0 };
-  }
+  const scope = await getScope(PERMISSIONS.VIEW_CLASSES);
 
-  const context = await getCurrentContext();
-  if (!context?.schoolId || !context.academicYearId) {
-    return { items: [], total: 0 };
-  }
-
-  if (context.role !== "MANAGER") {
-    return { items: [], total: 0 };
-  }
-
+  if (isScopeError(scope)) return { items: [], total: 0 };
+  const { schoolId, academicYearId } = scope;
   const {
     sortField = "klass",
     sortOrder = "asc",
@@ -60,8 +52,8 @@ export async function getClassCoursesWithJoin(options?: {
 
   // ۱. کلاس‌های مدرسه و سال تحصیلی جاری
   const klassWhere: any = {
-    schoolId: context.schoolId,
-    academicYearId: context.academicYearId,
+    schoolId: schoolId,
+    academicYearId: academicYearId,
   };
 
   // ۲. جستجو
@@ -243,23 +235,21 @@ export async function assignTeacherToClassCourse(input: unknown) {
     return error(parsed.error.issues[0]?.message || "داده نامعتبر");
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) return error("ابتدا وارد حساب کاربری شوید");
-
-  const context = await getCurrentContext();
-  if (!context?.schoolId || !context.academicYearId) {
-    return error("کانتکست فعال یافت نشد");
+  const scope = await getScope(PERMISSIONS.MANAGE_CLASS_COURSES);
+  if (isScopeError(scope)) {
+    return error(scope.error);
   }
 
-  const username = currentUser.email || currentUser.name || "unknown";
+  const { schoolId, academicYearId, userId } = scope;
+  const username = userId || "unknown";
 
   try {
     // ۱. بررسی کلاس
     const klass = await prisma.klass.findFirst({
       where: {
         id: parsed.data.klassId,
-        schoolId: context.schoolId,
-        academicYearId: context.academicYearId,
+        schoolId: schoolId,
+        academicYearId: academicYearId,
       },
     });
     if (!klass) return error("کلاس یافت نشد");
@@ -276,8 +266,8 @@ export async function assignTeacherToClassCourse(input: unknown) {
         id: parsed.data.teacherId,
         assignments: {
           some: {
-            schoolId: context.schoolId,
-            academicYearId: context.academicYearId,
+            schoolId: schoolId,
+            academicYearId: academicYearId,
             isActive: true,
           },
         },
@@ -330,13 +320,12 @@ export async function removeTeacherFromClassCourse(
   klassId: string,
   darsPayeReshtehId: string,
 ) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) return error("ابتدا وارد حساب کاربری شوید");
-
-  const context = await getCurrentContext();
-  if (!context?.schoolId || !context.academicYearId) {
-    return error("کانتکست فعال یافت نشد");
+  const scope = await getScope(PERMISSIONS.MANAGE_CLASS_COURSES);
+  if (isScopeError(scope)) {
+    return error(scope.error);
   }
+
+  const { schoolId, academicYearId } = scope;
 
   try {
     // بررسی وجود ClassCourse
@@ -345,8 +334,8 @@ export async function removeTeacherFromClassCourse(
         klassId,
         darsPayeReshtehId,
         klass: {
-          schoolId: context.schoolId,
-          academicYearId: context.academicYearId,
+          schoolId: schoolId,
+          academicYearId: academicYearId,
         },
       },
     });
@@ -374,18 +363,20 @@ export async function getSchoolTeachers() {
     return error("ابتدا وارد حساب کاربری شوید");
   }
 
-  const context = await getCurrentContext();
-  if (!context?.schoolId || !context.academicYearId) {
-    return error("کانتکست فعال یافت نشد");
+  const scope = await getScope(PERMISSIONS.MANAGE_CLASS_COURSES);
+  if (isScopeError(scope)) {
+    return error(scope.error);
   }
+
+  const { schoolId, academicYearId } = scope;
 
   try {
     const teachers = await prisma.teacher.findMany({
       where: {
         assignments: {
           some: {
-            schoolId: context.schoolId,
-            academicYearId: context.academicYearId,
+            schoolId: schoolId,
+            academicYearId: academicYearId,
             isActive: true,
           },
         },

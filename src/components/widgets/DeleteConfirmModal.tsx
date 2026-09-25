@@ -46,7 +46,9 @@ export default function DeleteConfirmModal<T>({
         toast.success(" با موفقیت حذف شد");
       } else {
         console.log("er");
-        toast.error("مشکل در انجام عملیات");
+        toast.error(result.error.toString() || "مشکل در انجام عملیات", {
+          autoClose: 8000, // ۸ ثانیه برای خواندن
+        });
       }
 
       //  onDeleted?.(item); // optimistic update

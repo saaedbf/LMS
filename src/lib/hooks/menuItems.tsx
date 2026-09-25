@@ -14,6 +14,7 @@ import {
   MdLocationCity,
   MdMap,
   MdLayers,
+  MdAttachMoney,
 } from "react-icons/md";
 import { FaUserPlus } from "react-icons/fa";
 
@@ -83,6 +84,16 @@ export const managerMenuItems: MenuItem[] = [
     bgColor: "bg-emerald-100",
   },
   {
+    title: "معاونین مدرسه",
+    href: "/dashboard/manager/deputies",
+    spacing: false,
+    subMenu: false,
+    subMenuItems: [],
+    icon: <MdPeople />,
+    color: "text-cyan-600",
+    bgColor: "bg-cyan-100",
+  },
+  {
     title: "تخصیص معلم به کلاس",
     href: "/dashboard/manager/class-course",
     spacing: false,
@@ -103,7 +114,7 @@ export const managerMenuItems: MenuItem[] = [
     bgColor: "bg-amber-100",
   },
   {
-    title: "مدیریت غیبت",
+    title: " غیبت و تاخیر دانش آموزان",
     href: "/dashboard/manager/absence",
     spacing: false,
     subMenu: false,
@@ -111,6 +122,16 @@ export const managerMenuItems: MenuItem[] = [
     icon: <MdEventBusy />,
     color: "text-rose-600",
     bgColor: "bg-rose-100",
+  },
+  {
+    title: "غیبت و تاخیر معلمان",
+    href: "/dashboard/manager/teacher-absence",
+    spacing: false,
+    subMenu: false,
+    subMenuItems: [],
+    icon: <MdEventBusy />,
+    color: "text-orange-600",
+    bgColor: "bg-orange-100",
   },
   {
     title: "مدیریت موارد انضباطی",
@@ -121,6 +142,16 @@ export const managerMenuItems: MenuItem[] = [
     icon: <MdGavel />,
     color: "text-red-600",
     bgColor: "bg-red-100",
+  },
+  {
+    title: "مدیریت مالی",
+    href: "/dashboard/manager/financial",
+    spacing: false,
+    subMenu: false,
+    subMenuItems: [],
+    icon: <MdAttachMoney />, // یا هر آیکن مناسب
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-100",
   },
 ];
 

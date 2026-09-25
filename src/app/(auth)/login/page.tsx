@@ -186,14 +186,14 @@ export default function LoginPage() {
             </form>
 
             {/* لینک‌های پایین */}
-            <div className="mt-6 space-y-2 border-t border-white/10 pt-5 text-center">
+            {/* <div className="mt-6 space-y-2 border-t border-white/10 pt-5 text-center">
               <Link
                 href="/register"
                 className="block text-xs text-indigo-200 transition hover:text-amber-300 sm:text-sm"
               >
                 ساخت کاربر تستی
               </Link>
-            </div>
+            </div> */}
           </div>
 
           {/* راهنما */}

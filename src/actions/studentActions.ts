@@ -1,26 +1,20 @@
 "use server";
-import { admin } from "better-auth/plugins";
-import { prisma } from "@/lib/prisma";
 
-import { getCurrentContext } from "@/actions/authActions";
-import { getCurrentUser } from "@/lib/auth-server";
+import { prisma } from "@/lib/prisma";
+import { getScope } from "@/lib/auth-helpers";
+import { isScopeError } from "@/lib/auth-helpers-utils";
+import { PERMISSIONS } from "@/lib/permissions";
+import { auth } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import {
   createStudentSchema,
   findStudentByNationalCodeSchema,
   updateStudentSchema,
 } from "@/lib/schemas/student";
-import { auth } from "@/lib/auth";
-import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-type ActionSuccess<T> = {
-  status: "success";
-  data: T;
-};
 
-type ActionError = {
-  status: "error";
-  error: string;
-};
+type ActionSuccess<T> = { status: "success"; data: T };
+type ActionError = { status: "error"; error: string };
 
 type StudentWithEnrollments = {
   id: string;
@@ -134,21 +128,16 @@ export async function findStudentByNationalCode(
   input: unknown,
 ): Promise<ActionSuccess<StudentWithEnrollments | null> | ActionError> {
   const parsed = findStudentByNationalCodeSchema.safeParse(input);
-
   if (!parsed.success) {
     return error(parsed.error.issues[0]?.message ?? "کد ملی نامعتبر است.");
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return error(scope.error);
 
   try {
     const student = await prisma.student.findUnique({
-      where: {
-        nationalCode: parsed.data.nationalCode,
-      },
+      where: { nationalCode: parsed.data.nationalCode },
       include: {
         enrollments: {
           include: {
@@ -158,49 +147,33 @@ export async function findStudentByNationalCode(
             reshtehTahsili: true,
             klass: true,
           },
-          orderBy: {
-            createdAt: "desc",
-          },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
 
-    if (!student) {
-      return success(null);
-    }
-
+    if (!student) return success(null);
     return success(mapStudent(student));
   } catch (err) {
     return error("خطا در دریافت اطلاعات دانش‌آموز.");
   }
 }
+
 export async function resetStudentPassword(
   studentId: string,
 ): Promise<ActionSuccess<{ message: string }> | ActionError> {
-  const currentUser = await getCurrentUser();
-
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return error(scope.error);
 
   try {
     const student = await prisma.student.findUnique({
-      where: {
-        id: studentId,
-      },
-      select: {
-        id: true,
-        nationalCode: true,
-        phone: true,
-      },
+      where: { id: studentId },
+      select: { id: true, nationalCode: true, phone: true },
     });
 
-    if (!student) {
-      return error("دانش‌آموز موردنظر پیدا نشد.");
-    }
+    if (!student) return error("دانش‌آموز موردنظر پیدا نشد.");
 
     const phone = student.phone?.trim();
-
     if (!phone) {
       return error(
         "برای این دانش‌آموز شماره تماسی ثبت نشده است؛ ابتدا شماره تماس را ثبت کنید.",
@@ -210,12 +183,8 @@ export async function resetStudentPassword(
     const studentEmail = `${student.nationalCode}@lms.local`.toLowerCase();
 
     const user = await prisma.user.findUnique({
-      where: {
-        email: studentEmail,
-      },
-      select: {
-        id: true,
-      },
+      where: { email: studentEmail },
+      select: { id: true },
     });
 
     if (!user) {
@@ -224,21 +193,16 @@ export async function resetStudentPassword(
 
     await auth.api.setUserPassword({
       headers: await headers(),
-      body: {
-        userId: user.id,
-        newPassword: student?.phone.trim() || "123456789",
-      },
+      body: { userId: user.id, newPassword: phone },
     });
 
     revalidatePath("/dashboard/manager/students");
-    revalidatePath("/dashboard/manager/students/[page]", "page");
 
     return success({
       message: "کلمه عبور دانش‌آموز با موفقیت به شماره تماس تغییر کرد.",
     });
   } catch (err) {
     console.error("RESET_STUDENT_PASSWORD_ERROR", err);
-
     return error("خطا در ریست کلمه عبور دانش‌آموز.");
   }
 }
@@ -247,32 +211,16 @@ export async function createStudent(
   input: unknown,
 ): Promise<ActionSuccess<StudentWithEnrollments> | ActionError> {
   const parsed = createStudentSchema.safeParse(input);
-
   if (!parsed.success) {
     return error(
       parsed.error.issues[0]?.message ?? "اطلاعات دانش‌آموز نامعتبر است.",
     );
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return error(scope.error);
 
-  // ⬅️ دریافت کانتکست فعال
-  const context = await getCurrentContext();
-  if (!context?.schoolId || !context.academicYearId) {
-    return error("کانتکست فعال مدرسه یا سال تحصیلی یافت نشد.");
-  }
-
-  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
-    return error("شما دسترسی لازم برای این عملیات را ندارید.");
-  }
-
-  const schoolId = context.schoolId;
-  const academicYearId = context.academicYearId;
-
-  const currentUsername = currentUser.email || currentUser.name || "unknown";
+  const { schoolId, academicYearId, username: currentUsername } = scope;
   const { firstName, lastName, nationalCode, phone, address, fatherName } =
     parsed.data;
 
@@ -285,7 +233,6 @@ export async function createStudent(
   let createdUserId: string | null = null;
 
   try {
-    // ۱. بررسی وجود دانش‌آموز
     const existingStudent = await prisma.student.findUnique({
       where: { nationalCode },
       select: { id: true },
@@ -295,7 +242,6 @@ export async function createStudent(
       return error("دانش‌آموزی با این کد ملی قبلاً ثبت شده است.");
     }
 
-    // ۲. ایجاد پروفایل دانش‌آموز
     const student = await prisma.student.create({
       data: {
         firstName,
@@ -310,7 +256,6 @@ export async function createStudent(
 
     createdStudentId = student.id;
 
-    // ۳. بررسی یا ایجاد User
     let authUser = await prisma.user.findUnique({
       where: { email: studentEmail },
       select: { id: true },
@@ -329,7 +274,6 @@ export async function createStudent(
           },
         });
 
-        // ⬅️ بعد از signUpEmail، کاربر را دوباره بخوان
         authUser = await prisma.user.findUnique({
           where: { email: studentEmail },
           select: { id: true },
@@ -339,18 +283,14 @@ export async function createStudent(
           where: { email: studentEmail },
           select: { id: true },
         });
-
         if (!authUser) throw authError;
       }
     }
 
-    if (!authUser) {
-      throw new Error("AUTH_USER_NOT_FOUND");
-    }
+    if (!authUser) throw new Error("AUTH_USER_NOT_FOUND");
 
     createdUserId = authUser.id;
 
-    // ۴. ⬅️ ساخت UserAssignment با نقش STUDENT
     const existingUserAssignment = await prisma.userAssignment.findFirst({
       where: {
         userId: authUser.id,
@@ -374,7 +314,6 @@ export async function createStudent(
 
     revalidatePath("/dashboard/manager/students");
 
-    // برگرداندن دانش‌آموز
     const finalStudent = await prisma.student.findUnique({
       where: { id: student.id },
       include: {
@@ -395,7 +334,6 @@ export async function createStudent(
 
     return success(mapStudent(finalStudent));
   } catch (err: any) {
-    // rollback
     if (createdStudentId) {
       await prisma.student
         .delete({ where: { id: createdStudentId } })
@@ -421,25 +359,20 @@ export async function updateStudent(
   input: unknown,
 ): Promise<ActionSuccess<StudentWithEnrollments> | ActionError> {
   const parsed = updateStudentSchema.safeParse(input);
-
   if (!parsed.success) {
     return error(
       parsed.error.issues[0]?.message ?? "اطلاعات ویرایش نامعتبر است.",
     );
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return error(scope.error);
 
-  const currentUsername = currentUser.email || currentUser.name || "unknown";
+  const currentUsername = scope.username;
 
   try {
     const student = await prisma.student.findUnique({
-      where: {
-        id: parsed.data.studentId,
-      },
+      where: { id: parsed.data.studentId },
     });
 
     if (!student) {
@@ -449,13 +382,9 @@ export async function updateStudent(
     const duplicateNationalCode = await prisma.student.findFirst({
       where: {
         nationalCode: parsed.data.nationalCode,
-        NOT: {
-          id: parsed.data.studentId,
-        },
+        NOT: { id: parsed.data.studentId },
       },
-      select: {
-        id: true,
-      },
+      select: { id: true },
     });
 
     if (duplicateNationalCode) {
@@ -463,9 +392,7 @@ export async function updateStudent(
     }
 
     const updatedStudent = await prisma.student.update({
-      where: {
-        id: parsed.data.studentId,
-      },
+      where: { id: parsed.data.studentId },
       data: {
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
@@ -484,9 +411,7 @@ export async function updateStudent(
             reshtehTahsili: true,
             klass: true,
           },
-          orderBy: {
-            createdAt: "desc",
-          },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
@@ -496,7 +421,6 @@ export async function updateStudent(
     if (err?.code === "P2002") {
       return error("دانش‌آموز دیگری با این کد ملی وجود دارد.");
     }
-
     return error("خطا در ویرایش دانش‌آموز.");
   }
 }
@@ -504,20 +428,14 @@ export async function updateStudent(
 export async function getStudentById(
   studentId: string,
 ): Promise<ActionSuccess<StudentWithEnrollments> | ActionError> {
-  if (!studentId) {
-    return error("شناسه دانش‌آموز نامعتبر است.");
-  }
+  if (!studentId) return error("شناسه دانش‌آموز نامعتبر است.");
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return error(scope.error);
 
   try {
     const student = await prisma.student.findUnique({
-      where: {
-        id: studentId,
-      },
+      where: { id: studentId },
       include: {
         enrollments: {
           include: {
@@ -527,23 +445,17 @@ export async function getStudentById(
             reshtehTahsili: true,
             klass: true,
           },
-          orderBy: {
-            createdAt: "desc",
-          },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
 
-    if (!student) {
-      return error("دانش‌آموز پیدا نشد.");
-    }
-
+    if (!student) return error("دانش‌آموز پیدا نشد.");
     return success(mapStudent(student));
   } catch (err) {
     return error("خطا در دریافت دانش‌آموز.");
   }
 }
-// actions/studentActions.ts
 
 export async function getStudents(
   page: number,
@@ -555,34 +467,10 @@ export async function getStudents(
     searchValue?: string;
   },
 ) {
-  const currentUser = await getCurrentUser();
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return { items: [], total: 0 };
 
-  if (!currentUser) {
-    return {
-      items: [],
-      total: 0,
-    };
-  }
-
-  // ⬅️ دریافت کانتکست فعال
-  const context = await getCurrentContext();
-
-  if (!context?.schoolId || !context.academicYearId) {
-    return {
-      items: [],
-      total: 0,
-    };
-  }
-
-  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
-    return {
-      items: [],
-      total: 0,
-    };
-  }
-
-  const schoolId = context.schoolId;
-  const academicYearId = context.academicYearId;
+  const { schoolId, academicYearId } = scope;
 
   const {
     sortField = "createdAt",
@@ -607,20 +495,14 @@ export async function getStudents(
     ? sortField
     : "createdAt";
 
-  // ⬅️ فیلتر اصلی: فقط دانش‌آموزانی که در این مدرسه و سال تحصیلی ثبت‌نام شده‌اند
   const where: any = {
     enrollments: {
-      some: {
-        schoolId,
-        academicYearId,
-      },
+      some: { schoolId, academicYearId },
     },
   };
 
-  // جستجو
   if (searchField && searchValue?.trim()) {
     const value = searchValue.trim();
-
     const allowedSearchFields = [
       "firstName",
       "lastName",
@@ -630,10 +512,7 @@ export async function getStudents(
     ];
 
     if (allowedSearchFields.includes(searchField)) {
-      where[searchField] = {
-        contains: value,
-        mode: "insensitive",
-      };
+      where[searchField] = { contains: value, mode: "insensitive" };
     }
   }
 
@@ -643,69 +522,28 @@ export async function getStudents(
         where,
         skip,
         take: pageSize,
-        orderBy: {
-          [orderByField]: sortOrder,
-        },
+        orderBy: { [orderByField]: sortOrder },
         include: {
           enrollments: {
-            // ⬅️ فقط ثبت‌نام‌های این مدرسه و سال را بیار
-            where: {
-              schoolId,
-              academicYearId,
-            },
+            where: { schoolId, academicYearId },
             include: {
-              school: {
-                select: {
-                  id: true,
-                  title: true,
-                },
-              },
-              academicYear: {
-                select: {
-                  id: true,
-                  title: true,
-                },
-              },
-              paye: {
-                select: {
-                  id: true,
-                  title: true,
-                },
-              },
-              reshtehTahsili: {
-                select: {
-                  id: true,
-                  title: true,
-                },
-              },
-              klass: {
-                select: {
-                  id: true,
-                  title: true,
-                },
-              },
+              school: { select: { id: true, title: true } },
+              academicYear: { select: { id: true, title: true } },
+              paye: { select: { id: true, title: true } },
+              reshtehTahsili: { select: { id: true, title: true } },
+              klass: { select: { id: true, title: true } },
             },
-            orderBy: {
-              createdAt: "desc",
-            },
+            orderBy: { createdAt: "desc" },
             take: 1,
           },
         },
       }),
-
       prisma.student.count({ where }),
     ]);
 
-    return {
-      items,
-      total,
-    };
+    return { items, total };
   } catch (error) {
     console.error("getStudents error:", error);
-
-    return {
-      items: [],
-      total: 0,
-    };
+    return { items: [], total: 0 };
   }
 }

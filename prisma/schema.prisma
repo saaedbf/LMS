@@ -129,7 +129,7 @@ enum SystemRole {
 
 enum SchoolRole {
   MANAGER
-  DEPUTY
+  DEPUTY  
   TEACHER
   STUDENT
 }
@@ -154,6 +154,7 @@ model User {
   systemRole    SystemRole  @default(USER)
   firstName     String?
   lastName      String?
+   deputy Deputy?  // ⬅️ اضافه شود
   teacher Teacher? 
   sessions      Session[]
   accounts      Account[]
@@ -236,6 +237,8 @@ model School {
   studentEnrollments StudentEnrollment[]
      teacherAssignments TeacherAssignment[]
       settings  SchoolSettings? 
+       teacherAbsences TeacherAbsence[]  // ⬅️ اضافه شود
+       deputies DeputyAssignment[]  // ⬅️ اضافه شود
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   @@map("school")
@@ -250,6 +253,8 @@ model AcademicYear {
   studentEnrollments StudentEnrollment[]
      teacherAssignments TeacherAssignment[]
       gradePeriods        GradePeriod[] 
+       teacherAbsences TeacherAbsence[]  // ⬅️ اضافه شود
+       deputies DeputyAssignment[]  // ⬅️ اضافه شود
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   @@map("academic_year")
@@ -321,6 +326,7 @@ model StudentEnrollment {
  absences StudentAbsence[]
  disciplinaris StudentDisciplinary[]
  grades  Grade[]
+ financialTransactions FinancialTransaction[]  // ⬅️ اضافه شود
   @@unique([studentId, schoolId, academicYearId])
   @@index([schoolId, academicYearId])
   @@index([payeId, reshtehTahsiliId])
@@ -347,7 +353,7 @@ model Teacher {
   // رابطه‌ها
   assignments          TeacherAssignment[]
   classCourses         ClassCourse[]
-
+  absences TeacherAbsence[]  // ⬅️ اضافه شود
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -595,4 +601,170 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+//14050702
+model TeacherAbsence {
+  id                   String      @id @default(cuid())
+  teacherId            String
+  schoolId             Int
+  academicYearId       Int
+  date                 DateTime    @db.Date
+  isFullDay            Boolean     @default(false)
+  startTime            String?
+  endTime              String?
+  reason               String?
+  lastEditedByUsername String?
+
+  teacher              Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  school               School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear         AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([schoolId, academicYearId])
+  @@index([teacherId])
+  @@index([date])
+  @@map("teacher_absence")
+}
+
+
+// ==========================================
+// معاون مدرسه
+// ==========================================
+model Deputy {
+  id                   String   @id @default(cuid())
+  firstName            String
+  lastName             String
+  nationalCode         String   @unique
+  phone                String
+  address              String?
+  lastEditedByUsername String?
+
+  // اگر معاون اکانت ورود دارد
+  userId               String?  @unique
+  user                 User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // روابط
+  assignments          DeputyAssignment[]
+  permissions          DeputyPermission[]
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([phone])
+  @@map("deputy")
+}
+
+// ==========================================
+// انتساب معاون به مدرسه و سال تحصیلی
+// ==========================================
+model DeputyAssignment {
+  id                   String       @id @default(cuid())
+  deputyId             String
+  schoolId             Int
+  academicYearId       Int
+  isActive             Boolean      @default(true)
+  lastEditedByUsername String?
+
+  deputy               Deputy       @relation(fields: [deputyId], references: [id], onDelete: Cascade)
+  school               School       @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  academicYear         AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@unique([deputyId, schoolId, academicYearId])
+  @@index([schoolId, academicYearId])
+  @@map("deputy_assignment")
+}
+
+// ==========================================
+// دسترسی‌های معاون
+// ==========================================
+model DeputyPermission {
+  id         String   @id @default(cuid())
+  deputyId   String
+  deputy     Deputy   @relation(fields: [deputyId], references: [id], onDelete: Cascade)
+
+  // ⬅️ کلید دسترسی (مثلاً "manage_students", "manage_teachers", ...)
+  permission String
+
+  createdAt  DateTime @default(now())
+
+  @@unique([deputyId, permission])
+  @@index([deputyId])
+  @@map("deputy_permission")
+}
+// ==========================================
+// انواع بدهکاری
+// ==========================================
+enum DebtType {
+  TUITION        // شهریه
+  SCHOOL_HELP    // کمک به مدرسه
+  KLASS_TAGHVIATY //کلاس تقویتی
+  KLASS_ADVANVE  //کلاس پیشرفته
+  BOOK           // کتاب
+  INSURANCE      // بیمه
+  BOOK_INSURANCE // کتاب و بیمه
+  TRIP           // اردو و بازدید
+  SCHOOL_SERVICE // سرویس مدرسه
+  OTHER          // سایر
+}
+
+// ==========================================
+// روش‌های پرداخت
+// ==========================================
+enum PaymentMethod {
+  POS            // کارتخوان
+  CARD_TO_CARD   // کارت به کارت
+  TRANSFER       // انتقال به حساب
+  CASH           // نقدی
+  CHECK          // چک
+  OTHER          // سایر
+}
+
+// ==========================================
+// نوع تراکنش
+// ==========================================
+enum TransactionType {
+  DEBT    // بدهکاری
+  PAYMENT // پرداخت
+}
+
+// ==========================================
+// تراکنش مالی
+// ==========================================
+model FinancialTransaction {
+  id                   String          @id @default(cuid())
+  studentEnrollmentId  String
+  type                 TransactionType
+
+  // ⬅️ مبلغ به تومان
+  amount               BigInt
+
+  // ⬅️ شرح
+  description          String?
+
+  // ⬅️ تاریخ ثبت (میلادی در دیتابیس، شمسی در UI)
+  date                 DateTime        @db.Date
+
+  // ⬅️ فقط برای بدهکاری
+  debtType             DebtType?
+
+  // ⬅️ فقط برای پرداخت
+  paymentMethod        PaymentMethod?
+
+  lastEditedByUsername String?
+
+  studentEnrollment    StudentEnrollment @relation(fields: [studentEnrollmentId], references: [id], onDelete: Cascade)
+
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@index([studentEnrollmentId])
+  @@index([date])
+  @@index([type])
+  @@map("financial_transaction")
 }

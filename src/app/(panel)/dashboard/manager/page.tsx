@@ -1,20 +1,8 @@
-"use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  MdDashboard,
-  MdSettings,
-  MdClass,
-  MdSchool,
-  MdPeople,
-  MdAssignment,
-  MdGrade,
-  MdEventBusy,
-  MdGavel,
-} from "react-icons/md";
-import { ChevronLeft } from "lucide-react";
 
+import { managerMenuItems } from "@/lib/hooks/menuItems";
+import { PERMISSIONS } from "@/lib/permissions";
+import { getCurrentContext } from "@/actions/authActions";
 type MenuItem = {
   title: string;
   href: string;
@@ -23,66 +11,36 @@ type MenuItem = {
   bgColor: string;
 };
 
-const menuItems: MenuItem[] = [
-  {
-    title: "تنظیمات اولیه",
-    href: "/dashboard/manager/settings",
-    icon: <MdSettings />,
-    color: "text-slate-600",
-    bgColor: "bg-slate-100",
-  },
-  {
-    title: "مدیریت کلاس",
-    href: "/dashboard/manager/classes",
-    icon: <MdClass />,
-    color: "text-indigo-600",
-    bgColor: "bg-indigo-100",
-  },
-  {
-    title: "مدیریت دانش‌آموزان",
-    href: "/dashboard/manager/students",
-    icon: <MdSchool />,
-    color: "text-blue-600",
-    bgColor: "bg-blue-100",
-  },
-  {
-    title: "مدیریت معلمان",
-    href: "/dashboard/manager/teachers",
-    icon: <MdPeople />,
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-100",
-  },
-  {
-    title: "تخصیص معلم به کلاس",
-    href: "/dashboard/manager/class-course",
-    icon: <MdAssignment />,
-    color: "text-purple-600",
-    bgColor: "bg-purple-100",
-  },
-  {
-    title: "تعریف دوره ثبت نمره",
-    href: "/dashboard/manager/grade-periods",
-    icon: <MdGrade />,
-    color: "text-amber-600",
-    bgColor: "bg-amber-100",
-  },
-  {
-    title: "مدیریت غیبت",
-    href: "/dashboard/manager/absence",
-    icon: <MdEventBusy />,
-    color: "text-rose-600",
-    bgColor: "bg-rose-100",
-  },
-  {
-    title: "مدیریت موارد انضباطی",
-    href: "/dashboard/manager/disiplinary",
-    icon: <MdGavel />,
-    color: "text-red-600",
-    bgColor: "bg-red-100",
-  },
-];
+export default async function ManagerDashboardPage() {
+  const { context, permissions } = await getCurrentContext();
 
-export default function ManagerDashboardPage() {
+  const isManager = context?.role === "MANAGER";
+
+  // ⬅️ نقشه دسترسی‌ها
+  const menuPermissionMap: Record<string, string> = {
+    "/dashboard/manager/students": PERMISSIONS.MANAGE_STUDENTS,
+    "/dashboard/manager/teachers": PERMISSIONS.MANAGE_TEACHERS,
+    "/dashboard/manager/classes": PERMISSIONS.MANAGE_CLASSES,
+    "/dashboard/manager/class-course": PERMISSIONS.MANAGE_CLASS_COURSES,
+    "/dashboard/manager/grade-periods": PERMISSIONS.MANAGE_GRADE_PERIODS,
+    "/dashboard/manager/absence": PERMISSIONS.MANAGE_ABSENCES,
+    "/dashboard/manager/disiplinary": PERMISSIONS.MANAGE_DISCIPLINARY,
+    "/dashboard/manager/settings": PERMISSIONS.MANAGE_SETTINGS,
+  };
+
+  // ⬅️ فیلتر منوها
+  const visibleItems = managerMenuItems.filter((item) => {
+    if (isManager) return true; // مدیر همه را می‌بیند
+
+    if (item.href === "/dashboard/manager") return true;
+    if (item.href === "/dashboard/manager/deputies") return true; // معاون نمی‌تواند معاون تعریف کند
+
+    const requiredPermission = menuPermissionMap[item.href];
+    if (!requiredPermission) return true;
+
+    return permissions.includes(requiredPermission);
+  });
+
   return (
     <div className="space-y-6">
       {/* هدر خوش‌آمد */}
@@ -95,7 +53,7 @@ export default function ManagerDashboardPage() {
 
       {/* دکمه‌های بزرگ */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {menuItems.map((item) => (
+        {visibleItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}

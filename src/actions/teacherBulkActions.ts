@@ -2,8 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getCurrentUser } from "@/lib/auth-server";
-import { getCurrentContext } from "@/actions/authActions";
+import { getScope } from "@/lib/auth-helpers";
+import { isScopeError } from "@/lib/auth-helpers-utils";
+import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { bulkTeachersSchema } from "@/lib/schemas/teacherBulk";
@@ -38,21 +39,11 @@ export async function bulkCreateTeachers(
     return error(parsed.error.issues[0]?.message || "داده نامعتبر");
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) return error("ابتدا وارد حساب کاربری شوید");
+  // ⬅️ یک خط جای ۱۲ خط
+  const scope = await getScope(PERMISSIONS.MANAGE_TEACHERS);
+  if (isScopeError(scope)) return error(scope.error);
 
-  const context = await getCurrentContext();
-  if (!context?.schoolId || !context.academicYearId) {
-    return error("کانتکست فعال یافت نشد");
-  }
-
-  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
-    return error("دسترسی ندارید");
-  }
-
-  const schoolId = context.schoolId;
-  const academicYearId = context.academicYearId;
-  const username = currentUser.email || currentUser.name || "unknown";
+  const { schoolId, academicYearId, username } = scope;
 
   const result: BulkResult = {
     total: parsed.data.teachers.length,
@@ -94,12 +85,11 @@ export async function bulkCreateTeachers(
         }
       }
 
-      // ۳. تراکنش: ساخت/به‌روزرسانی معلم + کاربر + انتساب
+      // ۳. تراکنش
       await prisma.$transaction(async (tx) => {
         let teacher = existingTeacher;
 
         if (!teacher) {
-          // ساخت معلم جدید
           teacher = await tx.teacher.create({
             data: {
               firstName: row.firstName,
@@ -111,7 +101,6 @@ export async function bulkCreateTeachers(
             },
           });
         } else {
-          // به‌روزرسانی معلم موجود
           teacher = await tx.teacher.update({
             where: { id: teacher.id },
             data: {
@@ -155,9 +144,7 @@ export async function bulkCreateTeachers(
           }
         }
 
-        if (!authUser) {
-          throw new Error("خطا در ساخت حساب کاربری");
-        }
+        if (!authUser) throw new Error("خطا در ساخت حساب کاربری");
 
         // ۵. اتصال Teacher به User
         await tx.teacher.update({
@@ -165,7 +152,7 @@ export async function bulkCreateTeachers(
           data: { userId: authUser.id },
         });
 
-        // ۶. ساخت UserAssignment (نقش TEACHER)
+        // ۶. UserAssignment
         const existingUserAssignment = await tx.userAssignment.findFirst({
           where: {
             userId: authUser.id,
@@ -187,7 +174,7 @@ export async function bulkCreateTeachers(
           });
         }
 
-        // ۷. ساخت TeacherAssignment (انتساب به مدرسه و سال)
+        // ۷. TeacherAssignment
         const existingTeacherAssignment = await tx.teacherAssignment.findFirst({
           where: {
             teacherId: teacher.id,

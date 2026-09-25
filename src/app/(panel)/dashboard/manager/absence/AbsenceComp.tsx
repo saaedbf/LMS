@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { AbsenceType } from "@prisma/client";
-import { AbsenceListItem } from "@/actions/absenceActions";
+import { AbsenceListItem, deleteAbsenceAction } from "@/actions/absenceActions";
 import TextSearch from "@/components/widgets/Elements/table/TextSearch";
 import DateSearch from "@/components/widgets/Elements/table/DateSearch";
 import StatusSearch from "@/components/widgets/Elements/table/StatusSearch";
@@ -25,10 +25,12 @@ import { convertGregorianToJalali } from "@/lib/dateUtils";
 import { AbsenceCreateForm } from "./AbsenceCreateForm";
 import AbsenceEditForm from "./AbsenceEditForm";
 import AbsenceScheduleEditForm from "./AbsenceScheduleEditForm";
-import AbsenceDeleteBtn from "./AbsenceDeleteBtn";
+
 import { FaCheck } from "react-icons/fa";
 import BackButton from "@/components/widgets/Elements/BackButton";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
+import ConfirmModal from "@/components/widgets/ConfirmModal";
 
 type Props = {
   initialItems?: AbsenceListItem[];
@@ -55,7 +57,24 @@ export default function AbsenceComp({
   const [openCreate, setOpenCreate] = useState(false);
   const [statusEditId, setStatusEditId] = useState<string | null>(null);
   const [scheduleEditId, setScheduleEditId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState("");
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await deleteAbsenceAction({ id });
 
+      if (res.status === "error") {
+        toast.error(res.error.toString());
+        throw new Error(res.error.toString());
+      }
+
+      toast.success("غیبت حذف شد");
+      // ⬅️ هیچ setDeletingId اینجا نگذارید
+      // ConfirmModal خودش setOpen(false) را صدا می‌زند
+    } catch (error) {
+      console.error(error);
+      throw error; // ⬅️ به ConfirmModal بگو خطا داد
+    }
+  };
   const renderStatusBadge = (type: AbsenceType) => {
     switch (type) {
       case "EXCUSED":
@@ -103,6 +122,7 @@ export default function AbsenceComp({
                 payes={payes}
                 klasses={klasses}
                 onCreated={() => setOpenCreate(false)}
+                setOpen={setOpenCreate} // ⬅️ این خط اضافه شود
               />
             </ActionModal>
           }
@@ -260,7 +280,27 @@ export default function AbsenceComp({
                           </ActionModal>
 
                           {/* حذف غیبت */}
-                          <AbsenceDeleteBtn absenceId={item.id} />
+                          {/* <AbsenceDeleteBtn absenceId={item.id} /> */}
+                          <ConfirmModal
+                            title="حذف غیبت دانش آموز"
+                            desc="آیا از حذف این رکورد مطمئن هستید؟"
+                            open={deletingId === item.id}
+                            setOpen={(isOpen) =>
+                              setDeletingId(isOpen ? item.id : "")
+                            }
+                            onConfirm={() => handleDelete(item.id)}
+                            confirmText="حذف"
+                            cancelText="انصراف"
+                            confirmButtonClassName="bg-rose-600 hover:bg-rose-700"
+                            trigger={
+                              <button
+                                type="button"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            }
+                          />
                         </div>
                       </TdActions>
                     </Tr>

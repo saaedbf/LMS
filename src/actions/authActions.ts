@@ -119,7 +119,6 @@ export async function getCurrentContext() {
 
   const isMaster = dbSession.user.systemRole === "MASTER";
 
-  // ✅ اصلاح: اگر isMaster هست یا activeAssignment ندارد، context را null برگردان
   const contextData =
     isMaster || !dbSession.activeAssignment
       ? null
@@ -128,10 +127,26 @@ export async function getCurrentContext() {
           role: dbSession.activeAssignment.role as SchoolRole,
           school: dbSession.activeAssignment.school,
           academicYear: dbSession.activeAssignment.academicYear,
-          // ✅ اضافه کردن schoolId و academicYearId برای دسترسی راحت‌تر
           schoolId: dbSession.activeAssignment.schoolId,
           academicYearId: dbSession.activeAssignment.academicYearId,
         };
+
+  // ⬅️⬇️ فقط این بخش اضافه می‌شود (خواندن دسترسی‌های معاون)
+  let permissions: string[] = [];
+
+  if (contextData?.role === "DEPUTY") {
+    const deputy = await prisma.deputy.findUnique({
+      where: { userId: dbSession.user.id },
+      include: {
+        permissions: true,
+      },
+    });
+
+    if (deputy) {
+      permissions = deputy.permissions.map((p) => p.permission);
+    }
+  }
+  // ⬆️⬆️ پایان بخش اضافه‌شده
 
   console.log("CTX", {
     userId: dbSession.user?.id,
@@ -139,18 +154,19 @@ export async function getCurrentContext() {
     isMaster,
     hasActiveAssignment: !!dbSession?.activeAssignment,
     contextData,
+    permissions, // ⬅️ برای دیباگ
   });
 
   return {
     user: dbSession.user,
     context: contextData,
     isMaster,
-    // ✅ اضافه کردن فیلدهای کمکی برای دسترسی راحت‌تر
     schoolId: contextData?.schoolId ?? null,
     academicYearId: contextData?.academicYearId ?? null,
     role: contextData?.role ?? null,
     school: contextData?.school ?? null,
     academicYear: contextData?.academicYear ?? null,
+    permissions, // ⬅️ فقط این خط اضافه می‌شود
   };
 }
 

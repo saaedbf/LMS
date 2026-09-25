@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth-server";
+import { getScope } from "@/lib/auth-helpers";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   createAbsencesSchema,
   CreateAbsencesSchema,
@@ -17,37 +18,9 @@ import { ListOptions } from "@/types/myTypes";
 import { AbsenceType, StudentAbsence } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { parseJalaliDate } from "@/lib/dateUtils";
+import { isScopeError } from "@/lib/auth-helpers-utils";
+
 const ABSENCE_ROUTE = "/dashboard/manager/absence";
-
-type SessionScope = { schoolId: number; academicYearId: number };
-
-async function getManagerScope(): Promise<SessionScope | { error: string }> {
-  const currentUser = await getCurrentUser();
-
-  if (!currentUser || !currentUser.id) {
-    return { error: "برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید." };
-  }
-
-  const assignment = await prisma.userAssignment.findFirst({
-    where: {
-      userId: currentUser.id,
-      role: "MANAGER",
-    },
-  });
-
-  if (!assignment) {
-    return { error: "شما دسترسی مدیر مدرسه در این جلسه را ندارید" };
-  }
-
-  if (assignment.schoolId == null || assignment.academicYearId == null) {
-    return { error: "انتساب فعال معتبر نیست" };
-  }
-
-  return {
-    schoolId: assignment.schoolId,
-    academicYearId: assignment.academicYearId,
-  };
-}
 
 export type AbsenceListItem = StudentAbsence & {
   studentEnrollment: {
@@ -57,18 +30,15 @@ export type AbsenceListItem = StudentAbsence & {
   };
 };
 
-// ==========================================
-// 1. دریافت لیست غیبت‌ها (ساده، سریع و بدون باگ)
-// ==========================================
 export async function getAbsences(
   page: number,
   pageSize: number,
   options?: ListOptions,
 ): Promise<{ items: AbsenceListItem[]; total: number }> {
-  const scope = await getManagerScope();
-  if ("error" in scope) {
-    return { items: [], total: 0 };
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_ABSENCES);
+  if (isScopeError(scope)) return { items: [], total: 0 };
+
+  const { schoolId, academicYearId } = scope;
 
   const {
     sortField = "createdAt",
@@ -79,15 +49,10 @@ export async function getAbsences(
 
   const skip = (page - 1) * pageSize;
 
-  // ۱. فیلتر پایه برای مدرسه و سال تحصیلی جاری
   const where: any = {
-    studentEnrollment: {
-      schoolId: scope.schoolId,
-      academicYearId: scope.academicYearId,
-    },
+    studentEnrollment: { schoolId, academicYearId },
   };
 
-  // ۲. اضافه کردن جستجوی پویا
   if (searchField && searchValue?.trim()) {
     const val = searchValue.trim();
 
@@ -100,21 +65,17 @@ export async function getAbsences(
           ],
         };
         break;
-
       case "paye":
         where.studentEnrollment.paye = {
           title: { contains: val, mode: "insensitive" },
         };
         break;
-
       case "klass":
         where.studentEnrollment.klass = {
           title: { contains: val, mode: "insensitive" },
         };
         break;
-
       case "absenceType": {
-        // نگاشت به Enum
         const typeMap: { [key: string]: AbsenceType } = {
           موجه: "EXCUSED",
           غیرموجه: "UNEXCUSED",
@@ -124,124 +85,47 @@ export async function getAbsences(
           unknown: "UNKNOWN",
         };
         const mappedType = typeMap[val.toLowerCase()] || typeMap[val];
-        if (mappedType) {
-          where.absenceType = mappedType;
-        } else {
-          // اگر مقدار معتبر نبود، جستجو را به صورت contains انجام بده
-          where.absenceType = { contains: val, mode: "insensitive" };
-        }
+        if (mappedType) where.absenceType = mappedType;
         break;
       }
-
-      // در قسمت case "date":
       case "date": {
-        // ابتدا تلاش برای parse تاریخ شمسی
         const jalaliDate = parseJalaliDate(val);
         if (jalaliDate) {
           const startOfDay = new Date(jalaliDate);
           startOfDay.setHours(0, 0, 0, 0);
           const endOfDay = new Date(jalaliDate);
           endOfDay.setHours(23, 59, 59, 999);
-
-          where.date = {
-            gte: startOfDay,
-            lte: endOfDay,
-          };
+          where.date = { gte: startOfDay, lte: endOfDay };
           break;
         }
-
-        // اگر تاریخ شمسی نبود، تلاش برای parse تاریخ میلادی
         const dateObj = new Date(val);
         if (!isNaN(dateObj.getTime())) {
           const startOfDay = new Date(dateObj);
           startOfDay.setHours(0, 0, 0, 0);
           const endOfDay = new Date(dateObj);
           endOfDay.setHours(23, 59, 59, 999);
-
-          where.date = {
-            gte: startOfDay,
-            lte: endOfDay,
-          };
-          break;
+          where.date = { gte: startOfDay, lte: endOfDay };
         }
-
-        // در غیر این صورت، جستجوی contains
-        where.date = { contains: val, mode: "insensitive" };
         break;
       }
-
       case "reason":
         where.reason = { contains: val, mode: "insensitive" };
         break;
-
-      case "startTime":
-        where.startTime = { contains: val, mode: "insensitive" };
-        break;
-
-      case "endTime":
-        where.endTime = { contains: val, mode: "insensitive" };
-        break;
-
-      default:
-        // برای فیلدهای دیگر
-        if (searchField === "id") {
-          where.id = val;
-        } else {
-          where[searchField] = { contains: val, mode: "insensitive" };
-        }
     }
   }
 
-  // ۳. مرتب‌سازی (OrderBy)
   let orderBy: any = { [sortField]: sortOrder };
 
   switch (sortField) {
     case "studentName":
-      orderBy = {
-        studentEnrollment: {
-          student: { firstName: sortOrder },
-        },
-      };
+      orderBy = { studentEnrollment: { student: { firstName: sortOrder } } };
       break;
-
     case "paye":
-      orderBy = {
-        studentEnrollment: {
-          paye: { title: sortOrder },
-        },
-      };
+      orderBy = { studentEnrollment: { paye: { title: sortOrder } } };
       break;
-
     case "klass":
-      orderBy = {
-        studentEnrollment: {
-          klass: { title: sortOrder },
-        },
-      };
+      orderBy = { studentEnrollment: { klass: { title: sortOrder } } };
       break;
-
-    case "absenceType":
-      orderBy = { absenceType: sortOrder };
-      break;
-
-    case "date":
-      orderBy = { date: sortOrder };
-      break;
-
-    case "reason":
-      orderBy = { reason: sortOrder };
-      break;
-
-    case "startTime":
-      orderBy = { startTime: sortOrder };
-      break;
-
-    case "endTime":
-      orderBy = { endTime: sortOrder };
-      break;
-
-    default:
-      orderBy = { [sortField]: sortOrder };
   }
 
   try {
@@ -257,12 +141,8 @@ export async function getAbsences(
               student: {
                 select: { id: true, firstName: true, lastName: true },
               },
-              paye: {
-                select: { id: true, title: true },
-              },
-              klass: {
-                select: { id: true, title: true },
-              },
+              paye: { select: { id: true, title: true } },
+              klass: { select: { id: true, title: true } },
             },
           },
         },
@@ -277,64 +157,14 @@ export async function getAbsences(
   }
 }
 
-// تابع کمکی برای parse تاریخ
-function parseDate(dateStr: string): Date | null {
-  // فرمت‌های پشتیبانی شده
-  const patterns = [
-    // فرمت شمسی: 1402/01/01 یا 1402-01-01
-    /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/,
-    // فرمت میلادی: 2023-01-01
-    /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = dateStr.match(pattern);
-    if (match) {
-      const year = parseInt(match[1]);
-      const month = parseInt(match[2]);
-      const day = parseInt(match[3]);
-
-      // بررسی اعتبار تاریخ
-      if (year > 0 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        try {
-          // برای تاریخ شمسی، باید به میلادی تبدیل شود
-          // اینجا یک تبدیل ساده انجام می‌دهیم
-          // برای دقت بیشتر از کتابخانه‌های تبدیل تاریخ استفاده کنید
-          const dateObj = new Date(year, month - 1, day);
-          if (!isNaN(dateObj.getTime())) {
-            return dateObj;
-          }
-        } catch (e) {
-          console.error("Date parsing error:", e);
-        }
-      }
-    }
-  }
-
-  // اگر فرمت شناسایی نشد، try catch برای new Date
-  try {
-    const dateObj = new Date(dateStr);
-    if (!isNaN(dateObj.getTime())) {
-      return dateObj;
-    }
-  } catch (e) {
-    console.error("Date parsing error:", e);
-  }
-
-  return null;
-}
-
-// ==========================================
-// 2. توابع فیلتر و انتخاب دانش‌آموز برای فرم ثبت
-// ==========================================
 export async function getAbsenceFilterOptions(): Promise<{
   status: "success" | "error";
   payes?: { id: number; title: string }[];
   klasses?: { id: string; title: string; payeId: number }[];
 }> {
   try {
-    const scope = await getManagerScope();
-    if ("error" in scope) return { status: "error" };
+    const scope = await getScope(PERMISSIONS.MANAGE_ABSENCES);
+    if (isScopeError(scope)) return { status: "error" };
 
     const enrollments = await prisma.studentEnrollment.findMany({
       where: {
@@ -383,8 +213,8 @@ export async function getStudentsForAbsence(filters: {
   klassId?: string;
 }): Promise<ActionResult<StudentOption[]>> {
   try {
-    const scope = await getManagerScope();
-    if ("error" in scope) return { status: "error", error: scope.error };
+    const scope = await getScope(PERMISSIONS.MANAGE_ABSENCES);
+    if (isScopeError(scope)) return { status: "error", error: scope.error };
 
     const rows = await prisma.studentEnrollment.findMany({
       where: {
@@ -416,9 +246,6 @@ export async function getStudentsForAbsence(filters: {
   }
 }
 
-// ==========================================
-// 3. عملیات ثبت، ویرایش و حذف غیبت
-// ==========================================
 export async function createAbsencesAction(
   data: CreateAbsencesSchema,
 ): Promise<ActionResult<{ created: number; skipped: number }>> {
@@ -431,25 +258,25 @@ export async function createAbsencesAction(
       };
     }
 
-    const { enrollmentIds, date, isFullDay, startTime, endTime } = parsed.data;
+    const scope = await getScope(PERMISSIONS.MANAGE_ABSENCES);
+    if (isScopeError(scope)) return { status: "error", error: scope.error };
 
-    const scope = await getManagerScope();
-    if ("error" in scope) return { status: "error", error: scope.error };
+    const { enrollmentIds, date, isFullDay, startTime, endTime } = parsed.data;
+    const { schoolId, academicYearId } = scope;
 
     const parsedDate = new Date(date);
     if (isNaN(parsedDate.getTime())) {
       return { status: "error", error: "تاریخ نامعتبر است" };
     }
 
-    // ⬅️ برای روز کامل، ساعت‌ها خالی می‌شوند
     const finalStartTime = isFullDay ? null : startTime || null;
     const finalEndTime = isFullDay ? null : endTime || null;
 
     const enrollments = await prisma.studentEnrollment.findMany({
       where: {
         id: { in: enrollmentIds },
-        schoolId: scope.schoolId,
-        academicYearId: scope.academicYearId,
+        schoolId,
+        academicYearId,
       },
       select: { id: true },
     });
@@ -463,7 +290,6 @@ export async function createAbsencesAction(
       let skipped = 0;
 
       for (const e of enrollments) {
-        // بررسی تکراری
         const exists = await tx.studentAbsence.findFirst({
           where: {
             studentEnrollmentId: e.id,
@@ -515,8 +341,8 @@ export async function updateAbsenceAction(
       };
     }
 
-    const scope = await getManagerScope();
-    if ("error" in scope) return { status: "error", error: scope.error };
+    const scope = await getScope(PERMISSIONS.MANAGE_ABSENCES);
+    if (isScopeError(scope)) return { status: "error", error: scope.error };
 
     const absence = await prisma.studentAbsence.findFirst({
       where: {
@@ -557,8 +383,8 @@ export async function updateAbsenceScheduleAction(
       };
     }
 
-    const scope = await getManagerScope();
-    if ("error" in scope) return { status: "error", error: scope.error };
+    const scope = await getScope(PERMISSIONS.MANAGE_ABSENCES);
+    if (isScopeError(scope)) return { status: "error", error: scope.error };
 
     const parsedDate = new Date(`${parsed.data.date}T00:00:00`);
     if (isNaN(parsedDate.getTime())) {
@@ -576,7 +402,6 @@ export async function updateAbsenceScheduleAction(
     });
     if (!absence) return { status: "error", error: "غیبت یافت نشد" };
 
-    // ⬅️ برای روز کامل، ساعت‌ها خالی
     const finalStartTime = parsed.data.isFullDay
       ? null
       : parsed.data.startTime || null;
@@ -584,7 +409,6 @@ export async function updateAbsenceScheduleAction(
       ? null
       : parsed.data.endTime || null;
 
-    // بررسی تکراری (فقط در حالت ساعتی)
     if (!parsed.data.isFullDay && finalStartTime && finalEndTime) {
       const duplicate = await prisma.studentAbsence.findFirst({
         where: {
@@ -595,7 +419,6 @@ export async function updateAbsenceScheduleAction(
           endTime: finalEndTime,
           id: { not: absence.id },
         },
-        select: { id: true },
       });
 
       if (duplicate) {
@@ -607,7 +430,6 @@ export async function updateAbsenceScheduleAction(
       }
     }
 
-    // بررسی تکراری (در حالت روز کامل)
     if (parsed.data.isFullDay) {
       const duplicate = await prisma.studentAbsence.findFirst({
         where: {
@@ -616,7 +438,6 @@ export async function updateAbsenceScheduleAction(
           isFullDay: true,
           id: { not: absence.id },
         },
-        select: { id: true },
       });
 
       if (duplicate) {
@@ -657,8 +478,8 @@ export async function deleteAbsenceAction(
       };
     }
 
-    const scope = await getManagerScope();
-    if ("error" in scope) return { status: "error", error: scope.error };
+    const scope = await getScope(PERMISSIONS.MANAGE_ABSENCES);
+    if (isScopeError(scope)) return { status: "error", error: scope.error };
 
     const absence = await prisma.studentAbsence.findFirst({
       where: {

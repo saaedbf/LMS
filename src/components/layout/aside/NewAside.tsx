@@ -19,9 +19,14 @@ interface NewAsideProps {
     systemRole?: SystemRole | null;
   };
   role: SchoolRole | null;
+  permissions?: string[]; // ⬅️ اضافه کنید
 }
 
-export default function NewAside({ user, role }: NewAsideProps) {
+export default function NewAside({
+  user,
+  role,
+  permissions = [],
+}: NewAsideProps) {
   const [open, setOpen] = useState(true);
   const [innerWidth, setInnerWidth] = useState(0);
   const router = useRouter();
@@ -161,6 +166,7 @@ export default function NewAside({ user, role }: NewAsideProps) {
             open={open}
             systemRole={systemRole}
             schoolRole={role ?? "STUDENT"}
+            permissions={permissions} // ⬅️ اضافه کنید
           />
 
           {open && (

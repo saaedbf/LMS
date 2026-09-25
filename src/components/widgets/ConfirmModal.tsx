@@ -7,8 +7,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
+  AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import { toast } from "react-toastify";
 
 type ConfirmModalProps = {
   children?: ReactNode;
@@ -35,12 +37,21 @@ export default function ConfirmModal({
   onConfirm,
   confirmText = "تأیید",
   cancelText = "انصراف",
-  loading = false,
   contentClassName = "",
   confirmButtonClassName = "bg-amber-600 hover:bg-amber-700",
 }: ConfirmModalProps) {
+  const [loading, setLoading] = useState(false);
+
   const handleConfirm = async () => {
-    await onConfirm();
+    try {
+      setLoading(true);
+      await onConfirm();
+      setOpen(false); // ⬅️ مودال بسته می‌شود
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -67,24 +78,22 @@ export default function ConfirmModal({
             <button
               type="button"
               disabled={loading}
-              onClick={() => {
-                setOpen(false);
-              }}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setOpen(false)}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
             >
               {cancelText}
             </button>
 
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => {
-                void handleConfirm();
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirm();
               }}
-              className={`rounded-md px-4 py-2 text-sm text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${confirmButtonClassName}`}
+              disabled={loading}
+              className={`rounded-md px-4 py-2 text-sm text-white transition disabled:opacity-50 ${confirmButtonClassName}`}
             >
               {loading ? "در حال انجام..." : confirmText}
-            </button>
+            </AlertDialogAction>
           </div>
         </AlertDialogContent>
       </AlertDialog>

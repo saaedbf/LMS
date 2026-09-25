@@ -2,8 +2,9 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth-server";
-import { getCurrentContext } from "@/actions/authActions";
+import { getScope } from "@/lib/auth-helpers";
+import { isScopeError } from "@/lib/auth-helpers-utils";
+import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { updateSchoolSettingsSchema } from "@/lib/schemas/schoolSettings";
 
@@ -24,24 +25,21 @@ function error(message: string): ActionError {
 // ۱. دریافت تنظیمات مدرسه (یا ایجاد پیش‌فرض)
 // ==========================================
 export async function getSchoolSettings() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) return error("ابتدا وارد حساب کاربری شوید");
-
-  const context = await getCurrentContext();
-  if (!context?.schoolId) return error("کانتکست فعال یافت نشد");
-
-  if (context.role !== "MANAGER") return error("دسترسی ندارید");
+  // ⬅️ یک خط جای ۸ خط
+  const scope = await getScope(PERMISSIONS.MANAGE_SETTINGS, {
+    managerOnly: true,
+  });
+  if (isScopeError(scope)) return error(scope.error);
 
   try {
-    // اگر تنظیمات وجود نداشت، یکی با مقادیر پیش‌فرض بساز
     let settings = await prisma.schoolSettings.findUnique({
-      where: { schoolId: context.schoolId },
+      where: { schoolId: scope.schoolId },
     });
 
     if (!settings) {
       settings = await prisma.schoolSettings.create({
         data: {
-          schoolId: context.schoolId,
+          schoolId: scope.schoolId,
           gradingType: "NUMERIC",
           showTuitionInStudentPanel: true,
           showDisciplinaryInStudentPanel: true,
@@ -67,19 +65,15 @@ export async function updateSchoolSettings(input: unknown) {
     return error(parsed.error.issues[0]?.message || "داده نامعتبر");
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) return error("ابتدا وارد حساب کاربری شوید");
-
-  const context = await getCurrentContext();
-  if (!context?.schoolId) return error("کانتکست فعال یافت نشد");
-
-  if (context.role !== "MANAGER") return error("دسترسی ندارید");
-
-  const username = currentUser.email || currentUser.name || "unknown";
+  // ⬅️ یک خط جای ۸ خط
+  const scope = await getScope(PERMISSIONS.MANAGE_SETTINGS, {
+    managerOnly: true,
+  });
+  if (isScopeError(scope)) return error(scope.error);
 
   try {
     const settings = await prisma.schoolSettings.upsert({
-      where: { schoolId: context.schoolId },
+      where: { schoolId: scope.schoolId },
       update: {
         gradingType: parsed.data.gradingType,
         showTuitionInStudentPanel: parsed.data.showTuitionInStudentPanel,
@@ -88,10 +82,10 @@ export async function updateSchoolSettings(input: unknown) {
         showAbsencesInStudentPanel: parsed.data.showAbsencesInStudentPanel,
         showReportCardsInStudentPanel:
           parsed.data.showReportCardsInStudentPanel,
-        lastEditedByUsername: username,
+        lastEditedByUsername: scope.username,
       },
       create: {
-        schoolId: context.schoolId,
+        schoolId: scope.schoolId,
         gradingType: parsed.data.gradingType,
         showTuitionInStudentPanel: parsed.data.showTuitionInStudentPanel,
         showDisciplinaryInStudentPanel:
@@ -99,7 +93,7 @@ export async function updateSchoolSettings(input: unknown) {
         showAbsencesInStudentPanel: parsed.data.showAbsencesInStudentPanel,
         showReportCardsInStudentPanel:
           parsed.data.showReportCardsInStudentPanel,
-        lastEditedByUsername: username,
+        lastEditedByUsername: scope.username,
       },
     });
 

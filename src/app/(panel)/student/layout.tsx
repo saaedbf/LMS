@@ -1,7 +1,7 @@
-// app/(panel)/student/layout.tsx
 import React, { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentContext } from "@/actions/authActions";
+import { prisma } from "@/lib/prisma";
 import StudentHeader from "./StudentHeader";
 
 export default async function StudentLayout({
@@ -23,7 +23,7 @@ export default async function StudentLayout({
     redirect("/select-context");
   }
 
-  // ⬅️ اگر دانش‌آموز نیست، به پنل خودش برود
+  // اگر دانش‌آموز نیست، به پنل خودش برود
   if (context.role !== "STUDENT") {
     if (context.role === "MANAGER" || context.role === "DEPUTY") {
       redirect("/dashboard");
@@ -33,6 +33,17 @@ export default async function StudentLayout({
     }
   }
 
+  // ⬅️ خواندن تنظیمات مدرسه
+  const settings = await prisma.schoolSettings.findUnique({
+    where: { schoolId: context.schoolId },
+    select: {
+      showTuitionInStudentPanel: true,
+      showDisciplinaryInStudentPanel: true,
+      showAbsencesInStudentPanel: true,
+      showReportCardsInStudentPanel: true,
+    },
+  });
+
   return (
     <div className="min-h-screen bg-slate-50">
       <StudentHeader
@@ -41,6 +52,10 @@ export default async function StudentLayout({
         userName={
           user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim()
         }
+        showReportCards={settings?.showReportCardsInStudentPanel ?? true}
+        showAbsences={settings?.showAbsencesInStudentPanel ?? true}
+        showDisciplinary={settings?.showDisciplinaryInStudentPanel ?? true}
+        showTuition={settings?.showTuitionInStudentPanel ?? true}
       />
 
       <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">

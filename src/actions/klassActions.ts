@@ -1,6 +1,9 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { getScope } from "@/lib/auth-helpers";
+import { isScopeError } from "@/lib/auth-helpers-utils";
+import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { ActionResult } from "@/types/index";
 import {
@@ -9,7 +12,6 @@ import {
 } from "@/components/widgets/Elements/table/table-utils2";
 import { ListOptions } from "@/types/myTypes";
 
-// تعریف ستون‌های جدول کلاس‌ها برای جستجو و مرتب‌سازی
 const columns: Column[] = [
   { field: "id", type: "string", searchable: true, sortable: true },
   { field: "title", type: "string", searchable: true, sortable: true },
@@ -18,24 +20,17 @@ const columns: Column[] = [
     type: "string",
     searchable: true,
     sortable: true,
-    relation: {
-      model: "paye",
-      field: "title",
-    },
+    relation: { model: "paye", field: "title" },
   },
   {
     field: "reshtehTahsili.title",
     type: "string",
     searchable: true,
     sortable: true,
-    relation: {
-      model: "reshtehTahsili",
-      field: "title",
-    },
+    relation: { model: "reshtehTahsili", field: "title" },
   },
 ];
 
-// واکشی کلاس‌های مدرسه در سال تحصیلی مشخص
 export async function getSchoolKlasses(
   schoolId: number,
   academicYearId: number,
@@ -45,18 +40,11 @@ export async function getSchoolKlasses(
 ) {
   return getTableData<any>(prisma.klass, columns, page, pageSize, {
     ...options,
-    extraWhere: {
-      schoolId,
-      academicYearId,
-    },
-    extraInclude: {
-      paye: true,
-      reshtehTahsili: true,
-    },
+    extraWhere: { schoolId, academicYearId },
+    extraInclude: { paye: true, reshtehTahsili: true },
   });
 }
 
-// واکشی پایه‌ها و رشته‌های مرتبط با دوره تحصیلی مدرسه
 export async function getSchoolDoreOptions(schoolId: number) {
   const school = await prisma.school.findUnique({
     where: { id: schoolId },
@@ -83,7 +71,6 @@ export async function getSchoolDoreOptions(schoolId: number) {
   };
 }
 
-// ثبت کلاس جدید
 export async function createKlass(
   title: string,
   schoolId: number,
@@ -91,8 +78,12 @@ export async function createKlass(
   payeId: number,
   reshtehTahsiliId: number,
 ): Promise<ActionResult<null>> {
+  const scope = await getScope(PERMISSIONS.MANAGE_CLASSES);
+  if (isScopeError(scope)) {
+    return { status: "error", error: scope.error };
+  }
+
   try {
-    // بررسی تکراری نبودن کلاس در مدرسه و سال تحصیلی
     const existing = await prisma.klass.findFirst({
       where: {
         title: title.trim(),
@@ -120,7 +111,7 @@ export async function createKlass(
       },
     });
 
-    revalidatePath(`/dashboard/manager/classes`);
+    revalidatePath("/dashboard/manager/classes");
     return { status: "success", data: null };
   } catch (error) {
     console.error(error);
@@ -128,19 +119,22 @@ export async function createKlass(
   }
 }
 
-// ویرایش عنوان کلاس (تنها دکمه ویرایش مورد نیاز)
 export async function updateKlass(
   klassId: string,
   newTitle: string,
   schoolId: number,
 ): Promise<ActionResult<null>> {
+  const scope = await getScope(PERMISSIONS.MANAGE_CLASSES);
+  if (isScopeError(scope)) {
+    return { status: "error", error: scope.error };
+  }
+
   try {
     const klass = await prisma.klass.findUnique({ where: { id: klassId } });
     if (!klass || klass.schoolId !== schoolId) {
       return { status: "error", error: "کلاس مورد نظر یافت نشد" };
     }
 
-    // بررسی عدم تکراری بودن نام جدید با سایر کلاس‌های همان پایه/رشته مدرسه
     const existing = await prisma.klass.findFirst({
       where: {
         id: { not: klassId },
@@ -161,7 +155,7 @@ export async function updateKlass(
       data: { title: newTitle.trim() },
     });
 
-    revalidatePath(`/dashboard/manager/classes`);
+    revalidatePath("/dashboard/manager/classes");
     return { status: "success", data: null };
   } catch (error) {
     console.error(error);
@@ -169,13 +163,20 @@ export async function updateKlass(
   }
 }
 
-// حذف کلاس
 export async function deleteKlass(
   klassId: string,
   schoolId: number,
 ): Promise<ActionResult<null>> {
+  const scope = await getScope(PERMISSIONS.MANAGE_CLASSES);
+  if (isScopeError(scope)) {
+    return { status: "error", error: scope.error };
+  }
+
   try {
-    const klass = await prisma.klass.findUnique({ where: { id: klassId } });
+    const klass = await prisma.klass.findUnique({
+      where: { id: klassId },
+    });
+
     if (!klass || klass.schoolId !== schoolId) {
       return {
         status: "error",
@@ -183,14 +184,36 @@ export async function deleteKlass(
       };
     }
 
+    const studentCount = await prisma.studentEnrollment.count({
+      where: { klassId },
+    });
+
+    if (studentCount > 0) {
+      return {
+        status: "error",
+        error: `این کلاس ${studentCount} دانش‌آموز دارد. ابتدا دانش‌آموزان را از کلاس حذف یا به کلاس دیگری منتقل کنید.`,
+      };
+    }
+
+    const classCourseCount = await prisma.classCourse.count({
+      where: { klassId },
+    });
+
+    if (classCourseCount > 0) {
+      return {
+        status: "error",
+        error: `این کلاس ${classCourseCount} تخصیص معلم دارد. ابتدا از صفحه "تخصیص معلم به کلاس" تخصیص‌ها را حذف کنید.`,
+      };
+    }
+
     await prisma.klass.delete({
       where: { id: klassId },
     });
 
-    revalidatePath(`/dashboard/manager/classes`);
+    revalidatePath("/dashboard/manager/classes");
     return { status: "success", data: null };
   } catch (error) {
-    console.error(error);
+    console.error("DELETE_KLASS_ERROR", error);
     return { status: "error", error: "خطا در حذف کلاس" };
   }
 }

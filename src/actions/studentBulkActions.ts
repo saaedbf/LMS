@@ -2,8 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getCurrentUser } from "@/lib/auth-server";
-import { getCurrentContext } from "@/actions/authActions";
+import { getScope } from "@/lib/auth-helpers";
+import { isScopeError } from "@/lib/auth-helpers-utils";
+import { PERMISSIONS } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { bulkStudentsSchema } from "@/lib/schemas/studentBulk";
@@ -38,21 +39,11 @@ export async function bulkCreateStudents(
     return error(parsed.error.issues[0]?.message || "داده نامعتبر");
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) return error("ابتدا وارد حساب کاربری شوید");
+  // ⬅️ یک خط جای ۱۲ خط
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return error(scope.error);
 
-  const context = await getCurrentContext();
-  if (!context?.schoolId || !context.academicYearId) {
-    return error("کانتکست فعال یافت نشد");
-  }
-
-  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
-    return error("دسترسی ندارید");
-  }
-
-  const schoolId = context.schoolId;
-  const academicYearId = context.academicYearId;
-  const username = currentUser.email || currentUser.name || "unknown";
+  const { schoolId, academicYearId, username } = scope;
 
   // پیدا کردن کلاس و استخراج پایه و رشته از آن
   const klass = await prisma.klass.findFirst({
@@ -88,7 +79,6 @@ export async function bulkCreateStudents(
     const rowNumber = i + 2;
 
     try {
-      // بررسی تکراری نبودن دانش‌آموز در این مدرسه و سال
       const existingEnrollment = await prisma.studentEnrollment.findFirst({
         where: {
           student: { nationalCode: row.nationalCode },
@@ -108,7 +98,6 @@ export async function bulkCreateStudents(
       }
 
       await prisma.$transaction(async (tx) => {
-        // ۱. دانش‌آموز (یا استفاده از موجود)
         let student = await tx.student.findUnique({
           where: { nationalCode: row.nationalCode },
         });
@@ -126,7 +115,6 @@ export async function bulkCreateStudents(
           });
         }
 
-        // ۲. ثبت‌نام در کلاس انتخاب‌شده
         await tx.studentEnrollment.create({
           data: {
             studentId: student.id,
@@ -139,7 +127,6 @@ export async function bulkCreateStudents(
           },
         });
 
-        // ۳. حساب کاربری
         const studentEmail = `${row.nationalCode}@lms.local`.toLowerCase();
 
         let authUser = await tx.user.findUnique({
@@ -169,7 +156,6 @@ export async function bulkCreateStudents(
           }
         }
 
-        // ۴. UserAssignment
         if (authUser) {
           const existingAssignment = await tx.userAssignment.findFirst({
             where: {

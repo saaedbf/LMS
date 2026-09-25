@@ -3,7 +3,7 @@
 import { Student } from "@prisma/client";
 import React from "react";
 import BulkStudentUpload from "./BulkStudentUpload";
-import { Users } from "lucide-react";
+import { Trash2, Users } from "lucide-react";
 import CreateBtn from "@/components/widgets/Elements/CreateBtn";
 import HeadTr from "@/components/widgets/Elements/table/HeaddTr";
 import Table from "@/components/widgets/Elements/table/Table";
@@ -24,6 +24,7 @@ import { toast } from "react-toastify";
 import { resetStudentPassword } from "@/actions/studentActions";
 import ConfirmModal from "@/components/widgets/ConfirmModal";
 import BackButton from "@/components/widgets/Elements/BackButton";
+import { deleteStudentEnrollment } from "@/actions/studentEnrollmentActions";
 type EnrollmentForTable = {
   id: string;
   schoolId: number;
@@ -108,6 +109,9 @@ export default function StudentComp({
   const [editingStudentId, setEditingStudentId] = React.useState<string | null>(
     null,
   );
+  const [deletingEnrollmentId, setDeletingEnrollmentId] = React.useState<
+    string | null
+  >(null);
   const [openBulk, setOpenBulk] = React.useState(false);
   const [resetPasswordStudent, setResetPasswordStudent] =
     React.useState<Student | null>(null);
@@ -139,7 +143,22 @@ export default function StudentComp({
       setResettingStudentId(null);
     }
   };
+  const handleDeleteEnrollment = async (enrollmentId: string) => {
+    try {
+      const res = await deleteStudentEnrollment(enrollmentId);
 
+      if (res.status === "error") {
+        toast.error(res.error);
+        throw new Error(res.error);
+      }
+
+      toast.success("ثبت‌نام با موفقیت حذف شد");
+      // ConfirmModal خودش setOpen(false) را صدا می‌زند
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
   return (
     <div className="p-2">
       <TitlePage>لیست دانش‌آموزان</TitlePage>
@@ -396,6 +415,50 @@ export default function StudentComp({
                               <div className="mt-2 font-semibold" dir="ltr">
                                 {student.phone}
                               </div>
+                            </div>
+                          </ConfirmModal>
+                          <ConfirmModal
+                            title="حذف ثبت‌نام از این مدرسه"
+                            desc={`آیا از حذف ثبت‌نام دانش‌آموز "${student.firstName} ${student.lastName}" از این مدرسه و سال تحصیلی مطمئن هستید؟`}
+                            open={deletingEnrollmentId === latestEnrollment.id}
+                            setOpen={(isOpen) =>
+                              setDeletingEnrollmentId(
+                                isOpen ? latestEnrollment.id : null,
+                              )
+                            }
+                            onConfirm={() =>
+                              handleDeleteEnrollment(latestEnrollment.id)
+                            }
+                            confirmText="حذف ثبت‌نام"
+                            cancelText="انصراف"
+                            confirmButtonClassName="bg-rose-600 hover:bg-rose-700"
+                            trigger={
+                              <button
+                                type="button"
+                                title="حذف ثبت‌نام از این مدرسه"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-rose-300 text-rose-700 transition hover:bg-rose-50"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            }
+                          >
+                            <div className="px-4 py-3 text-sm leading-7 text-gray-700">
+                              <p className="font-medium text-rose-600">
+                                ⚠️ توجه: این عملیات ثبت‌نام دانش‌آموز در این
+                                مدرسه و سال تحصیلی را حذف می‌کند.
+                              </p>
+                              <p className="mt-2">
+                                دانش‌آموز{" "}
+                                <strong>
+                                  {student.firstName} {student.lastName}
+                                </strong>{" "}
+                                در دیتابیس باقی می‌ماند و می‌تواند در سال‌های
+                                بعد یا مدارس دیگر ثبت‌نام شود.
+                              </p>
+                              <p className="mt-2 text-xs text-zinc-500">
+                                مدرسه: {latestEnrollment.school?.title} / سال:{" "}
+                                {latestEnrollment.academicYear?.title}
+                              </p>
                             </div>
                           </ConfirmModal>
                         </div>

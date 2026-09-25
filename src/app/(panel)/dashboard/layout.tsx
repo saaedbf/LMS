@@ -10,7 +10,7 @@ export default async function ManagerLayout({
 }: {
   children: ReactNode;
 }) {
-  const { user, context, isMaster } = await getCurrentContext();
+  const { user, context, isMaster, permissions } = await getCurrentContext();
 
   if (!user) {
     redirect("/login");
@@ -35,7 +35,11 @@ export default async function ManagerLayout({
 
   return (
     <div className="flex h-screen">
-      <NewAside user={user} role={context?.role ?? null} />
+      <NewAside
+        user={user}
+        role={context?.role ?? null}
+        permissions={permissions}
+      />
 
       <main className="flex-1 overflow-y-auto">
         <Header

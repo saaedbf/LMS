@@ -1,9 +1,8 @@
-// components/layout/student/StudentHeader.tsx
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation"; // ⬅️ useRouter
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   Menu,
@@ -17,21 +16,33 @@ import {
   AlertTriangle,
   Wallet,
 } from "lucide-react";
-import { authClient } from "@/lib/auth-client"; // ⬅️ authClient
+import { authClient } from "@/lib/auth-client";
 
 type Props = {
   schoolName: string;
   year: string;
   userName: string;
+  // ⬅️ تنظیمات نمایش
+  showReportCards?: boolean;
+  showAbsences?: boolean;
+  showDisciplinary?: boolean;
+  showTuition?: boolean;
 };
 
-export default function StudentHeader({ schoolName, year, userName }: Props) {
+export default function StudentHeader({
+  schoolName,
+  year,
+  userName,
+  showReportCards = true,
+  showAbsences = true,
+  showDisciplinary = true,
+  showTuition = true,
+}: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false); // ⬅️
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const pathname = usePathname();
-  const router = useRouter(); // ⬅️
+  const router = useRouter();
 
-  // ⬅️ تابع خروج
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
@@ -44,17 +55,41 @@ export default function StudentHeader({ schoolName, year, userName }: Props) {
     }
   };
 
-  const menuItems = [
-    { href: "/student", label: "صفحه اصلی", icon: Home },
-    { href: "/student/grades", label: "کارنامه‌ها", icon: FileText },
-    { href: "/student/absences", label: "غیبت‌ها", icon: CalendarX },
+  // ⬅️ منوهای پویا بر اساس تنظیمات
+  const allMenuItems = [
+    {
+      href: "/student",
+      label: "صفحه اصلی",
+      icon: Home,
+      show: true,
+    },
+    {
+      href: "/student/grades",
+      label: "کارنامه‌ها",
+      icon: FileText,
+      show: showReportCards,
+    },
+    {
+      href: "/student/absences",
+      label: "غیبت‌ها",
+      icon: CalendarX,
+      show: showAbsences,
+    },
     {
       href: "/student/disciplinary",
       label: "موارد انضباطی",
       icon: AlertTriangle,
+      show: showDisciplinary,
     },
-    { href: "/student/tuition", label: "شهریه", icon: Wallet },
+    {
+      href: "/student/tuition",
+      label: "شهریه",
+      icon: Wallet,
+      show: showTuition,
+    },
   ];
+
+  const menuItems = allMenuItems.filter((item) => item.show);
 
   return (
     <>
@@ -93,7 +128,6 @@ export default function StudentHeader({ schoolName, year, userName }: Props) {
               </span>
             </div>
 
-            {/* ⬅️ دکمه خروج */}
             <button
               type="button"
               onClick={handleSignOut}
@@ -210,7 +244,6 @@ export default function StudentHeader({ schoolName, year, userName }: Props) {
             </nav>
 
             <div className="absolute bottom-0 left-0 right-0 border-t border-zinc-100 p-4">
-              {/* ⬅️ دکمه خروج */}
               <button
                 type="button"
                 onClick={handleSignOut}

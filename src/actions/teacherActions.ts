@@ -1,26 +1,20 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth-server";
-import { getCurrentContext } from "@/actions/authActions";
+import { getScope } from "@/lib/auth-helpers";
+import { isScopeError } from "@/lib/auth-helpers-utils";
+import { PERMISSIONS } from "@/lib/permissions";
+import { auth } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import {
   findTeacherByNationalCodeSchema,
   teacherSchema,
   TeacherSchema,
 } from "@/lib/schemas/teacher";
-import { auth } from "@/lib/auth";
-import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 
-type ActionSuccess<T> = {
-  status: "success";
-  data: T;
-};
-
-type ActionError = {
-  status: "error";
-  error: string;
-};
+type ActionSuccess<T> = { status: "success"; data: T };
+type ActionError = { status: "error"; error: string };
 
 type TeacherWithAssignments = {
   id: string;
@@ -92,38 +86,25 @@ export async function findTeacherByNationalCode(
   input: unknown,
 ): Promise<ActionSuccess<TeacherWithAssignments | null> | ActionError> {
   const parsed = findTeacherByNationalCodeSchema.safeParse(input);
-
   if (!parsed.success) {
     return error(parsed.error.issues[0]?.message ?? "کد ملی نامعتبر است.");
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_TEACHERS);
+  if (isScopeError(scope)) return error(scope.error);
 
   try {
     const teacher = await prisma.teacher.findUnique({
-      where: {
-        nationalCode: parsed.data.nationalCode,
-      },
+      where: { nationalCode: parsed.data.nationalCode },
       include: {
         assignments: {
-          include: {
-            school: true,
-            academicYear: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
+          include: { school: true, academicYear: true },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
 
-    if (!teacher) {
-      return success(null);
-    }
-
+    if (!teacher) return success(null);
     return success(mapTeacher(teacher));
   } catch (err) {
     return error("خطا در دریافت اطلاعات معلم.");
@@ -133,30 +114,19 @@ export async function findTeacherByNationalCode(
 export async function resetTeacherPassword(
   teacherId: string,
 ): Promise<ActionSuccess<{ message: string }> | ActionError> {
-  const currentUser = await getCurrentUser();
-
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_TEACHERS);
+  if (isScopeError(scope)) return error(scope.error);
 
   try {
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId },
-      select: {
-        id: true,
-        nationalCode: true,
-        phone: true,
-      },
+      select: { id: true, nationalCode: true, phone: true },
     });
 
-    if (!teacher) {
-      return error("معلم موردنظر پیدا نشد.");
-    }
+    if (!teacher) return error("معلم موردنظر پیدا نشد.");
 
     const phone = teacher.phone?.trim();
-    if (!phone) {
-      return error("برای این معلم شماره تماسی ثبت نشده است.");
-    }
+    if (!phone) return error("برای این معلم شماره تماسی ثبت نشده است.");
 
     const teacherEmail = `${teacher.nationalCode}@lms.local`.toLowerCase();
 
@@ -171,10 +141,7 @@ export async function resetTeacherPassword(
 
     await auth.api.setUserPassword({
       headers: await headers(),
-      body: {
-        userId: user.id,
-        newPassword: phone,
-      },
+      body: { userId: user.id, newPassword: phone },
     });
 
     revalidatePath("/dashboard/manager/teachers");
@@ -191,32 +158,16 @@ export async function createTeacher(
   input: TeacherSchema,
 ): Promise<ActionSuccess<TeacherWithAssignments> | ActionError> {
   const parsed = teacherSchema.safeParse(input);
-
   if (!parsed.success) {
     return error(
       parsed.error.issues[0]?.message ?? "اطلاعات معلم نامعتبر است.",
     );
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_TEACHERS);
+  if (isScopeError(scope)) return error(scope.error);
 
-  // ⬅️ دریافت کانتکست فعال
-  const context = await getCurrentContext();
-  if (!context?.schoolId || !context.academicYearId) {
-    return error("کانتکست فعال مدرسه یا سال تحصیلی یافت نشد.");
-  }
-
-  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
-    return error("شما دسترسی لازم برای این عملیات را ندارید.");
-  }
-
-  const schoolId = context.schoolId;
-  const academicYearId = context.academicYearId;
-
-  const currentUsername = currentUser.email || currentUser.name || "unknown";
+  const { schoolId, academicYearId, username: currentUsername } = scope;
   const { firstName, lastName, nationalCode, phone, address, personnelCode } =
     parsed.data;
 
@@ -225,7 +176,6 @@ export async function createTeacher(
   let createdUserId: string | null = null;
 
   try {
-    // ۱. بررسی وجود معلم
     const existingTeacher = await prisma.teacher.findUnique({
       where: { nationalCode },
       select: { id: true },
@@ -235,7 +185,6 @@ export async function createTeacher(
       return error("معلمی با این کد ملی قبلاً ثبت شده است.");
     }
 
-    // ۲. ایجاد پروفایل معلم
     const teacher = await prisma.teacher.create({
       data: {
         firstName,
@@ -250,7 +199,6 @@ export async function createTeacher(
 
     createdTeacherId = teacher.id;
 
-    // ۳. بررسی یا ایجاد User در Better Auth
     let authUser = await prisma.user.findUnique({
       where: { email: teacherEmail },
       select: { id: true },
@@ -269,7 +217,6 @@ export async function createTeacher(
           },
         });
 
-        // ⬅️ بعد از signUpEmail، کاربر را دوباره بخوان
         authUser = await prisma.user.findUnique({
           where: { email: teacherEmail },
           select: { id: true },
@@ -279,24 +226,19 @@ export async function createTeacher(
           where: { email: teacherEmail },
           select: { id: true },
         });
-
         if (!authUser) throw authError;
       }
     }
 
-    if (!authUser) {
-      throw new Error("AUTH_USER_NOT_FOUND");
-    }
+    if (!authUser) throw new Error("AUTH_USER_NOT_FOUND");
 
     createdUserId = authUser.id;
 
-    // ۴. اتصال Teacher به User
     await prisma.teacher.update({
       where: { id: teacher.id },
       data: { userId: authUser.id },
     });
 
-    // ۵. ⬅️ ساخت UserAssignment
     await prisma.userAssignment.create({
       data: {
         userId: authUser.id,
@@ -307,7 +249,6 @@ export async function createTeacher(
       },
     });
 
-    // ۶. ⬅️ ساخت TeacherAssignment
     await prisma.teacherAssignment.create({
       data: {
         teacherId: teacher.id,
@@ -320,22 +261,17 @@ export async function createTeacher(
 
     revalidatePath("/dashboard/manager/teachers");
 
-    // برگرداندن معلم با انتساب‌ها
     const finalTeacher = await prisma.teacher.findUnique({
       where: { id: teacher.id },
       include: {
         assignments: {
-          include: {
-            school: true,
-            academicYear: true,
-          },
+          include: { school: true, academicYear: true },
         },
       },
     });
 
     return success(mapTeacher(finalTeacher));
   } catch (err: any) {
-    // rollback
     if (createdTeacherId) {
       await prisma.teacherAssignment
         .deleteMany({ where: { teacherId: createdTeacherId } })
@@ -364,7 +300,6 @@ export async function updateTeacher(
   input: TeacherSchema,
 ): Promise<ActionSuccess<TeacherWithAssignments> | ActionError> {
   const parsed = teacherSchema.safeParse(input);
-
   if (!parsed.success) {
     return error(
       parsed.error.issues[0]?.message ?? "اطلاعات ویرایش نامعتبر است.",
@@ -375,12 +310,10 @@ export async function updateTeacher(
     return error("شناسه معلم برای ویرایش الزامی است.");
   }
 
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    return error("برای انجام این عملیات ابتدا وارد حساب کاربری خود شوید.");
-  }
+  const scope = await getScope(PERMISSIONS.MANAGE_TEACHERS);
+  if (isScopeError(scope)) return error(scope.error);
 
-  const currentUsername = currentUser.email || currentUser.name || "unknown";
+  const currentUsername = scope.username;
 
   try {
     const duplicate = await prisma.teacher.findFirst({
@@ -408,10 +341,7 @@ export async function updateTeacher(
       },
       include: {
         assignments: {
-          include: {
-            school: true,
-            academicYear: true,
-          },
+          include: { school: true, academicYear: true },
         },
       },
     });
@@ -426,8 +356,6 @@ export async function updateTeacher(
   }
 }
 
-// actions/teacherActions.ts
-
 export async function getTeachers(
   page: number,
   pageSize: number,
@@ -438,25 +366,10 @@ export async function getTeachers(
     searchValue?: string;
   },
 ) {
-  const currentUser = await getCurrentUser();
+  const scope = await getScope(PERMISSIONS.MANAGE_TEACHERS);
+  if (isScopeError(scope)) return { items: [], total: 0 };
 
-  if (!currentUser) {
-    return { items: [], total: 0 };
-  }
-
-  // ⬅️ دریافت کانتکست فعال
-  const context = await getCurrentContext();
-
-  if (!context?.schoolId || !context.academicYearId) {
-    return { items: [], total: 0 };
-  }
-
-  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
-    return { items: [], total: 0 };
-  }
-
-  const schoolId = context.schoolId;
-  const academicYearId = context.academicYearId;
+  const { schoolId, academicYearId } = scope;
 
   const {
     sortField = "createdAt",
@@ -481,21 +394,14 @@ export async function getTeachers(
     ? sortField
     : "createdAt";
 
-  // ⬅️ فیلتر اصلی: فقط معلمانی که در این مدرسه و سال تحصیلی انتساب دارند
   const where: any = {
     assignments: {
-      some: {
-        schoolId,
-        academicYearId,
-        isActive: true,
-      },
+      some: { schoolId, academicYearId, isActive: true },
     },
   };
 
-  // جستجو
   if (searchField && searchValue?.trim()) {
     const value = searchValue.trim();
-
     const allowedSearchFields = [
       "firstName",
       "lastName",
@@ -505,10 +411,7 @@ export async function getTeachers(
     ];
 
     if (allowedSearchFields.includes(searchField)) {
-      where[searchField] = {
-        contains: value,
-        mode: "insensitive",
-      };
+      where[searchField] = { contains: value, mode: "insensitive" };
     }
   }
 
@@ -518,41 +421,23 @@ export async function getTeachers(
         where,
         skip,
         take: pageSize,
-        orderBy: {
-          [orderByField]: sortOrder,
-        },
+        orderBy: { [orderByField]: sortOrder },
         include: {
-          // ⬅️ فقط انتساب‌های این مدرسه و سال را بیار
           assignments: {
-            where: {
-              schoolId,
-              academicYearId,
-            },
+            where: { schoolId, academicYearId },
             include: {
-              school: {
-                select: { id: true, title: true },
-              },
-              academicYear: {
-                select: { id: true, title: true },
-              },
+              school: { select: { id: true, title: true } },
+              academicYear: { select: { id: true, title: true } },
             },
           },
         },
       }),
-
       prisma.teacher.count({ where }),
     ]);
 
-    return {
-      items,
-      total,
-    };
+    return { items, total };
   } catch (error) {
     console.error("getTeachers error:", error);
-
-    return {
-      items: [],
-      total: 0,
-    };
+    return { items: [], total: 0 };
   }
 }
