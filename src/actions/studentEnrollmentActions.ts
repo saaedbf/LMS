@@ -334,3 +334,164 @@ export async function deleteStudentEnrollment(enrollmentId: string) {
     return { status: "error" as const, error: "خطا در حذف ثبت‌نام" };
   }
 }
+
+type ActionResult<T> =
+  | { status: "success"; data: T }
+  | { status: "error"; error: string };
+
+/**
+ * انتقال دانش‌آموز به نوبت مخالف
+ * تمام غیبت‌ها، موارد انضباطی، نمرات و تراکنش‌های مالی
+ * به ثبت‌نام جدید منتقل می‌شوند.
+ */
+export async function transferStudentToOppositeShift(
+  enrollmentId: string,
+  targetKlassId: string,
+): Promise<ActionResult<{ direction: "toOpposite" | "backToOriginal" }>> {
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return { status: "error", error: scope.error };
+
+  const { schoolId, academicYearId, username } = scope;
+
+  try {
+    const enrollment = await prisma.studentEnrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        school: { select: { id: true, oppositeSchoolId: true } },
+      },
+    });
+
+    if (!enrollment) {
+      return { status: "error", error: "ثبت‌نام یافت نشد" };
+    }
+
+    if (enrollment.schoolId !== schoolId) {
+      return {
+        status: "error",
+        error: "این ثبت‌نام متعلق به مدرسه فعال شما نیست",
+      };
+    }
+
+    if (enrollment.academicYearId !== academicYearId) {
+      return {
+        status: "error",
+        error: "این ثبت‌نام متعلق به سال تحصیلی فعال نیست",
+      };
+    }
+
+    const oppositeSchoolId = enrollment.school.oppositeSchoolId;
+    if (!oppositeSchoolId) {
+      return {
+        status: "error",
+        error: "برای این مدرسه نوبت مخالف تعریف نشده است",
+      };
+    }
+
+    const targetKlass = await prisma.klass.findUnique({
+      where: { id: targetKlassId },
+    });
+
+    if (!targetKlass) {
+      return { status: "error", error: "کلاس مقصد یافت نشد" };
+    }
+
+    if (targetKlass.schoolId !== oppositeSchoolId) {
+      return { status: "error", error: "کلاس مقصد متعلق به نوبت مخالف نیست" };
+    }
+
+    if (targetKlass.academicYearId !== academicYearId) {
+      return { status: "error", error: "کلاس مقصد در سال تحصیلی جاری نیست" };
+    }
+
+    // ⬅️ جهت انتقال
+    const direction =
+      enrollment.schoolId === oppositeSchoolId
+        ? "backToOriginal"
+        : "toOpposite";
+
+    await prisma.$transaction(async (tx) => {
+      // ۱. انتقال نمرات به GradePeriodLesson کلاس مقصد
+      const oldGrades = await tx.grade.findMany({
+        where: { studentEnrollmentId: enrollmentId },
+        include: {
+          gradePeriodLesson: {
+            select: {
+              gradePeriodId: true,
+              darsPayeReshtehId: true,
+            },
+          },
+        },
+      });
+
+      for (const grade of oldGrades) {
+        const newLesson = await tx.gradePeriodLesson.findUnique({
+          where: {
+            gradePeriodId_darsPayeReshtehId_klassId: {
+              gradePeriodId: grade.gradePeriodLesson.gradePeriodId,
+              darsPayeReshtehId: grade.gradePeriodLesson.darsPayeReshtehId,
+              klassId: targetKlassId,
+            },
+          },
+        });
+
+        if (newLesson) {
+          await tx.grade.update({
+            where: { id: grade.id },
+            data: {
+              gradePeriodLessonId: newLesson.id,
+              lastEditedByUsername: username,
+            },
+          });
+        }
+      }
+
+      // ۲. تغییر schoolId و کلاس
+      await tx.studentEnrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          schoolId: oppositeSchoolId,
+          klassId: targetKlassId,
+          payeId: targetKlass.payeId,
+          reshtehTahsiliId: targetKlass.reshtehTahsiliId,
+          lastEditedByUsername: username,
+        },
+      });
+
+      // ۳. به‌روزرسانی UserAssignment دانش‌آموز
+      const student = await tx.student.findUnique({
+        where: { id: enrollment.studentId },
+        select: { nationalCode: true },
+      });
+
+      if (student) {
+        const studentEmail = `${student.nationalCode}@lms.local`.toLowerCase();
+        const user = await tx.user.findUnique({
+          where: { email: studentEmail },
+          select: { id: true },
+        });
+
+        if (user) {
+          await tx.userAssignment.updateMany({
+            where: {
+              userId: user.id,
+              schoolId: enrollment.schoolId,
+              academicYearId,
+              role: "STUDENT",
+            },
+            data: { schoolId: oppositeSchoolId },
+          });
+        }
+      }
+    });
+
+    revalidatePath("/dashboard/manager/students");
+
+    return { status: "success", data: { direction } };
+  } catch (err: any) {
+    console.error("TRANSFER_STUDENT_ERROR", err);
+    return {
+      status: "error",
+      error: `خطا در انتقال دانش‌آموز: ${err?.message || "نامشخص"}`,
+    };
+  }
+}

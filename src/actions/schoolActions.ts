@@ -12,6 +12,9 @@ import {
 import { ListOptions } from "@/types/myTypes";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { getScope } from "@/lib/auth-helpers";
+import { isScopeError } from "@/lib/auth-helpers-utils";
+import { PERMISSIONS } from "@/lib/permissions";
 
 // ستون‌های جدول مدرسه
 const columns: Column[] = [
@@ -48,8 +51,10 @@ export async function createSchoolAction(
       sex,
       schoolType,
       doreTahsiliId,
+      oppositeSchoolId,
     } = data;
 
+    // ۱. بررسی تکراری نبودن کد مدرسه
     if (id) {
       const existingId = await prisma.school.findUnique({ where: { id } });
       if (existingId) {
@@ -57,6 +62,7 @@ export async function createSchoolAction(
       }
     }
 
+    // ۲. سال تحصیلی فعال
     const activeAcademicYear = await prisma.academicYear.findFirst({
       where: { isActive: true },
       orderBy: { id: "desc" },
@@ -66,40 +72,64 @@ export async function createSchoolAction(
       return { status: "error", error: "سال تحصیلی فعالی در سیستم یافت نشد" };
     }
 
-    if (doreTahsiliId) {
-      const doreh = await prisma.doreTahsili.findUnique({
-        where: { id: doreTahsiliId },
-      });
-      if (!doreh) {
-        return { status: "error", error: "دوره انتخاب شده وجود ندارد" };
-      }
-    }
-
+    // ۳. اعتبارسنجی دوره تحصیلی
     if (!doreTahsiliId) {
       return { status: "error", error: "دوره تحصیلی الزامی است" };
     }
 
-    const selectedDoreTahsiliId: number = doreTahsiliId;
+    const doreh = await prisma.doreTahsili.findUnique({
+      where: { id: doreTahsiliId },
+    });
+    if (!doreh) {
+      return { status: "error", error: "دوره انتخاب شده وجود ندارد" };
+    }
 
-    const result = await prisma.school.create({
-      data: {
-        id,
-        title,
-        subTitle,
-        modirName,
-        isActive,
-        sex,
-        schoolType,
-        doreTahsili: {
-          connect: { id: selectedDoreTahsiliId },
+    // ۴. اعتبارسنجی نوبت مخالف
+    if (oppositeSchoolId) {
+      if (oppositeSchoolId === id) {
+        return {
+          status: "error",
+          error: "یک مدرسه نمی‌تواند نوبت مخالف خودش باشد",
+        };
+      }
+      const opposite = await prisma.school.findUnique({
+        where: { id: oppositeSchoolId },
+      });
+      if (!opposite) {
+        return { status: "error", error: "مدرسه نوبت مخالف یافت نشد" };
+      }
+    }
+
+    // ۵. ساخت مدرسه + رابطه دوطرفه در یک تراکنش
+    const result = await prisma.$transaction(async (tx) => {
+      const school = await tx.school.create({
+        data: {
+          id,
+          title,
+          subTitle,
+          modirName,
+          isActive,
+          sex,
+          schoolType,
+          doreTahsili: { connect: { id: doreTahsiliId } },
+          ...(oppositeSchoolId
+            ? { oppositeSchool: { connect: { id: oppositeSchoolId } } }
+            : {}),
         },
-      },
-      include: {
-        doreTahsili: true,
-      },
+        include: { doreTahsili: true, oppositeSchool: true },
+      });
+
+      if (oppositeSchoolId) {
+        await tx.school.update({
+          where: { id: oppositeSchoolId },
+          data: { oppositeSchoolId: id },
+        });
+      }
+
+      return school;
     });
 
-    // ⬅️ ایجاد کاربر مدیر مدرسه
+    // ۶. ایجاد کاربر مدیر
     const email = `${id}@lms.local`.toLowerCase();
 
     try {
@@ -114,7 +144,8 @@ export async function createSchoolAction(
         },
       });
     } catch (authError) {
-      await prisma.school.delete({ where: { id } });
+      // پاک‌سازی: مدرسه حذف می‌شود، B.oppositeSchoolId خودکار NULL می‌شود
+      await prisma.school.delete({ where: { id } }).catch(() => {});
       console.error("AUTH_SIGNUP_ERROR", authError);
       return {
         status: "error",
@@ -122,40 +153,47 @@ export async function createSchoolAction(
       };
     }
 
-    // ⬅️ پیدا کردن کاربر
+    // ۷. پیدا کردن کاربر
     const user = await prisma.user.findUnique({
       where: { email },
       select: { id: true },
     });
 
     if (!user) {
-      await prisma.school.delete({ where: { id } });
+      await prisma.school.delete({ where: { id } }).catch(() => {});
       return { status: "error", error: "حساب کاربری ایجاد شد اما یافت نشد!" };
     }
 
-    // ⬅️⭐⭐⭐ تغییر role به admin (مهم!)
+    // ۸. تغییر role به admin
     await prisma.user.update({
       where: { id: user.id },
-      data: {
-        role: "admin", // ⬅️ این خط حیاتی است
-        systemRole: "USER", // (اختیاری) اگر می‌خواهید Master نباشد
-      },
+      data: { role: "admin" },
     });
 
-    // ثبت Assignment
-    await prisma.userAssignment.create({
-      data: {
-        userId: user.id,
-        schoolId: id,
-        academicYearId: activeAcademicYear.id,
-        role: SchoolRole.MANAGER,
-      },
-    });
+    // ۹. ثبت Assignment
+    try {
+      await prisma.userAssignment.create({
+        data: {
+          userId: user.id,
+          schoolId: id,
+          academicYearId: activeAcademicYear.id,
+          role: SchoolRole.MANAGER,
+        },
+      });
+    } catch (assignError) {
+      console.error("ASSIGNMENT_ERROR", assignError);
+      // پاک‌سازی: مدرسه حذف می‌شود (کاربر باقی می‌ماند ولی بدون دسترسی)
+      await prisma.school.delete({ where: { id } }).catch(() => {});
+      return {
+        status: "error",
+        error: "خطا در ثبت دسترسی مدیر. عملیات لغو شد.",
+      };
+    }
 
     revalidatePath("/dashboard/master/school");
     return { status: "success", data: result };
   } catch (error) {
-    console.error(error);
+    console.error("CREATE_SCHOOL_ERROR", error);
     return { status: "error", error: "خطا در ثبت مدرسه" };
   }
 }
@@ -174,17 +212,24 @@ export async function updateSchoolAction(
       sex,
       schoolType,
       doreTahsiliId,
+      oppositeSchoolId,
     } = data;
 
     if (!id) {
       return { status: "error", error: "کد مدرسه الزامی است" };
     }
 
-    const existing = await prisma.school.findUnique({ where: { id } });
+    // ۱. بررسی وجود مدرسه + خواندن نوبت مخالف قبلی
+    const existing = await prisma.school.findUnique({
+      where: { id },
+      select: { id: true, oppositeSchoolId: true },
+    });
+
     if (!existing) {
       return { status: "error", error: "مدرسه مورد نظر وجود ندارد" };
     }
 
+    // ۲. اعتبارسنجی دوره تحصیلی
     if (doreTahsiliId) {
       const doreh = await prisma.doreTahsili.findUnique({
         where: { id: doreTahsiliId },
@@ -194,26 +239,76 @@ export async function updateSchoolAction(
       }
     }
 
-    const result = await prisma.school.update({
-      where: { id },
-      data: {
-        title,
-        subTitle,
-        modirName,
-        isActive,
-        sex,
-        schoolType,
-        doreTahsiliId: doreTahsiliId ?? 1,
-      },
-      include: {
-        doreTahsili: true,
-      },
+    // ۳. اعتبارسنجی نوبت مخالف
+    if (oppositeSchoolId) {
+      if (oppositeSchoolId === id) {
+        return {
+          status: "error",
+          error: "یک مدرسه نمی‌تواند نوبت مخالف خودش باشد",
+        };
+      }
+
+      const opposite = await prisma.school.findUnique({
+        where: { id: oppositeSchoolId },
+      });
+
+      if (!opposite) {
+        return { status: "error", error: "مدرسه نوبت مخالف یافت نشد" };
+      }
+    }
+
+    // ۴. نوبت مخالف قبلی (برای پاک‌سازی رابطه قدیمی)
+    const oldOppositeId = existing.oppositeSchoolId;
+
+    // ۵. تمام عملیات در یک تراکنش اتمیک
+    const result = await prisma.$transaction(async (tx) => {
+      // ۵.۱ به‌روزرسانی خود مدرسه
+      const updated = await tx.school.update({
+        where: { id },
+        data: {
+          title,
+          subTitle,
+          modirName,
+          isActive,
+          sex,
+          schoolType,
+          doreTahsili: {
+            connect: { id: doreTahsiliId ?? 1 },
+          },
+          ...(oppositeSchoolId
+            ? { oppositeSchool: { connect: { id: oppositeSchoolId } } }
+            : { oppositeSchool: { disconnect: true } }),
+        },
+        include: {
+          doreTahsili: true,
+          oppositeSchool: true,
+        },
+      });
+
+      // ۵.۲ اگر نوبت مخالف قبلی وجود داشت و عوض شده،
+      //     طرف قدیمی را NULL کن
+      if (oldOppositeId && oldOppositeId !== oppositeSchoolId) {
+        await tx.school.update({
+          where: { id: oldOppositeId },
+          data: { oppositeSchoolId: null },
+        });
+      }
+
+      // ۵.۳ رابطه دوطرفه با نوبت مخالف جدید
+      if (oppositeSchoolId) {
+        await tx.school.update({
+          where: { id: oppositeSchoolId },
+          data: { oppositeSchoolId: id },
+        });
+      }
+
+      return updated;
     });
 
     revalidatePath("/dashboard/master/school");
     return { status: "success", data: result };
   } catch (error) {
-    console.error(error);
+    console.error("UPDATE_SCHOOL_ERROR", error);
     return { status: "error", error: "خطا در ویرایش مدرسه" };
   }
 }
@@ -354,5 +449,97 @@ export async function resetSchoolManagerPassword(
       status: "error",
       error: `خطا در ریست کلمه عبور: ${error?.message || "نامشخص"}`,
     };
+  }
+}
+
+export async function getOppositeSchoolKlasses(): Promise<
+  ActionResult<{
+    school: { id: number; title: string } | null;
+    klasses: Array<{
+      id: string;
+      title: string;
+      payeId: number;
+      reshtehTahsiliId: number;
+      schoolId: number;
+      academicYearId: number;
+      paye: { id: number; title: string } | null;
+      reshtehTahsili: { id: number; title: string } | null;
+    }>;
+  }>
+> {
+  try {
+    const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+    if (isScopeError(scope)) {
+      return { status: "error", error: scope.error };
+    }
+
+    const { schoolId, academicYearId } = scope;
+
+    const school = await prisma.school.findUnique({
+      where: { id: schoolId },
+      select: {
+        oppositeSchoolId: true,
+        oppositeSchool: {
+          select: { id: true, title: true },
+        },
+      },
+    });
+
+    if (!school?.oppositeSchoolId) {
+      return {
+        status: "error",
+        error: "برای این مدرسه نوبت مخالف تعریف نشده است",
+      };
+    }
+
+    const klasses = await prisma.klass.findMany({
+      where: {
+        schoolId: school.oppositeSchoolId,
+        academicYearId,
+      },
+      include: {
+        paye: { select: { id: true, title: true } },
+        reshtehTahsili: { select: { id: true, title: true } },
+      },
+      orderBy: [{ payeId: "asc" }, { title: "asc" }],
+    });
+
+    return {
+      status: "success",
+      data: {
+        school: school.oppositeSchool,
+        klasses: klasses.map((k) => ({
+          id: k.id,
+          title: k.title,
+          payeId: k.payeId,
+          reshtehTahsiliId: k.reshtehTahsiliId,
+          schoolId: k.schoolId,
+          academicYearId: k.academicYearId,
+          paye: k.paye,
+          reshtehTahsili: k.reshtehTahsili,
+        })),
+      },
+    };
+  } catch (error) {
+    console.error(error);
+    return { status: "error", error: "خطا در دریافت کلاس‌های نوبت مخالف" };
+  }
+}
+export async function getAllSchoolsForOpposite(
+  excludeId?: number,
+): Promise<
+  | { status: "success"; data: { id: number; title: string }[] }
+  | { status: "error"; error: string }
+> {
+  try {
+    const schools = await prisma.school.findMany({
+      where: excludeId ? { id: { not: excludeId } } : undefined,
+      select: { id: true, title: true },
+      orderBy: { title: "asc" },
+    });
+    return { status: "success", data: schools };
+  } catch (error) {
+    console.error(error);
+    return { status: "error", error: "خطا در دریافت لیست مدارس" };
   }
 }

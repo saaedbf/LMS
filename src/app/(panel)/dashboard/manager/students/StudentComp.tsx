@@ -1,9 +1,9 @@
 "use client";
 
 import { Student } from "@prisma/client";
-import React from "react";
+import React, { useState } from "react";
 import BulkStudentUpload from "./BulkStudentUpload";
-import { Trash2, Users } from "lucide-react";
+import { ArrowLeftRight, Trash2, Users } from "lucide-react";
 import CreateBtn from "@/components/widgets/Elements/CreateBtn";
 import HeadTr from "@/components/widgets/Elements/table/HeaddTr";
 import Table from "@/components/widgets/Elements/table/Table";
@@ -24,7 +24,12 @@ import { toast } from "react-toastify";
 import { resetStudentPassword } from "@/actions/studentActions";
 import ConfirmModal from "@/components/widgets/ConfirmModal";
 import BackButton from "@/components/widgets/Elements/BackButton";
-import { deleteStudentEnrollment } from "@/actions/studentEnrollmentActions";
+import {
+  deleteStudentEnrollment,
+  transferStudentToOppositeShift,
+} from "@/actions/studentEnrollmentActions";
+import { getOppositeSchoolKlasses } from "@/actions/schoolActions";
+import SearchableSelect from "@/components/widgets/Elements/SearchableSelect";
 type EnrollmentForTable = {
   id: string;
   schoolId: number;
@@ -86,6 +91,7 @@ type Props = {
   payes: Option[];
   reshtehTahsilis: Option[];
   klasses: KlassOption[];
+  hasOppositeSchool: boolean;
 };
 
 export default function StudentComp({
@@ -97,6 +103,7 @@ export default function StudentComp({
   payes,
   reshtehTahsilis,
   klasses,
+  hasOppositeSchool,
 }: Props) {
   const [openCreate, setOpenCreate] = React.useState(false);
   const [resettingStudentId, setResettingStudentId] = React.useState<
@@ -115,6 +122,13 @@ export default function StudentComp({
   const [openBulk, setOpenBulk] = React.useState(false);
   const [resetPasswordStudent, setResetPasswordStudent] =
     React.useState<Student | null>(null);
+  // state
+  const [transferStudent, setTransferStudent] = useState<Student | null>(null);
+  const [oppositeKlasses, setOppositeKlasses] = useState<any[]>([]);
+  const [oppositeSchoolTitle, setOppositeSchoolTitle] = useState("");
+  const [selectedKlassId, setSelectedKlassId] = useState("");
+  const [transferring, setTransferring] = useState(false);
+  const [loadingOpposite, setLoadingOpposite] = useState(false);
   const handleResetStudentPassword = async (student: Student) => {
     if (!student.phone?.trim()) {
       toast.error(
@@ -159,6 +173,63 @@ export default function StudentComp({
       throw error;
     }
   };
+  const openTransferModal = async (student: Student) => {
+    setTransferStudent(student);
+    setSelectedKlassId("");
+    setLoadingOpposite(true);
+
+    try {
+      const res = await getOppositeSchoolKlasses();
+
+      if (res.status === "success") {
+        setOppositeKlasses(res.data.klasses);
+        setOppositeSchoolTitle(res.data.school?.title ?? "");
+      } else {
+        const msg = typeof res.error === "string" ? res.error : "خطای نامشخص";
+        toast.error(msg);
+        setTransferStudent(null);
+      }
+    } catch {
+      toast.error("خطا در دریافت کلاس‌های نوبت مخالف");
+      setTransferStudent(null);
+    } finally {
+      setLoadingOpposite(false);
+    }
+  };
+
+  const handleTransfer = async () => {
+    if (!transferStudent || !selectedKlassId) return;
+
+    setTransferring(true);
+    try {
+      const latestEnrollment = (transferStudent as any).enrollments?.[0];
+      if (!latestEnrollment) {
+        toast.error("ثبت‌نامی برای انتقال یافت نشد");
+        return;
+      }
+
+      const res = await transferStudentToOppositeShift(
+        latestEnrollment.id,
+        selectedKlassId,
+      );
+
+      if (res.status === "error") {
+        toast.error(typeof res.error === "string" ? res.error : "خطای نامشخص");
+        return;
+      }
+
+      toast.success("دانش‌آموز با موفقیت به نوبت مخالف منتقل شد");
+      setTransferStudent(null);
+      setSelectedKlassId("");
+      setOppositeKlasses([]);
+    } catch (error) {
+      console.error(error);
+      toast.error("خطا در انتقال دانش‌آموز");
+    } finally {
+      setTransferring(false);
+    }
+  };
+
   return (
     <div className="p-2">
       <TitlePage>لیست دانش‌آموزان</TitlePage>
@@ -417,6 +488,19 @@ export default function StudentComp({
                               </div>
                             </div>
                           </ConfirmModal>
+                          {/* ⬅️ دکمه انتقال به نوبت مخالف */}
+
+                          {/* ⬅️ دکمه انتقال به نوبت مخالف */}
+                          {canEditEnrollment && hasOppositeSchool && (
+                            <button
+                              type="button"
+                              onClick={() => openTransferModal(student)}
+                              title="انتقال به نوبت مخالف"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-indigo-300 text-indigo-700 transition hover:bg-indigo-50"
+                            >
+                              <ArrowLeftRight size={14} />
+                            </button>
+                          )}
                           <ConfirmModal
                             title="حذف ثبت‌نام از این مدرسه"
                             desc={`آیا از حذف ثبت‌نام دانش‌آموز "${student.firstName} ${student.lastName}" از این مدرسه و سال تحصیلی مطمئن هستید؟`}
@@ -470,7 +554,78 @@ export default function StudentComp({
             </Tbody>
           </Table>
         </DataTableLayout>
+        <ActionModal
+          title="انتقال به نوبت مخالف"
+          desc={
+            oppositeSchoolTitle
+              ? `انتخاب کلاس مقصد در ${oppositeSchoolTitle}`
+              : "انتخاب کلاس مقصد"
+          }
+          open={!!transferStudent}
+          setOpen={(v) => {
+            if (!v) {
+              setTransferStudent(null);
+              setSelectedKlassId("");
+              setOppositeKlasses([]);
+            }
+          }}
+          trigger={null}
+          contentClassName="w-[95vw] max-w-lg"
+        >
+          {loadingOpposite ? (
+            <p className="p-4 text-center text-sm text-gray-500">
+              در حال بارگذاری کلاس‌ها...
+            </p>
+          ) : oppositeKlasses.length === 0 ? (
+            <p className="p-4 text-center text-sm text-amber-600">
+              کلاسی در نوبت مخالف برای این سال تحصیلی وجود ندارد.
+            </p>
+          ) : (
+            <div className="space-y-3 p-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <p className="font-bold">توجه:</p>
+                <ul className="mt-1 list-inside list-disc space-y-0.5">
+                  <li>
+                    تمام غیبت‌ها، نمرات، انضباطی و مالی به نوبت مخالف منتقل
+                    می‌شوند.
+                  </li>
+                  <li>دانش‌آموز از لیست این مدرسه حذف می‌شود.</li>
+                  <li>با انتقال مجدد از سمت نوبت مخالف، برمی‌گردد.</li>
+                </ul>
+              </div>
 
+              <SearchableSelect
+                title="کلاس مقصد:"
+                options={oppositeKlasses.map((k) => ({
+                  id: k.id,
+                  title: `${k.paye?.title ?? ""} - ${k.reshtehTahsili?.title ?? ""} - ${k.title}`,
+                }))}
+                value={selectedKlassId}
+                onChange={(v) => setSelectedKlassId(String(v))}
+                placeholder="انتخاب کلاس ..."
+              />
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTransferStudent(null)}
+                  className="rounded-md border px-4 py-2 text-sm"
+                  disabled={transferring}
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTransfer}
+                  disabled={!selectedKlassId || transferring}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {transferring ? "در حال انتقال..." : "تأیید انتقال"}
+                </button>
+              </div>
+            </div>
+          )}
+        </ActionModal>
         <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>

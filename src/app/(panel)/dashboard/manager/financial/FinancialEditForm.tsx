@@ -144,7 +144,7 @@ export default function FinancialEditForm({ transaction, setOpen }: Props) {
         <input
           type="text"
           inputMode="numeric"
-          value={amount}
+          value={amount ? Number(amount).toLocaleString("en-US") : ""}
           onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
           className="w-full rounded-lg border border-zinc-300 p-2 text-sm text-left"
           dir="ltr"

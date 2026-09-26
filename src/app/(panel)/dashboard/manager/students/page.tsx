@@ -53,6 +53,7 @@ export default async function ListStudentPage({ searchParams }: Props) {
         id: true,
         title: true,
         doreTahsiliId: true,
+        oppositeSchoolId: true, // ⬅️ این را اضافه کن
         doreTahsili: {
           select: {
             payes: {
@@ -118,6 +119,7 @@ export default async function ListStudentPage({ searchParams }: Props) {
       pageSize={PAGE_SIZE}
       schoolId={schoolId}
       academicYearId={academicYearId}
+      hasOppositeSchool={!!school.oppositeSchoolId} // ⬅️ این را بده
       payes={school.doreTahsili.payes.map((item) => ({
         value: item.id,
         label: item.title,

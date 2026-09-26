@@ -246,12 +246,13 @@ export function DebtCreateForm({ payes, klasses, onCreated, setOpen }: Props) {
             <input
               type="text"
               inputMode="numeric"
-              value={amount}
+              value={amount ? Number(amount).toLocaleString("en-US") : ""}
               onChange={(e) => {
+                // ⬅️ فقط رقم‌ها را نگه دار
                 const val = e.target.value.replace(/\D/g, "");
                 setAmount(val);
               }}
-              placeholder="مثلاً 500000"
+              placeholder="مثلاً 500,000"
               className="w-full rounded-lg border border-zinc-300 p-2 text-sm text-left"
               dir="ltr"
             />

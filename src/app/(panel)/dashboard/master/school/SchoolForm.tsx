@@ -4,6 +4,7 @@ import {
   createSchoolAction,
   updateSchoolAction,
   getAllDoreha,
+  getAllSchoolsForOpposite,
 } from "@/actions/schoolActions";
 import CoolInput from "@/components/widgets/Elements/CoolInput";
 import FormContainer from "@/components/widgets/Elements/FormContainer";
@@ -26,6 +27,10 @@ export default function SchoolForm({ mode, setOpen, defaultValues }: Props) {
   const isEdit = mode === "edit";
   const [doreha, setDoreha] = useState<{ id: number; title: string }[]>([]);
   const [loadingDoreha, setLoadingDoreha] = useState(true);
+  // در state:
+  const [oppositeSchools, setOppositeSchools] = useState<
+    { id: number; title: string }[]
+  >([]);
 
   const {
     register,
@@ -51,6 +56,16 @@ export default function SchoolForm({ mode, setOpen, defaultValues }: Props) {
     },
   });
 
+  // در useEffect، مدارس دیگر را بگیر:
+  useEffect(() => {
+    const fetchOppositeSchools = async () => {
+      const res = await getAllSchoolsForOpposite(defaultValues?.id);
+      if (res.status === "success") {
+        setOppositeSchools(res.data);
+      }
+    };
+    fetchOppositeSchools();
+  }, [defaultValues?.id]);
   // دریافت لیست دوره‌ها
   useEffect(() => {
     const fetchDoreha = async () => {
@@ -207,7 +222,20 @@ export default function SchoolForm({ mode, setOpen, defaultValues }: Props) {
           error={errors.schoolType?.message as string}
           placeholder="انتخاب نوع مدرسه ..."
         />
-
+        <SearchableSelect
+          title="نوبت مخالف:"
+          options={oppositeSchools}
+          value={watch("oppositeSchoolId") ?? 0}
+          clearValue={0}
+          onChange={(value) =>
+            setValue(
+              "oppositeSchoolId",
+              Number(value) > 0 ? Number(value) : null,
+            )
+          }
+          error={errors.oppositeSchoolId?.message as string}
+          placeholder="انتخاب مدرسه نوبت مخالف (اختیاری) ..."
+        />
         {/* فعال / غیرفعال */}
         <div className="flex items-center gap-2">
           <input

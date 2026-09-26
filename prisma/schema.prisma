@@ -239,6 +239,11 @@ model School {
       settings  SchoolSettings? 
        teacherAbsences TeacherAbsence[]  // ⬅️ اضافه شود
        deputies DeputyAssignment[]  // ⬅️ اضافه شود
+
+        // ⬅️ نوبت مخالف (خودارجاع)
+  oppositeSchoolId Int?     @unique
+  oppositeSchool   School?  @relation("OppositeSchools", fields: [oppositeSchoolId], references: [id], onDelete: SetNull)
+  oppositeOf       School?  @relation("OppositeSchools")
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   @@map("school")
@@ -327,6 +332,7 @@ model StudentEnrollment {
  disciplinaris StudentDisciplinary[]
  grades  Grade[]
  financialTransactions FinancialTransaction[]  // ⬅️ اضافه شود
+  
   @@unique([studentId, schoolId, academicYearId])
   @@index([schoolId, academicYearId])
   @@index([payeId, reshtehTahsiliId])
