@@ -4,6 +4,7 @@ import { getCurrentContext } from "@/actions/authActions";
 import { PAGE_SIZE } from "@/lib/schemas/env";
 import { Props } from "@/types/myTypes";
 import StudentComp from "./StudentComp";
+import { notFound } from "next/navigation";
 
 export default async function ListStudentPage({ searchParams }: Props) {
   const params = await searchParams;
@@ -18,16 +19,28 @@ export default async function ListStudentPage({ searchParams }: Props) {
    * کانتکست فعال از Session و UserAssignment فعال گرفته می‌شود.
    * schoolId و academicYearId نباید از searchParams یا فرم دریافت شوند.
    */
+  // ⬅️ ۱. دریافت کانتکست فعال (مدرسه و سال تحصیلی جاری)
   const context = await getCurrentContext();
 
-  if (!context?.schoolId || !context.academicYearId) {
-    throw new Error(
-      "کانتکست فعال مدرسه یا سال تحصیلی یافت نشد. ابتدا کانتکست فعال خود را انتخاب کنید.",
+  if (!context) {
+    notFound();
+  }
+
+  if (!context.schoolId || !context.academicYearId) {
+    return (
+      <div className="p-8 text-center text-red-500">
+        کانتکست فعال مدرسه یافت نشد. لطفاً دوباره وارد شوید.
+      </div>
     );
   }
 
-  if (context.role !== "MANAGER") {
-    throw new Error("شما دسترسی لازم برای مدیریت دانش‌آموزان را ندارید.");
+  // ⬅️ ۲. فقط مدیر می‌تواند به این صفحه دسترسی داشته باشد
+  if (context.role !== "MANAGER" && context.role !== "DEPUTY") {
+    return (
+      <div className="p-8 text-center text-red-500">
+        شما دسترسی لازم برای مدیریت کلاس‌ها را ندارید.
+      </div>
+    );
   }
 
   const schoolId = context.schoolId;
