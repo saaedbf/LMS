@@ -86,7 +86,7 @@ export default function ManageDorehReshtehsForm({
         </button>
       </div>
 
-      <DataTableLayout totalCount={totalCount}>
+      <DataTableLayout totalCount={totalCount} pageSize={pageSize}>
         <Table>
           <thead>
             <HeadTr>
@@ -136,8 +136,6 @@ export default function ManageDorehReshtehsForm({
           return await disconnectReshtehFromDoreh(dorehId, item.id);
         }}
       />
-
-      <Pagination pageSize={pageSize} totalCount={totalCount} />
     </div>
   );
 }

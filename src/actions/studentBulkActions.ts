@@ -31,6 +31,30 @@ type BulkResult = {
   }>;
 };
 
+const CONCURRENCY = 5;
+
+/**
+ * اجرای موازی محدود
+ */
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (item === undefined) return;
+        await fn(item);
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
 export async function bulkCreateStudents(
   input: unknown,
 ): Promise<ActionSuccess<BulkResult> | ActionError> {
@@ -39,71 +63,89 @@ export async function bulkCreateStudents(
     return error(parsed.error.issues[0]?.message || "داده نامعتبر");
   }
 
-  // ⬅️ یک خط جای ۱۲ خط
   const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
   if (isScopeError(scope)) return error(scope.error);
 
   const { schoolId, academicYearId, username } = scope;
 
-  // پیدا کردن کلاس و استخراج پایه و رشته از آن
+  // ۱. کلاس
   const klass = await prisma.klass.findFirst({
-    where: {
-      id: parsed.data.klassId,
-      schoolId,
-      academicYearId,
-    },
-    select: {
-      id: true,
-      title: true,
-      payeId: true,
-      reshtehTahsiliId: true,
-    },
+    where: { id: parsed.data.klassId, schoolId, academicYearId },
+    select: { id: true, title: true, payeId: true, reshtehTahsiliId: true },
   });
 
-  if (!klass) {
-    return error("کلاس انتخاب‌شده یافت نشد");
-  }
+  if (!klass) return error("کلاس انتخاب‌شده یافت نشد");
 
   const payeId = klass.payeId;
   const reshtehId = klass.reshtehTahsiliId;
+  const rows = parsed.data.students;
 
   const result: BulkResult = {
-    total: parsed.data.students.length,
+    total: rows.length,
     created: 0,
     skipped: 0,
     errors: [],
   };
 
-  for (let i = 0; i < parsed.data.students.length; i++) {
-    const row = parsed.data.students[i];
+  // ۲. Batch check: تمام دانش‌آموزان موجود + ثبت‌نام‌های موجود
+  const nationalCodes = rows.map((r) => r.nationalCode);
+
+  const existingStudents = await prisma.student.findMany({
+    where: { nationalCode: { in: nationalCodes } },
+    select: {
+      id: true,
+      nationalCode: true,
+      enrollments: {
+        where: { schoolId, academicYearId },
+        select: { id: true },
+      },
+    },
+  });
+
+  const existingStudentMap = new Map(
+    existingStudents.map((s) => [s.nationalCode, s]),
+  );
+
+  // ۳. فیلتر کردن ردیف‌های تکراری
+  const rowsToProcess: Array<{
+    row: (typeof rows)[number];
+    rowNumber: number;
+    existingStudentId: string | null;
+  }> = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const rowNumber = i + 2;
+    const existing = existingStudentMap.get(row.nationalCode);
+
+    if (existing && existing.enrollments.length > 0) {
+      result.errors.push({
+        row: rowNumber,
+        nationalCode: row.nationalCode,
+        message: "این دانش‌آموز قبلاً در این مدرسه و سال ثبت‌نام شده است",
+      });
+      result.skipped++;
+      continue;
+    }
+
+    rowsToProcess.push({
+      row,
+      rowNumber,
+      existingStudentId: existing?.id ?? null,
+    });
+  }
+
+  // ۴. پردازش موازی با محدودیت
+  await runWithConcurrency(rowsToProcess, CONCURRENCY, async (item) => {
+    const { row, rowNumber, existingStudentId } = item;
 
     try {
-      const existingEnrollment = await prisma.studentEnrollment.findFirst({
-        where: {
-          student: { nationalCode: row.nationalCode },
-          schoolId,
-          academicYearId,
-        },
-      });
+      // ۴.۱ ساخت/آپدیت دانش‌آموز + ثبت‌نام در یک تراکنش کوتاه
+      const enrollment = await prisma.$transaction(async (tx) => {
+        let studentId = existingStudentId;
 
-      if (existingEnrollment) {
-        result.errors.push({
-          row: rowNumber,
-          nationalCode: row.nationalCode,
-          message: "این دانش‌آموز قبلاً در این مدرسه و سال ثبت‌نام شده است",
-        });
-        result.skipped++;
-        continue;
-      }
-
-      await prisma.$transaction(async (tx) => {
-        let student = await tx.student.findUnique({
-          where: { nationalCode: row.nationalCode },
-        });
-
-        if (!student) {
-          student = await tx.student.create({
+        if (!studentId) {
+          const created = await tx.student.create({
             data: {
               firstName: row.firstName,
               lastName: row.lastName,
@@ -112,12 +154,14 @@ export async function bulkCreateStudents(
               fatherName: row.fatherName || null,
               lastEditedByUsername: username,
             },
+            select: { id: true },
           });
+          studentId = created.id;
         }
 
-        await tx.studentEnrollment.create({
+        const enr = await tx.studentEnrollment.create({
           data: {
-            studentId: student.id,
+            studentId,
             schoolId,
             academicYearId,
             payeId,
@@ -125,15 +169,22 @@ export async function bulkCreateStudents(
             klassId: klass.id,
             lastEditedByUsername: username,
           },
+          select: { id: true },
         });
 
+        return { studentId, enrollmentId: enr.id };
+      });
+
+      // ۴.۲ ساخت auth user — خارج از تراکنش
+      if (row.phone?.trim()) {
         const studentEmail = `${row.nationalCode}@lms.local`.toLowerCase();
 
-        let authUser = await tx.user.findUnique({
+        let authUser = await prisma.user.findUnique({
           where: { email: studentEmail },
+          select: { id: true },
         });
 
-        if (!authUser && row.phone) {
+        if (!authUser) {
           try {
             await auth.api.signUpEmail({
               headers: await headers(),
@@ -146,28 +197,32 @@ export async function bulkCreateStudents(
               },
             });
 
-            authUser = await tx.user.findUnique({
+            authUser = await prisma.user.findUnique({
               where: { email: studentEmail },
+              select: { id: true },
             });
           } catch (e) {
-            authUser = await tx.user.findUnique({
+            authUser = await prisma.user.findUnique({
               where: { email: studentEmail },
+              select: { id: true },
             });
           }
         }
 
+        // ۴.۳ UserAssignment
         if (authUser) {
-          const existingAssignment = await tx.userAssignment.findFirst({
+          const existing = await prisma.userAssignment.findFirst({
             where: {
               userId: authUser.id,
               schoolId,
               academicYearId,
               role: "STUDENT",
             },
+            select: { id: true },
           });
 
-          if (!existingAssignment) {
-            await tx.userAssignment.create({
+          if (!existing) {
+            await prisma.userAssignment.create({
               data: {
                 userId: authUser.id,
                 schoolId,
@@ -178,11 +233,11 @@ export async function bulkCreateStudents(
             });
           }
         }
-      });
+      }
 
       result.created++;
     } catch (err: any) {
-      console.error("Bulk student row error:", err);
+      console.error("Bulk row error:", err);
       result.errors.push({
         row: rowNumber,
         nationalCode: row.nationalCode,
@@ -190,7 +245,7 @@ export async function bulkCreateStudents(
       });
       result.skipped++;
     }
-  }
+  });
 
   revalidatePath("/dashboard/manager/students");
 

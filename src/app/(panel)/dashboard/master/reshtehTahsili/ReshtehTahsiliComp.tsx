@@ -53,6 +53,7 @@ export default function ReshtehTahsiliComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="فرم ثبت مشخصات رشته تحصیلی"

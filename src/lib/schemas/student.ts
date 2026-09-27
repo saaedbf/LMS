@@ -4,7 +4,7 @@ const emptyStringToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
 const iranMobileRegex = /^09\d{9}$/;
-const nationalCodeRegex = /^\d{10}$/;
+const nationalCodeRegex = /^\d{10,11}$/;
 
 export const studentSearchSchema = z.object({
   nationalCode: z

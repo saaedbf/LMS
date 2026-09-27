@@ -47,6 +47,7 @@ export default function PayeComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="فرم ثبت مشخصات  پایه"
@@ -127,8 +128,6 @@ export default function PayeComp({
             return await DeletePayeAction(item.id);
           }}
         />
-
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

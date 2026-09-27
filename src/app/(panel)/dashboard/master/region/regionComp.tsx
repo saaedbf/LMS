@@ -44,6 +44,7 @@ export default function RegionComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="فرم ثبت مشخصات منطقه"
@@ -129,8 +130,6 @@ export default function RegionComp({
             return await DeleteRegionAction(item.id);
           }}
         />
-
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

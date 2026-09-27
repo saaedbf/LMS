@@ -66,6 +66,7 @@ export default function DisiplinaryComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={count}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="ثبت گروهی یا فردی مورد انضباطی   "
@@ -197,8 +198,6 @@ export default function DisiplinaryComp({
             </Tbody>
           </Table>
         </DataTableLayout>
-
-        <Pagination pageSize={pageSize} totalCount={count} />
       </div>
     </div>
   );

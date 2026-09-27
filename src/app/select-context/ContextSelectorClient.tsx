@@ -15,6 +15,20 @@ type Assignment = {
   };
 };
 
+function getRedirectPath(role: string): string {
+  switch (role) {
+    case "MANAGER":
+    case "DEPUTY":
+      return "/dashboard";
+    case "TEACHER":
+      return "/teacher";
+    case "STUDENT":
+      return "/student";
+    default:
+      return "/dashboard";
+  }
+}
+
 export default function ContextSelectorClient({
   initialAssignments,
   title,
@@ -25,11 +39,14 @@ export default function ContextSelectorClient({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  const handleSelect = (id: number) => {
+  const handleSelect = (id: number, role: string) => {
     startTransition(async () => {
-      await setActiveContext(id);
-      router.push("/dashboard");
-      router.refresh();
+      try {
+        await setActiveContext(id);
+        router.push(getRedirectPath(role));
+      } catch (error) {
+        console.error(error);
+      }
     });
   };
 
@@ -45,7 +62,7 @@ export default function ContextSelectorClient({
             key={item.id}
             type="button"
             disabled={isPending}
-            onClick={() => handleSelect(item.id)}
+            onClick={() => handleSelect(item.id, item.role)}
             className="group flex w-full items-center justify-between rounded-xl border-2 border-gray-50 p-4 text-right transition-all hover:border-blue-500 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div>

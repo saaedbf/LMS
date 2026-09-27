@@ -109,6 +109,7 @@ export default function AbsenceComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={count}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="ثبت گروهی یا فردی غیبت برای ساعت مشخص"
@@ -310,8 +311,6 @@ export default function AbsenceComp({
             </Tbody>
           </Table>
         </DataTableLayout>
-
-        <Pagination pageSize={pageSize} totalCount={count} />
       </div>
     </div>
   );

@@ -51,7 +51,7 @@ const normalizePhone = (value: unknown): string => {
   return str;
 };
 
-const nationalCodeRegex = /^\d{10}$/;
+const nationalCodeRegex = /^\d{10,11}$/;
 const iranMobileRegex = /^09\d{9}$/;
 
 export const bulkStudentRowSchema = z.object({

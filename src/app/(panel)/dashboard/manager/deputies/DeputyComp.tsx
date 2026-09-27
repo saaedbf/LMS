@@ -68,6 +68,7 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <ActionModal
               title="تعریف معاون جدید"
@@ -209,8 +210,6 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
             </Tbody>
           </Table>
         </DataTableLayout>
-
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

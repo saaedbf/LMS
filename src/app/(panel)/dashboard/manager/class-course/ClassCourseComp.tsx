@@ -75,7 +75,7 @@ export default function ClassCourseComp({
         className="mb-3"
       />
       <div className="container mx-auto px-4 py-2">
-        <DataTableLayout totalCount={totalCount}>
+        <DataTableLayout totalCount={totalCount} pageSize={pageSize}>
           <Table>
             <thead>
               <HeadTr>
@@ -185,7 +185,7 @@ export default function ClassCourseComp({
           </Table>
         </DataTableLayout>
 
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
+        {/* <Pagination pageSize={pageSize} totalCount={totalCount} /> */}
       </div>
     </div>
   );

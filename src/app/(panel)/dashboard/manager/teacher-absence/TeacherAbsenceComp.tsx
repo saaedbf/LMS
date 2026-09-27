@@ -86,6 +86,7 @@ export default function TeacherAbsenceComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="ثبت غیبت برای یک یا چند معلم"
@@ -265,7 +266,6 @@ export default function TeacherAbsenceComp({
             </Tbody>
           </Table>
         </DataTableLayout>
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

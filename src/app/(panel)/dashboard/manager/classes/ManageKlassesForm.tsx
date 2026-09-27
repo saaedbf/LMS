@@ -189,7 +189,7 @@ export default function ManageKlassesForm({
       </div>
 
       {/* جدول نمایش کلاس‌ها */}
-      <DataTableLayout totalCount={totalCount}>
+      <DataTableLayout totalCount={totalCount} pageSize={pageSize}>
         <Table>
           <thead>
             <HeadTr>
@@ -306,8 +306,6 @@ export default function ManageKlassesForm({
           </div>
         </div>
       )}
-
-      <Pagination pageSize={pageSize} totalCount={totalCount} />
     </div>
   );
 }

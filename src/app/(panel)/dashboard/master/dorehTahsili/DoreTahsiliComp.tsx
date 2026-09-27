@@ -51,6 +51,7 @@ export default function DoreTahsiliComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="فرم ثبت مشخصات دوره تحصیلی"
@@ -158,8 +159,6 @@ export default function DoreTahsiliComp({
             return await DeleteDorehTahiliAction(item.id);
           }}
         />
-
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

@@ -6,28 +6,20 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SchoolRole } from "@prisma/client";
 
-/**
- * سشن + user را از Better Auth می‌گیریم
- */
-async function requireSession() {
-  const sessionData = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!sessionData?.user?.id) {
-    throw new Error("UNAUTHORIZED");
-  }
-
-  return sessionData;
-}
+const IS_DEV = process.env.NODE_ENV === "development";
 
 /**
  * انتخاب کانتکست فعال برای سشن جاری
  */
 export async function setActiveContext(assignmentId: number) {
-  const sessionData = await requireSession();
+  const sessionData = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-  // 1) مطمئن شو assignment متعلق به همین user است و فعال است
+  if (!sessionData?.user?.id || !sessionData?.session?.id) {
+    throw new Error("UNAUTHORIZED");
+  }
+
   const assignment = await prisma.userAssignment.findFirst({
     where: {
       id: assignmentId,
@@ -39,83 +31,63 @@ export async function setActiveContext(assignmentId: number) {
     select: { id: true },
   });
 
-  if (!assignment) {
-    throw new Error("FORBIDDEN");
-  }
+  if (!assignment) throw new Error("FORBIDDEN");
 
-  // 2) سشن جاری را آپدیت کن
-  // نکته: بسته به شکل sessionData ممکن است session.id یا session.token داشته باشی.
-  // ما تلاش می‌کنیم اول با id بزنیم، اگر نبود با token.
-  const sessionId = (sessionData as any)?.session?.id as string | undefined;
-  const sessionToken = (sessionData as any)?.session?.token as
-    | string
-    | undefined;
-
-  if (sessionId) {
-    await prisma.session.update({
-      where: { id: sessionId },
-      data: { activeAssignmentId: assignment.id },
-    });
-  } else if (sessionToken) {
-    await prisma.session.updateMany({
-      where: { userId: sessionData.user.id, token: sessionToken },
-      data: { activeAssignmentId: assignment.id },
-    });
-  } else {
-    // اگر Better Auth در خروجی سشن این‌ها را ندهد، باید مدل/آداپتر را هماهنگ کنیم
-    throw new Error("SESSION_IDENTIFIER_NOT_FOUND");
-  }
+  await prisma.session.update({
+    where: { id: sessionData.session.id },
+    data: { activeAssignmentId: assignment.id },
+  });
 
   return { success: true };
 }
 
 /**
- * گرفتن کانتکست فعال برای استفاده در گاردها/صفحات
+ * گرفتن کانتکست فعال
  */
 export async function getCurrentContext() {
-  const sessionData = await requireSession();
+  const sessionData = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-  const sessionId = sessionData.session?.id;
-  const sessionToken = sessionData.session?.token;
+  if (!sessionData?.user?.id || !sessionData?.session?.id) {
+    throw new Error("UNAUTHORIZED");
+  }
 
-  const dbSession = sessionId
-    ? await prisma.session.findUnique({
-        where: { id: sessionId },
-        include: {
-          user: true,
-          activeAssignment: {
-            include: {
-              school: true,
-              academicYear: true,
-            },
+  const dbSession = await prisma.session.findUnique({
+    where: { id: sessionData.session.id },
+    select: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          systemRole: true,
+          isActive: true,
+          role: true,
+          image: true,
+        },
+      },
+      activeAssignment: {
+        select: {
+          id: true,
+          role: true,
+          schoolId: true,
+          academicYearId: true,
+          school: {
+            select: { id: true, title: true, oppositeSchoolId: true },
+          },
+          academicYear: {
+            select: { id: true, title: true },
           },
         },
-      })
-    : sessionToken
-      ? await prisma.session.findFirst({
-          where: {
-            userId: sessionData.user.id,
-            token: sessionToken,
-          },
-          include: {
-            user: true,
-            activeAssignment: {
-              include: {
-                school: true,
-                academicYear: true,
-              },
-            },
-          },
-        })
-      : null;
+      },
+    },
+  });
 
-  if (!dbSession) {
-    throw new Error("SESSION_NOT_FOUND");
-  }
-
-  if (!dbSession.user.isActive) {
-    throw new Error("USER_INACTIVE");
-  }
+  if (!dbSession) throw new Error("SESSION_NOT_FOUND");
+  if (!dbSession.user.isActive) throw new Error("USER_INACTIVE");
 
   const isMaster = dbSession.user.systemRole === "MASTER";
 
@@ -131,14 +103,13 @@ export async function getCurrentContext() {
           academicYearId: dbSession.activeAssignment.academicYearId,
         };
 
-  // ⬅️⬇️ فقط این بخش اضافه می‌شود (خواندن دسترسی‌های معاون)
   let permissions: string[] = [];
 
   if (contextData?.role === "DEPUTY") {
     const deputy = await prisma.deputy.findUnique({
       where: { userId: dbSession.user.id },
-      include: {
-        permissions: true,
+      select: {
+        permissions: { select: { permission: true } },
       },
     });
 
@@ -146,16 +117,14 @@ export async function getCurrentContext() {
       permissions = deputy.permissions.map((p) => p.permission);
     }
   }
-  // ⬆️⬆️ پایان بخش اضافه‌شده
 
-  console.log("CTX", {
-    userId: dbSession.user?.id,
-    systemRole: dbSession.user?.systemRole,
-    isMaster,
-    hasActiveAssignment: !!dbSession?.activeAssignment,
-    contextData,
-    permissions, // ⬅️ برای دیباگ
-  });
+  if (IS_DEV) {
+    console.log("[CTX]", {
+      userId: dbSession.user.id,
+      role: contextData?.role,
+      isMaster,
+    });
+  }
 
   return {
     user: dbSession.user,
@@ -166,48 +135,51 @@ export async function getCurrentContext() {
     role: contextData?.role ?? null,
     school: contextData?.school ?? null,
     academicYear: contextData?.academicYear ?? null,
-    permissions, // ⬅️ فقط این خط اضافه می‌شود
+    permissions,
   };
 }
 
 /**
- * لیست assignment های کاربر (فقط فعال‌ها)
+ * لیست assignment های کاربر
  */
-
 export async function getUserAssignments(onlyCurrentYear: boolean = false) {
-  const session = await auth.api.getSession({
+  const sessionData = await auth.api.getSession({
     headers: await headers(),
   });
-  console.log(
-    "SESSION USER:",
-    session?.user.systemRole,
-    session?.user.isActive,
-  );
 
-  if (!session?.user?.id) throw new Error("کاربر یافت نشد");
+  if (!sessionData?.user?.id) throw new Error("کاربر یافت نشد");
 
-  // پیدا کردن آخرین سال تحصیلی فعال در سیستم
-  const latestYear = await prisma.academicYear.findFirst({
-    where: { isActive: true },
-    orderBy: { id: "desc" }, // فرض بر این است که ID بزرگتر یعنی سال جدیدتر
-  });
+  const where: any = {
+    userId: sessionData.user.id,
+    isActive: true,
+    school: { isActive: true },
+    academicYear: { isActive: true },
+  };
 
-  const assignments = await prisma.userAssignment.findMany({
-    where: {
-      userId: session.user.id,
-      isActive: true,
-      school: { isActive: true },
-      academicYear: {
+  if (onlyCurrentYear) {
+    const latestYear = await prisma.academicYear.findFirst({
+      where: { isActive: true },
+      orderBy: { id: "desc" },
+      select: { id: true },
+    });
+
+    if (latestYear) {
+      where.academicYear = {
         isActive: true,
-        // اگر onlyCurrentYear تیک خورده بود، فقط سال آخر را بیاور
-        ...(onlyCurrentYear && latestYear ? { id: latestYear.id } : {}),
-      },
-    },
-    include: {
-      school: true,
-      academicYear: true,
+        id: latestYear.id,
+      };
+    }
+  }
+
+  return prisma.userAssignment.findMany({
+    where,
+    select: {
+      id: true,
+      role: true,
+      schoolId: true,
+      academicYearId: true,
+      school: { select: { id: true, title: true } },
+      academicYear: { select: { id: true, title: true } },
     },
   });
-  console.log("ACTIVE ASSIGNMENT:", assignments ?? null);
-  return assignments;
 }

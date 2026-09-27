@@ -145,6 +145,7 @@ export default function GradePeriodComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="ایجاد دوره جدید ثبت نمره"
@@ -386,8 +387,6 @@ export default function GradePeriodComp({
             </Tbody>
           </Table>
         </DataTableLayout>
-
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

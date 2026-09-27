@@ -202,7 +202,7 @@ export default function BulkStudentUpload({
 
       if (!row.firstName) errors.push("نام خالی");
       if (!row.lastName) errors.push("نام خانوادگی خالی");
-      if (!/^\d{10}$/.test(row.nationalCode)) errors.push("کد ملی نامعتبر");
+      if (!/^\d{10,11}$/.test(row.nationalCode)) errors.push("کد ملی نامعتبر");
       if (row.phone && !/^09\d{9}$/.test(row.phone))
         errors.push("شماره تماس نامعتبر");
 
@@ -274,7 +274,7 @@ export default function BulkStudentUpload({
     selectedKlassId !== "" && parsedRows.length > 0 && validCount > 0;
 
   return (
-    <div className="space-y-1 px-4 py-2 max-h-[80vh]">
+    <div className="space-y-1 px-4 py-2 max-h-[80vh] overflow-y-auto">
       {/* ⬅️ انتخاب کلاس مقصد */}
       <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4">
         <label className="mb-1 block text-sm font-bold text-blue-900">
@@ -360,7 +360,7 @@ export default function BulkStudentUpload({
       </div>
 
       {/* آپلود */}
-      {mode === "upload" && (
+      {!result && mode === "upload" && (
         <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 p-4 transition-colors hover:border-blue-400 hover:bg-blue-50/50">
           <Upload size={32} className="text-zinc-400" />
           <span className="mt-2 text-sm font-medium text-zinc-700">
@@ -380,7 +380,7 @@ export default function BulkStudentUpload({
       )}
 
       {/* پیست */}
-      {mode === "paste" && (
+      {!result && mode === "paste" && (
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">
             داده‌ها را از اکسل کپی و اینجا پیست کنید:
@@ -406,7 +406,7 @@ export default function BulkStudentUpload({
       )}
 
       {/* پیش‌نمایش */}
-      {parsedRows.length > 0 && (
+      {!result && parsedRows.length > 0 && (
         <div className="rounded-lg border border-zinc-200">
           <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 p-1">
             <div className="flex items-center gap-3 text-sm">
@@ -436,43 +436,45 @@ export default function BulkStudentUpload({
             </button>
           </div>
 
-          <div className="max-h-32 overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-zinc-100">
-                <tr>
-                  <th className="p-2 text-right">#</th>
-                  <th className="p-2 text-right">نام</th>
-                  <th className="p-2 text-right">کد ملی</th>
-                  <th className="p-2 text-right">تلفن</th>
-                  <th className="p-2 text-right">وضعیت</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parsedRows.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className={`border-b border-zinc-100 ${
-                      row._error ? "bg-rose-50" : ""
-                    }`}
-                  >
-                    <td className="p-2 text-zinc-500">{row._rowNumber}</td>
-                    <td className="p-2">
-                      {row.firstName} {row.lastName}
-                    </td>
-                    <td className="p-2 font-mono">{row.nationalCode}</td>
-                    <td className="p-2 font-mono">{row.phone}</td>
-                    <td className="p-2">
-                      {row._error ? (
-                        <span className="text-rose-600">{row._error}</span>
-                      ) : (
-                        <CheckCircle size={14} className="text-emerald-500" />
-                      )}
-                    </td>
+          {!result && (
+            <div className="max-h-32 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-zinc-100">
+                  <tr>
+                    <th className="p-2 text-right">#</th>
+                    <th className="p-2 text-right">نام</th>
+                    <th className="p-2 text-right">کد ملی</th>
+                    <th className="p-2 text-right">تلفن</th>
+                    <th className="p-2 text-right">وضعیت</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {parsedRows.map((row, idx) => (
+                    <tr
+                      key={idx}
+                      className={`border-b border-zinc-100 ${
+                        row._error ? "bg-rose-50" : ""
+                      }`}
+                    >
+                      <td className="p-2 text-zinc-500">{row._rowNumber}</td>
+                      <td className="p-2">
+                        {row.firstName} {row.lastName}
+                      </td>
+                      <td className="p-2 font-mono">{row.nationalCode}</td>
+                      <td className="p-2 font-mono">{row.phone}</td>
+                      <td className="p-2">
+                        {row._error ? (
+                          <span className="text-rose-600">{row._error}</span>
+                        ) : (
+                          <CheckCircle size={14} className="text-emerald-500" />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -482,20 +484,20 @@ export default function BulkStudentUpload({
           <h3 className="mb-3 text-sm font-bold text-zinc-800">
             نتیجه ثبت گروهی
           </h3>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg bg-blue-50 p-3 text-center">
+          <div className="grid grid-cols-3 gap-1">
+            <div className="rounded-lg bg-blue-50 p-1 text-center">
               <div className="text-2xl font-bold text-blue-600">
                 {result.total}
               </div>
               <div className="text-xs text-blue-700">کل</div>
             </div>
-            <div className="rounded-lg bg-emerald-50 p-3 text-center">
+            <div className="rounded-lg bg-emerald-50 p-1 text-center">
               <div className="text-2xl font-bold text-emerald-600">
                 {result.created}
               </div>
               <div className="text-xs text-emerald-700">موفق</div>
             </div>
-            <div className="rounded-lg bg-rose-50 p-3 text-center">
+            <div className="rounded-lg bg-rose-50 p-1 text-center">
               <div className="text-2xl font-bold text-rose-600">
                 {result.skipped}
               </div>
@@ -519,13 +521,13 @@ export default function BulkStudentUpload({
       )}
 
       {/* دکمه‌ها */}
-      <div className="flex justify-end gap-2 border-t border-zinc-200 pt-1">
+      <div className="flex justify-end gap-2 border-t border-zinc-200 pt-1 z-50">
         <button
           type="button"
           onClick={() => setOpen(false)}
           className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
         >
-          انصراف
+          {result ? "بستن" : "انصراف"}
         </button>
         <button
           type="button"
@@ -539,11 +541,13 @@ export default function BulkStudentUpload({
               در حال ثبت...
             </>
           ) : (
-            <>
-              <CheckCircle size={16} />
-              ثبت {validCount} دانش‌آموز
-              {selectedKlass && ` در ${selectedKlass.title}`}
-            </>
+            !result && (
+              <>
+                <CheckCircle size={16} />
+                ثبت {validCount} دانش‌آموز
+                {selectedKlass && ` در ${selectedKlass.title}`}
+              </>
+            )
           )}
         </button>
       </div>

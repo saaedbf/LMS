@@ -241,6 +241,7 @@ export default function StudentComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <div className="flex flex-wrap gap-2">
               <ActionModal
@@ -626,7 +627,6 @@ export default function StudentComp({
             </div>
           )}
         </ActionModal>
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

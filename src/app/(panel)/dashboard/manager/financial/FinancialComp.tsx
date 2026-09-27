@@ -74,6 +74,7 @@ export default function FinancialComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <div className="flex flex-wrap gap-2">
               {/* ⬅️ دکمه ثبت بدهکاری */}
@@ -280,8 +281,6 @@ export default function FinancialComp({
             </Tbody>
           </Table>
         </DataTableLayout>
-
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );

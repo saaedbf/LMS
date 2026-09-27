@@ -162,7 +162,7 @@ export default function ManageReshtehCoursesForm({
         </div>
       </div>
 
-      <DataTableLayout totalCount={totalCount}>
+      <DataTableLayout totalCount={totalCount} pageSize={pageSize}>
         <Table>
           <thead>
             <HeadTr>
@@ -221,8 +221,6 @@ export default function ManageReshtehCoursesForm({
           return await disconnectDarsFromReshteh(item.id, reshtehId);
         }}
       />
-
-      <Pagination pageSize={pageSize} totalCount={totalCount} />
     </div>
   );
 }

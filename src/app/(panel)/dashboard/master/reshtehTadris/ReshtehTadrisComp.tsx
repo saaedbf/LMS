@@ -51,6 +51,7 @@ export default function ReshtehTadrisComp({
       <div className="container mx-auto px-4 py-2">
         <DataTableLayout
           totalCount={totalCount}
+          pageSize={pageSize}
           action={
             <ActionModal
               desc="فرم ثبت مشخصات رشته تدریس"
@@ -133,8 +134,6 @@ export default function ReshtehTadrisComp({
             return await DeleteReshteTadrisAction(item.id);
           }}
         />
-
-        <Pagination pageSize={pageSize} totalCount={totalCount} />
       </div>
     </div>
   );
