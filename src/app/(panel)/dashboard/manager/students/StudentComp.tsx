@@ -157,6 +157,7 @@ export default function StudentComp({
       setResettingStudentId(null);
     }
   };
+
   const handleDeleteEnrollment = async (enrollmentId: string) => {
     try {
       const res = await deleteStudentEnrollment(enrollmentId);
