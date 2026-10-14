@@ -27,7 +27,7 @@ function getSizeConfig(totalRows: number): SizeConfig {
       headerFont: 9,
       rowHeight: 22,
       tableHeaderHeight: 22,
-      paddingPage: 20,
+      paddingPage: 24,
     };
   }
   if (totalRows <= 25) {
@@ -36,7 +36,7 @@ function getSizeConfig(totalRows: number): SizeConfig {
       headerFont: 9,
       rowHeight: 20,
       tableHeaderHeight: 20,
-      paddingPage: 18,
+      paddingPage: 22,
     };
   }
   if (totalRows <= 30) {
@@ -45,7 +45,7 @@ function getSizeConfig(totalRows: number): SizeConfig {
       headerFont: 8.5,
       rowHeight: 19,
       tableHeaderHeight: 18,
-      paddingPage: 16,
+      paddingPage: 20,
     };
   }
   if (totalRows <= 35) {
@@ -54,7 +54,7 @@ function getSizeConfig(totalRows: number): SizeConfig {
       headerFont: 8.5,
       rowHeight: 18,
       tableHeaderHeight: 18,
-      paddingPage: 14,
+      paddingPage: 18,
     };
   }
   if (totalRows <= 40) {
@@ -63,7 +63,7 @@ function getSizeConfig(totalRows: number): SizeConfig {
       headerFont: 8,
       rowHeight: 17,
       tableHeaderHeight: 17,
-      paddingPage: 12,
+      paddingPage: 16,
     };
   }
   if (totalRows <= 45) {
@@ -72,7 +72,7 @@ function getSizeConfig(totalRows: number): SizeConfig {
       headerFont: 7.5,
       rowHeight: 15,
       tableHeaderHeight: 16,
-      paddingPage: 10,
+      paddingPage: 14,
     };
   }
   return {
@@ -80,7 +80,7 @@ function getSizeConfig(totalRows: number): SizeConfig {
     headerFont: 7,
     rowHeight: 14,
     tableHeaderHeight: 14,
-    paddingPage: 10,
+    paddingPage: 14,
   };
 }
 
@@ -241,8 +241,13 @@ const EMPTY_COLS_COUNT = 12;
    تعداد ردیف کل بر اساس تعداد دانش‌آموز
    ═══════════════════════════════════════════════ */
 function getTotalRows(studentCount: number): number {
+  if (studentCount <= 10) return 10;
+  if (studentCount <= 15) return 15;
+  if (studentCount <= 20) return 20;
   if (studentCount <= 25) return 25;
+  if (studentCount <= 30) return 30;
   if (studentCount <= 35) return 35;
+  if (studentCount <= 40) return 40;
   if (studentCount <= 45) return 45;
   return 45;
 }
@@ -350,6 +355,7 @@ function AttendanceSheetPage({
       {/* ═══ هدر ═══ */}
       <View style={styles.headerBox} fixed>
         <View style={styles.headerRow1}>
+          {/* ستون راست: وزارت + سال تحصیلی */}
           <View style={styles.headerCell}>
             <Text>جمهوری اسلامی ایران</Text>
             <Text>وزارت آموزش و پرورش</Text>
@@ -357,20 +363,19 @@ function AttendanceSheetPage({
             <Text style={styles.bold}>کار برگ دبیر</Text>
           </View>
 
+          {/* ستون وسط: مدرسه + کد + پایه + کلاس */}
           <View style={styles.headerCell}>
             <Text>مدرسه: {sheet.schoolTitle}</Text>
             <Text>کد مدرسه: {sheet.schoolId}</Text>
             <Text>پایه: {sheet.payeTitle}</Text>
+            <Text>کلاس: {sheet.klassTitle}</Text>
           </View>
 
+          {/* ستون چپ: درس + نام دبیر */}
           <View style={styles.headerCellLast}>
             <Text>
               <Text style={styles.bold}>درس: </Text>
               {sheet.darsTitle}
-            </Text>
-            <Text>
-              <Text style={styles.bold}>کلاس: </Text>
-              {sheet.klassTitle}
             </Text>
             <Text>
               <Text style={styles.bold}>نام دبیر: </Text>
