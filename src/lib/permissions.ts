@@ -33,6 +33,7 @@ export const PERMISSIONS = {
   // ⬅️ مدیریت مالی
   MANAGE_FINANCIAL: "manage_financial",
   VIEW_FINANCIAL: "view_financial",
+  VIEW_KARBARG: "view_karbarg",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -97,5 +98,9 @@ export const PERMISSION_GROUPS = [
       { key: PERMISSIONS.VIEW_FINANCIAL, label: "مشاهده امور مالی" },
       { key: PERMISSIONS.MANAGE_FINANCIAL, label: "مدیریت امور مالی" },
     ],
+  },
+  {
+    title: "چاپ کاربرگ ",
+    permissions: [{ key: PERMISSIONS.VIEW_KARBARG, label: "کاربرگ دبیر  " }],
   },
 ];
