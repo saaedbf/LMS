@@ -335,24 +335,28 @@ function AttendanceSheetPages({
 }) {
   const studentCount = sheet.students.length;
 
+  // اگر چک‌باکس خورده و بیش از ۲۵ نفر
   if (splitLargeClasses && studentCount > 25) {
-    const CHUNK = 25;
-    const chunks: AttendanceSheet["students"][] = [];
-    for (let i = 0; i < studentCount; i += CHUNK) {
-      chunks.push(sheet.students.slice(i, i + CHUNK));
-    }
+    const firstHalf = sheet.students.slice(0, 25);
+    const secondHalf = sheet.students.slice(25);
 
     return (
       <>
-        {chunks.map((chunk, idx) => (
-          <AttendanceSheetPage
-            key={idx}
-            sheet={{ ...sheet, students: chunk }}
-            pageLabel={`صفحه ${idx + 1} از ${chunks.length}`}
-            startRowIndex={idx * CHUNK}
-            totalRowsOverride={50}
-          />
-        ))}
+        {/* صفحه ۱ — ۲۵ ردیف */}
+        <AttendanceSheetPage
+          sheet={{ ...sheet, students: firstHalf }}
+          pageLabel="صفحه ۱"
+          startRowIndex={0}
+          totalRowsOverride={25}
+        />
+
+        {/* صفحه ۲ — ۵۰ ردیف */}
+        <AttendanceSheetPage
+          sheet={{ ...sheet, students: secondHalf }}
+          pageLabel="صفحه ۲"
+          startRowIndex={25}
+          totalRowsOverride={50}
+        />
       </>
     );
   }
