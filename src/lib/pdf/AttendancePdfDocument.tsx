@@ -276,7 +276,9 @@ const EMPTY_COLS_COUNT = 15;
    ═══════════════════════════════════════════════ */
 function getTotalRows(studentCount: number): number {
   if (studentCount <= 25) return 25;
+  if (studentCount <= 30) return 30;
   if (studentCount <= 35) return 35;
+  if (studentCount <= 40) return 40;
   if (studentCount <= 45) return 45;
   return 50;
 }
