@@ -10,7 +10,7 @@ import {
 import type { AttendanceSheet } from "@/actions/attendanceActions";
 
 /* ═══════════════════════════════════════════════
-   تنظیمات اندازه (پویا بر اساس تعداد ردیف)
+   تنظیمات اندازه (پویا)
    ═══════════════════════════════════════════════ */
 type SizeConfig = {
   rowFont: number;
@@ -26,8 +26,8 @@ function getSizeConfig(totalRows: number): SizeConfig {
       rowFont: 11,
       headerFont: 9,
       rowHeight: 22,
-      tableHeaderHeight: 22,
-      paddingPage: 24,
+      tableHeaderHeight: 36,
+      paddingPage: 20,
     };
   }
   if (totalRows <= 25) {
@@ -35,8 +35,8 @@ function getSizeConfig(totalRows: number): SizeConfig {
       rowFont: 10,
       headerFont: 9,
       rowHeight: 20,
-      tableHeaderHeight: 20,
-      paddingPage: 22,
+      tableHeaderHeight: 34,
+      paddingPage: 18,
     };
   }
   if (totalRows <= 30) {
@@ -44,8 +44,8 @@ function getSizeConfig(totalRows: number): SizeConfig {
       rowFont: 9.5,
       headerFont: 8.5,
       rowHeight: 19,
-      tableHeaderHeight: 18,
-      paddingPage: 20,
+      tableHeaderHeight: 32,
+      paddingPage: 16,
     };
   }
   if (totalRows <= 35) {
@@ -53,8 +53,8 @@ function getSizeConfig(totalRows: number): SizeConfig {
       rowFont: 9,
       headerFont: 8.5,
       rowHeight: 18,
-      tableHeaderHeight: 18,
-      paddingPage: 18,
+      tableHeaderHeight: 30,
+      paddingPage: 14,
     };
   }
   if (totalRows <= 40) {
@@ -62,8 +62,8 @@ function getSizeConfig(totalRows: number): SizeConfig {
       rowFont: 8,
       headerFont: 8,
       rowHeight: 17,
-      tableHeaderHeight: 17,
-      paddingPage: 16,
+      tableHeaderHeight: 28,
+      paddingPage: 12,
     };
   }
   if (totalRows <= 45) {
@@ -71,21 +71,30 @@ function getSizeConfig(totalRows: number): SizeConfig {
       rowFont: 7.5,
       headerFont: 7.5,
       rowHeight: 15,
-      tableHeaderHeight: 16,
-      paddingPage: 14,
+      tableHeaderHeight: 26,
+      paddingPage: 10,
+    };
+  }
+  if (totalRows <= 50) {
+    return {
+      rowFont: 7,
+      headerFont: 7,
+      rowHeight: 14,
+      tableHeaderHeight: 24,
+      paddingPage: 10,
     };
   }
   return {
-    rowFont: 7,
-    headerFont: 7,
-    rowHeight: 14,
-    tableHeaderHeight: 14,
-    paddingPage: 14,
+    rowFont: 6.5,
+    headerFont: 6.5,
+    rowHeight: 12,
+    tableHeaderHeight: 22,
+    paddingPage: 8,
   };
 }
 
 /* ═══════════════════════════════════════════════
-   smartFit: کوچک‌کردن فونت و برش متن بر اساس طول
+   smartFit
    ═══════════════════════════════════════════════ */
 function smartFit(
   text: string,
@@ -94,22 +103,16 @@ function smartFit(
   hardMax: number,
 ): { text: string; fontSize: number } {
   if (!text) return { text: "", fontSize: baseFont };
-
   const len = text.length;
 
-  // کوتاه: فونت اصلی
-  if (len <= softMax) {
-    return { text, fontSize: baseFont };
-  }
+  if (len <= softMax) return { text, fontSize: baseFont };
 
-  // متوسط: فونت کوچک‌تر (تا ۲ واحد کمتر)
   if (len <= hardMax) {
     const overflow = len - softMax;
     const newFont = Math.max(baseFont - overflow * 0.2, baseFont - 2);
     return { text, fontSize: newFont };
   }
 
-  // بلند: فونت کوچک‌تر + برش با …
   return {
     text: text.slice(0, hardMax - 1) + "…",
     fontSize: Math.max(baseFont - 2, 6),
@@ -117,9 +120,26 @@ function smartFit(
 }
 
 /* ═══════════════════════════════════════════════
-   استایل‌های پویا
+   محاسبه ارتفاع ردیف
    ═══════════════════════════════════════════════ */
-function makeStyles(config: SizeConfig) {
+const A4_HEIGHT = 842;
+const HEADER_APPROX = 80;
+
+function calculateRowHeight(totalRows: number, config: SizeConfig): number {
+  const available =
+    A4_HEIGHT -
+    config.paddingPage * 2 -
+    HEADER_APPROX -
+    config.tableHeaderHeight;
+
+  const rowHeight = available / totalRows;
+  return Math.max(rowHeight, 10);
+}
+
+/* ═══════════════════════════════════════════════
+   استایل‌ها
+   ═══════════════════════════════════════════════ */
+function makeStyles(config: SizeConfig, calculatedRowHeight: number) {
   return StyleSheet.create({
     page: {
       paddingVertical: config.paddingPage,
@@ -139,20 +159,22 @@ function makeStyles(config: SizeConfig) {
     },
     headerCell: {
       flex: 1,
-      padding: Math.max(2, config.headerFont / 3),
+      padding: Math.max(2, config.headerFont / 2.5),
       borderLeftWidth: 1,
       borderLeftColor: "#000",
       borderLeftStyle: "solid",
       textAlign: "center",
       fontSize: config.headerFont,
-      lineHeight: 1.4,
+      lineHeight: 1.5,
+      fontWeight: "bold",
     },
     headerCellLast: {
       flex: 1,
-      padding: Math.max(2, config.headerFont / 3),
+      padding: Math.max(2, config.headerFont / 2.5),
       textAlign: "center",
       fontSize: config.headerFont,
-      lineHeight: 1.4,
+      lineHeight: 1.5,
+      fontWeight: "bold",
     },
     bold: {
       fontFamily: "IRANSans",
@@ -169,11 +191,11 @@ function makeStyles(config: SizeConfig) {
       borderBottomWidth: 1,
       borderBottomColor: "#000",
       borderBottomStyle: "solid",
-      minHeight: config.rowHeight,
+      height: calculatedRowHeight,
     },
     tableRowLast: {
       flexDirection: "row-reverse",
-      minHeight: config.rowHeight,
+      height: calculatedRowHeight,
     },
     tableHeader: {
       flexDirection: "row-reverse",
@@ -181,7 +203,7 @@ function makeStyles(config: SizeConfig) {
       borderBottomColor: "#000",
       borderBottomStyle: "solid",
       backgroundColor: "#f0f0f0",
-      minHeight: config.tableHeaderHeight,
+      height: config.tableHeaderHeight,
     },
     cell: {
       paddingVertical: 0,
@@ -189,14 +211,27 @@ function makeStyles(config: SizeConfig) {
       borderLeftWidth: 1,
       borderLeftColor: "#000",
       borderLeftStyle: "solid",
-      fontSize: config.rowFont,
       justifyContent: "center",
+      alignItems: "center",
+      flexDirection: "row",
     },
     cellLast: {
       paddingVertical: 0,
       paddingHorizontal: 2,
-      fontSize: config.rowFont,
       justifyContent: "center",
+      alignItems: "center",
+      flexDirection: "row",
+    },
+    cellText: {
+      fontSize: config.rowFont,
+      textAlign: "center",
+      width: "100%",
+    },
+    cellTextRight: {
+      fontSize: config.rowFont,
+      textAlign: "right",
+      width: "100%",
+      paddingRight: 4,
     },
     cellHeader: {
       paddingVertical: 1,
@@ -204,22 +239,22 @@ function makeStyles(config: SizeConfig) {
       borderLeftWidth: 1,
       borderLeftColor: "#000",
       borderLeftStyle: "solid",
-      fontSize: config.headerFont - 1,
-      textAlign: "center",
-      fontWeight: "bold",
       justifyContent: "center",
+      alignItems: "center",
+      flexDirection: "row",
     },
     cellHeaderLast: {
       paddingVertical: 1,
       paddingHorizontal: 2,
-      fontSize: config.headerFont - 1,
+      justifyContent: "center",
+      alignItems: "center",
+      flexDirection: "row",
+    },
+    cellHeaderText: {
+      fontSize: config.headerFont + 1,
       textAlign: "center",
       fontWeight: "bold",
-      justifyContent: "center",
-    },
-    mono: {
-      fontSize: config.rowFont - 0.5,
-      textAlign: "center",
+      width: "100%",
     },
   });
 }
@@ -228,28 +263,22 @@ function makeStyles(config: SizeConfig) {
    عرض ستون‌ها
    ═══════════════════════════════════════════════ */
 const COLS = {
-  row: "4%",
-  code: "11%",
-  name: "20%",
-  empty: "4.5%",
-  desc: "11%",
+  row: "6%",
+  name: "24%",
+  empty: "4%",
+  desc: "10%",
 };
 
-const EMPTY_COLS_COUNT = 12;
+const EMPTY_COLS_COUNT = 15;
 
 /* ═══════════════════════════════════════════════
-   تعداد ردیف کل بر اساس تعداد دانش‌آموز
+   تعداد ردیف کل
    ═══════════════════════════════════════════════ */
 function getTotalRows(studentCount: number): number {
-  if (studentCount <= 10) return 10;
-  if (studentCount <= 15) return 15;
-  if (studentCount <= 20) return 20;
   if (studentCount <= 25) return 25;
-  if (studentCount <= 30) return 30;
   if (studentCount <= 35) return 35;
-  if (studentCount <= 40) return 40;
   if (studentCount <= 45) return 45;
-  return 45;
+  return 50;
 }
 
 /* ═══════════════════════════════════════════════
@@ -295,7 +324,7 @@ export function AttendancePdfDocument({
 }
 
 /* ═══════════════════════════════════════════════
-   منطق تقسیم به صفحات
+   منطق تقسیم
    ═══════════════════════════════════════════════ */
 function AttendanceSheetPages({
   sheet,
@@ -309,7 +338,6 @@ function AttendanceSheetPages({
   if (splitLargeClasses && studentCount > 25) {
     const CHUNK = 25;
     const chunks: AttendanceSheet["students"][] = [];
-
     for (let i = 0; i < studentCount; i += CHUNK) {
       chunks.push(sheet.students.slice(i, i + CHUNK));
     }
@@ -322,6 +350,7 @@ function AttendanceSheetPages({
             sheet={{ ...sheet, students: chunk }}
             pageLabel={`صفحه ${idx + 1} از ${chunks.length}`}
             startRowIndex={idx * CHUNK}
+            totalRowsOverride={50}
           />
         ))}
       </>
@@ -338,24 +367,26 @@ function AttendanceSheetPage({
   sheet,
   startRowIndex = 0,
   pageLabel,
+  totalRowsOverride,
 }: {
   sheet: AttendanceSheet;
   startRowIndex?: number;
   pageLabel?: string;
+  totalRowsOverride?: number;
 }) {
   const studentCount = sheet.students.length;
-  const totalRows = getTotalRows(studentCount);
+  const totalRows = totalRowsOverride ?? getTotalRows(studentCount);
   const emptyCount = Math.max(0, totalRows - studentCount);
 
   const config = getSizeConfig(totalRows);
-  const styles = makeStyles(config);
+  const calculatedRowHeight = calculateRowHeight(totalRows, config);
+  const styles = makeStyles(config, calculatedRowHeight);
 
   return (
     <Page size="A4" style={styles.page} wrap={false}>
       {/* ═══ هدر ═══ */}
       <View style={styles.headerBox} fixed>
         <View style={styles.headerRow1}>
-          {/* ستون راست: وزارت + سال تحصیلی */}
           <View style={styles.headerCell}>
             <Text>جمهوری اسلامی ایران</Text>
             <Text>وزارت آموزش و پرورش</Text>
@@ -363,7 +394,6 @@ function AttendanceSheetPage({
             <Text style={styles.bold}>کار برگ دبیر</Text>
           </View>
 
-          {/* ستون وسط: مدرسه + کد + پایه + کلاس */}
           <View style={styles.headerCell}>
             <Text>مدرسه: {sheet.schoolTitle}</Text>
             <Text>کد مدرسه: {sheet.schoolId}</Text>
@@ -371,7 +401,6 @@ function AttendanceSheetPage({
             <Text>کلاس: {sheet.klassTitle}</Text>
           </View>
 
-          {/* ستون چپ: درس + نام دبیر */}
           <View style={styles.headerCellLast}>
             <Text>
               <Text style={styles.bold}>درس: </Text>
@@ -411,29 +440,26 @@ function AttendanceSheetPage({
       <View style={styles.table}>
         {/* سرستون */}
         <View style={styles.tableHeader} fixed>
-          <Text style={{ ...styles.cellHeader, width: COLS.row }}>ردیف</Text>
-          <Text style={{ ...styles.cellHeader, width: COLS.code }}>کد ملی</Text>
-          <Text style={{ ...styles.cellHeader, width: COLS.name }}>
-            نام و نام خانوادگی
-          </Text>
+          <View style={{ ...styles.cellHeader, width: COLS.row }}>
+            <Text style={styles.cellHeaderText}>ردیف</Text>
+          </View>
+          <View style={{ ...styles.cellHeader, width: COLS.name }}>
+            <Text style={styles.cellHeaderText}>نام خانوادگی و نام</Text>
+          </View>
           {Array.from({ length: EMPTY_COLS_COUNT }).map((_, i) => (
-            <Text key={i} style={{ ...styles.cellHeader, width: COLS.empty }}>
-              {" "}
-            </Text>
+            <View key={i} style={{ ...styles.cellHeader, width: COLS.empty }}>
+              <Text style={styles.cellHeaderText}> </Text>
+            </View>
           ))}
-          <Text style={styles.cellHeaderLast}>توضیحات</Text>
+          <View style={{ ...styles.cellHeaderLast, width: COLS.desc }}>
+            <Text style={styles.cellHeaderText}>توضیحات</Text>
+          </View>
         </View>
 
         {/* دانش‌آموزان */}
         {sheet.students.map((s, i) => {
-          const fullName = `${s.firstName} ${s.lastName}`;
+          const fullName = `${s.lastName} ${s.firstName}`;
           const nameFit = smartFit(fullName, config.rowFont, 22, 30);
-          const codeFit = smartFit(
-            s.nationalCode,
-            config.rowFont - 0.5,
-            12,
-            12,
-          );
 
           return (
             <View
@@ -444,44 +470,28 @@ function AttendanceSheetPage({
                   : styles.tableRow
               }
             >
-              <Text
-                style={{
-                  ...styles.cell,
-                  width: COLS.row,
-                  textAlign: "center",
-                  fontWeight: "bold",
-                }}
-              >
-                {startRowIndex + i + 1}
-              </Text>
-              <Text
-                style={{
-                  ...styles.cell,
-                  width: COLS.code,
-                  ...styles.mono,
-                  fontWeight: "bold",
-                  fontSize: codeFit.fontSize,
-                }}
-              >
-                {codeFit.text}
-              </Text>
-              <Text
-                style={{
-                  ...styles.cell,
-                  width: COLS.name,
-                  textAlign: "right",
-                  fontWeight: "bold",
-                  fontSize: nameFit.fontSize,
-                }}
-              >
-                {nameFit.text}
-              </Text>
-              {Array.from({ length: EMPTY_COLS_COUNT }).map((_, j) => (
-                <Text key={j} style={{ ...styles.cell, width: COLS.empty }}>
-                  {" "}
+              <View style={{ ...styles.cell, width: COLS.row }}>
+                <Text style={styles.cellText}>{startRowIndex + i + 1}</Text>
+              </View>
+              <View style={{ ...styles.cell, width: COLS.name }}>
+                <Text
+                  style={{
+                    ...styles.cellTextRight,
+                    fontWeight: "bold",
+                    fontSize: nameFit.fontSize,
+                  }}
+                >
+                  {nameFit.text}
                 </Text>
+              </View>
+              {Array.from({ length: EMPTY_COLS_COUNT }).map((_, j) => (
+                <View key={j} style={{ ...styles.cell, width: COLS.empty }}>
+                  <Text style={styles.cellText}> </Text>
+                </View>
               ))}
-              <Text style={styles.cellLast}> </Text>
+              <View style={{ ...styles.cellLast, width: COLS.desc }}>
+                <Text style={styles.cellText}> </Text>
+              </View>
             </View>
           );
         })}
@@ -492,24 +502,22 @@ function AttendanceSheetPage({
             key={`empty-${i}`}
             style={i === emptyCount - 1 ? styles.tableRowLast : styles.tableRow}
           >
-            <Text
-              style={{
-                ...styles.cell,
-                width: COLS.row,
-                textAlign: "center",
-                fontWeight: "bold",
-              }}
-            >
-              {startRowIndex + sheet.students.length + i + 1}
-            </Text>
-            <Text style={{ ...styles.cell, width: COLS.code }}> </Text>
-            <Text style={{ ...styles.cell, width: COLS.name }}> </Text>
-            {Array.from({ length: EMPTY_COLS_COUNT }).map((_, j) => (
-              <Text key={j} style={{ ...styles.cell, width: COLS.empty }}>
-                {" "}
+            <View style={{ ...styles.cell, width: COLS.row }}>
+              <Text style={styles.cellText}>
+                {startRowIndex + sheet.students.length + i + 1}
               </Text>
+            </View>
+            <View style={{ ...styles.cell, width: COLS.name }}>
+              <Text style={styles.cellText}> </Text>
+            </View>
+            {Array.from({ length: EMPTY_COLS_COUNT }).map((_, j) => (
+              <View key={j} style={{ ...styles.cell, width: COLS.empty }}>
+                <Text style={styles.cellText}> </Text>
+              </View>
             ))}
-            <Text style={styles.cellLast}> </Text>
+            <View style={{ ...styles.cellLast, width: COLS.desc }}>
+              <Text style={styles.cellText}> </Text>
+            </View>
           </View>
         ))}
       </View>

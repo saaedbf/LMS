@@ -1,12 +1,26 @@
-import { getAttendanceTree } from "@/actions/attendanceActions";
+import {
+  getAttendanceTree,
+  getTeachersForFilter,
+} from "@/actions/attendanceActions";
 import AttendancePrintComp from "./AttendancePrintComp";
 
 export default async function AttendancePrintPage() {
-  const res = await getAttendanceTree();
+  const [treeRes, teachersRes] = await Promise.all([
+    getAttendanceTree(),
+    getTeachersForFilter(),
+  ]);
 
-  if (res.status === "error") {
-    return <div className="p-6 text-center text-red-600">{res.error}</div>;
+  if (treeRes.status === "error") {
+    return <div className="p-6 text-center text-red-600">{treeRes.error}</div>;
   }
 
-  return <AttendancePrintComp tree={res.data} />;
+  if (teachersRes.status === "error") {
+    return (
+      <div className="p-6 text-center text-red-600">{teachersRes.error}</div>
+    );
+  }
+
+  return (
+    <AttendancePrintComp tree={treeRes.data} teachers={teachersRes.data} />
+  );
 }

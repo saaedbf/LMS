@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import {
   Printer,
   Loader2,
@@ -18,43 +18,16 @@ import {
 } from "@/actions/attendanceActions";
 import TitlePage from "@/components/widgets/TitlePage";
 import BackButton from "@/components/widgets/Elements/BackButton";
+import SearchableSelect from "@/components/widgets/Elements/SearchableSelect";
 
 type Selection = Map<string, Set<string>>;
-function sanitizeFileName(name: string): string {
-  return name
-    .replace(/[\\/:*?"<>|]/g, "-")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
-}
 
-function getPersianDate(): { date: string; time: string } {
-  const now = new Date();
-
-  // تاریخ شمسی
-  const dateStr = now
-    .toLocaleDateString("fa-IR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-    .replace(/\//g, "-");
-
-  // ساعت
-  const timeStr = now
-    .toLocaleTimeString("fa-IR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
-    .replace(/:/g, "-");
-
-  return { date: dateStr, time: timeStr };
-}
 export default function AttendancePrintComp({
   tree,
+  teachers,
 }: {
   tree: AttendanceClassNode[];
+  teachers: { id: string; label: string }[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -64,39 +37,42 @@ export default function AttendancePrintComp({
   const [downloading, setDownloading] = useState(false);
   const [splitLargeClasses, setSplitLargeClasses] = useState(false);
 
+  // ⬅️ فیلتر معلم
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
+  const [teacherSearch, setTeacherSearch] = useState("");
+
+  // ⬅️ وقتی معلم عوض می‌شه، انتخاب‌ها ریست بشن
+  useEffect(() => {
+    setSelection(new Map());
+    setExpanded(new Set());
+  }, [selectedTeacherId]);
+
+  // ⬅️ فیلتر معلمان (searchable)
+  const filteredTeachers = useMemo(() => {
+    if (!teacherSearch.trim()) return teachers;
+    const q = teacherSearch.trim().toLowerCase();
+    return teachers.filter((t) => t.label.toLowerCase().includes(q));
+  }, [teachers, teacherSearch]);
+
+  // ⬅️ فیلتر درخت بر اساس معلم
+  const filteredTree = useMemo(() => {
+    if (!selectedTeacherId) return tree;
+
+    return tree
+      .map((klass) => {
+        const filteredLessons = klass.lessons.filter(
+          (l) => l.teacherId === selectedTeacherId,
+        );
+        return { ...klass, lessons: filteredLessons };
+      })
+      .filter((klass) => klass.lessons.length > 0);
+  }, [tree, selectedTeacherId]);
+
   const totalSelected = Array.from(selection.values()).reduce(
     (sum, s) => sum + s.size,
     0,
   );
-  const buildFileName = (): string => {
-    const { date, time } = getPersianDate();
-    const selections = buildSelections();
 
-    // شمارش کل درس‌های انتخاب‌شده
-    const totalLessons = selections.reduce(
-      (sum, s) => sum + s.classCourseIds.length,
-      0,
-    );
-
-    // حالت ۱: فقط یک کلاس-درس انتخاب شده
-    if (selections.length === 1 && selections[0].classCourseIds.length === 1) {
-      const klassId = selections[0].klassId;
-      const courseId = selections[0].classCourseIds[0];
-
-      const klass = tree.find((k) => k.id === klassId);
-      const lesson = klass?.lessons.find((l) => l.id === courseId);
-
-      const klassTitle = klass ? klass.title : "کلاس";
-      const lessonTitle = lesson ? lesson.darsTitle : "درس";
-
-      const name = `حضور-غیاب-${klassTitle}-${lessonTitle}-${date}`;
-      return sanitizeFileName(name) + ".pdf";
-    }
-
-    // حالت ۲: چند کلاس-درس انتخاب شده
-    const name = `حضور-غیاب-${totalLessons}درس-${date}-${time}`;
-    return sanitizeFileName(name) + ".pdf";
-  };
   const toggleExpand = (klassId: string) => {
     const next = new Set(expanded);
     if (next.has(klassId)) next.delete(klassId);
@@ -127,7 +103,7 @@ export default function AttendancePrintComp({
 
   const selectAll = () => {
     const next = new Map<string, Set<string>>();
-    tree.forEach((k) => {
+    filteredTree.forEach((k) => {
       next.set(k.id, new Set(k.lessons.map((l) => l.id)));
     });
     setSelection(next);
@@ -189,7 +165,7 @@ export default function AttendancePrintComp({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = buildFileName(); // ⬅️ اینجا
+      a.download = `attendance-${new Date().toISOString().slice(0, 10)}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -216,6 +192,32 @@ export default function AttendancePrintComp({
 
         <div className="container mx-auto max-w-4xl space-y-4 px-4 py-4">
           <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+            {/* ⬅️ فیلتر معلم */}
+            <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <label className="mb-1 block text-sm font-medium text-blue-900">
+                فیلتر بر اساس معلم:
+              </label>
+
+              <SearchableSelect
+                title="فیلتر بر اساس معلم:"
+                options={[
+                  { id: "", title: "همه معلمان" },
+                  ...teachers.map((t) => ({ id: t.id, title: t.label })),
+                ]}
+                value={selectedTeacherId}
+                onChange={(v) => setSelectedTeacherId(String(v))}
+                placeholder="جستجوی معلم ..."
+                clearValue=""
+              />
+
+              <p className="mt-1 text-xs text-blue-700">
+                {selectedTeacherId
+                  ? `فقط درس‌های این معلم نمایش داده می‌شوند`
+                  : `همه کلاس‌ها و درس‌ها نمایش داده می‌شوند`}
+              </p>
+            </div>
+
+            {/* سرصفحه درخت */}
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-bold text-zinc-800">
                 انتخاب کلاس و درس ({totalSelected} درس انتخاب‌شده)
@@ -238,107 +240,116 @@ export default function AttendancePrintComp({
               </div>
             </div>
 
+            {/* درخت */}
             <div className="max-h-[500px] space-y-1 overflow-y-auto rounded-lg border border-zinc-200 bg-zinc-50 p-2">
-              {tree.map((klass) => {
-                const isExpanded = expanded.has(klass.id);
-                const selectedSet = selection.get(klass.id) ?? new Set();
-                const allSelected =
-                  klass.lessons.length > 0 &&
-                  selectedSet.size === klass.lessons.length;
+              {filteredTree.length === 0 ? (
+                <p className="p-4 text-center text-sm text-zinc-500">
+                  {selectedTeacherId
+                    ? "این معلم در هیچ کلاسی درس ندارد"
+                    : "هیچ کلاسی برای نمایش وجود ندارد"}
+                </p>
+              ) : (
+                filteredTree.map((klass) => {
+                  const isExpanded = expanded.has(klass.id);
+                  const selectedSet = selection.get(klass.id) ?? new Set();
+                  const allSelected =
+                    klass.lessons.length > 0 &&
+                    selectedSet.size === klass.lessons.length;
 
-                return (
-                  <div
-                    key={klass.id}
-                    className="rounded-md border border-zinc-200 bg-white"
-                  >
-                    <div className="flex items-center gap-2 p-2">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(klass.id)}
-                        className="flex h-6 w-6 items-center justify-center rounded hover:bg-zinc-100"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown size={16} />
-                        ) : (
-                          <ChevronLeft size={16} />
-                        )}
-                      </button>
+                  return (
+                    <div
+                      key={klass.id}
+                      className="rounded-md border border-zinc-200 bg-white"
+                    >
+                      <div className="flex items-center gap-2 p-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(klass.id)}
+                          className="flex h-6 w-6 items-center justify-center rounded hover:bg-zinc-100"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronLeft size={16} />
+                          )}
+                        </button>
 
-                      <label className="flex flex-1 cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          onChange={() => toggleAllLessonsOfKlass(klass)}
-                          className="h-4 w-4"
-                        />
-                        <Users size={16} className="text-zinc-500" />
-                        <span className="font-medium">
-                          {klass.payeTitle} - {klass.reshtehTitle} -{" "}
-                          {klass.title}
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          ({klass.lessons.length} درس)
-                        </span>
-                      </label>
+                        <label className="flex flex-1 cursor-pointer items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            onChange={() => toggleAllLessonsOfKlass(klass)}
+                            className="h-4 w-4"
+                          />
+                          <Users size={16} className="text-zinc-500" />
+                          <span className="font-medium">
+                            {klass.payeTitle} - {klass.reshtehTitle} -{" "}
+                            {klass.title}
+                          </span>
+                          <span className="text-xs text-zinc-500">
+                            ({klass.lessons.length} درس)
+                          </span>
+                        </label>
 
-                      {selectedSet.size > 0 && (
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                          {selectedSet.size} انتخاب
-                        </span>
-                      )}
-                    </div>
-
-                    {isExpanded && (
-                      <div className="border-t border-zinc-100 bg-zinc-50 p-2">
-                        {klass.lessons.length === 0 ? (
-                          <div className="px-8 py-2 text-xs text-zinc-500">
-                            درسی برای این کلاس تعریف نشده است
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                            {klass.lessons.map((lesson) => {
-                              const checked = selectedSet.has(lesson.id);
-                              return (
-                                <label
-                                  key={lesson.id}
-                                  className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition ${
-                                    checked
-                                      ? "border-blue-400 bg-blue-50"
-                                      : "border-zinc-200 bg-white hover:bg-zinc-100"
-                                  }`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() =>
-                                      toggleLesson(klass.id, lesson.id)
-                                    }
-                                    className="h-3.5 w-3.5"
-                                  />
-                                  <BookOpen
-                                    size={14}
-                                    className="text-zinc-400"
-                                  />
-                                  <span className="flex-1">
-                                    {lesson.darsTitle}
-                                  </span>
-                                  <span className="text-xs text-zinc-500">
-                                    {lesson.teacherName || "بدون معلم"}
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
+                        {selectedSet.size > 0 && (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                            {selectedSet.size} انتخاب
+                          </span>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+
+                      {isExpanded && (
+                        <div className="border-t border-zinc-100 bg-zinc-50 p-2">
+                          {klass.lessons.length === 0 ? (
+                            <div className="px-8 py-2 text-xs text-zinc-500">
+                              درسی برای این کلاس تعریف نشده است
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                              {klass.lessons.map((lesson) => {
+                                const checked = selectedSet.has(lesson.id);
+                                return (
+                                  <label
+                                    key={lesson.id}
+                                    className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition ${
+                                      checked
+                                        ? "border-blue-400 bg-blue-50"
+                                        : "border-zinc-200 bg-white hover:bg-zinc-100"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() =>
+                                        toggleLesson(klass.id, lesson.id)
+                                      }
+                                      className="h-3.5 w-3.5"
+                                    />
+                                    <BookOpen
+                                      size={14}
+                                      className="text-zinc-400"
+                                    />
+                                    <span className="flex-1">
+                                      {lesson.darsTitle}
+                                    </span>
+                                    <span className="text-xs text-zinc-500">
+                                      {lesson.teacherName || "بدون معلم"}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
-          {/* دکمه‌ها + چک‌باکس */}
+          {/* دکمه‌ها */}
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -378,7 +389,6 @@ export default function AttendancePrintComp({
               )}
             </button> */}
 
-            {/* چک‌باکس تقسیم */}
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50">
               <input
                 type="checkbox"
@@ -434,7 +444,7 @@ export default function AttendancePrintComp({
 }
 
 /* ═══════════════════════════════════════════════
-   برگه‌ی چاپ مرورگر (بدون تغییر)
+   برگه‌ی چاپ مرورگر
    ═══════════════════════════════════════════════ */
 function Sheet({ sheet }: { sheet: AttendanceSheet }) {
   const MIN_ROWS = 20;
@@ -487,6 +497,7 @@ function Sheet({ sheet }: { sheet: AttendanceSheet }) {
             <div>مدرسه: {sheet.schoolTitle}</div>
             <div>کد مدرسه: {sheet.schoolId}</div>
             <div>پایه: {sheet.payeTitle}</div>
+            <div>کلاس: {sheet.klassTitle}</div>
           </div>
 
           <div
@@ -499,9 +510,6 @@ function Sheet({ sheet }: { sheet: AttendanceSheet }) {
           >
             <div>
               <strong>درس:</strong> {sheet.darsTitle}
-            </div>
-            <div>
-              <strong>کلاس:</strong> {sheet.klassTitle}
             </div>
             <div>
               <strong>نام دبیر:</strong>{" "}
@@ -522,27 +530,23 @@ function Sheet({ sheet }: { sheet: AttendanceSheet }) {
         <thead>
           <tr>
             <th style={thStyle(6)}>ردیف</th>
-            <th style={thStyle(14)}>کد ملی</th>
             <th style={thStyle(18)}>نام و نام خانوادگی</th>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <th key={i} style={thStyle(7)}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <th key={i} style={thStyle(5.5)}>
                 &nbsp;
               </th>
             ))}
-            <th style={thStyle(18)}>توضیحات</th>
+            <th style={thStyle(10)}>توضیحات</th>
           </tr>
         </thead>
         <tbody>
           {sheet.students.map((s, i) => (
             <tr key={s.id} className="no-break">
               <td style={tdStyle(true)}>{i + 1}</td>
-              <td style={{ ...tdStyle(true), fontSize: "10pt" }}>
-                {s.nationalCode}
-              </td>
               <td style={{ ...tdStyle(false), fontWeight: "bold" }}>
-                {s.firstName} {s.lastName}
+                {s.lastName} {s.firstName}
               </td>
-              {Array.from({ length: 6 }).map((_, j) => (
+              {Array.from({ length: 12 }).map((_, j) => (
                 <td key={j} style={tdStyle(true)}>
                   &nbsp;
                 </td>
@@ -554,9 +558,8 @@ function Sheet({ sheet }: { sheet: AttendanceSheet }) {
           {Array.from({ length: emptyRows }).map((_, i) => (
             <tr key={`empty-${i}`} className="no-break">
               <td style={tdStyle(true)}>{sheet.students.length + i + 1}</td>
-              <td style={tdStyle(true)}>&nbsp;</td>
               <td style={tdStyle(false)}>&nbsp;</td>
-              {Array.from({ length: 6 }).map((_, j) => (
+              {Array.from({ length: 12 }).map((_, j) => (
                 <td key={j} style={tdStyle(true)}>
                   &nbsp;
                 </td>

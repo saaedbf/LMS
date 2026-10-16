@@ -9,6 +9,7 @@ export type AttendanceLesson = {
   darsTitle: string;
   units: number;
   teacherName: string | null;
+  teacherId: string | null;
 };
 
 export type AttendanceClassNode = {
@@ -72,12 +73,14 @@ export async function getAttendanceTree() {
       classCourses: {
         select: {
           id: true,
+
           darsPayeReshteh: {
             select: {
               units: true,
               reshtehTadris: { select: { title: true } },
             },
           },
+          teacherId: true,
           teacher: { select: { firstName: true, lastName: true } },
         },
         orderBy: {
@@ -97,6 +100,7 @@ export async function getAttendanceTree() {
       id: c.id,
       darsTitle: c.darsPayeReshteh.reshtehTadris.title,
       units: c.darsPayeReshteh.units,
+      teacherId: c.teacherId,
       teacherName: c.teacher
         ? `${c.teacher.firstName} ${c.teacher.lastName}`
         : null,
@@ -212,4 +216,52 @@ export async function getAttendanceSheets(
   }
 
   return { status: "success" as const, data: sheets };
+}
+export async function getTeachersForFilter() {
+  const context = await getCurrentContext();
+
+  if (!context?.schoolId || !context.academicYearId) {
+    return { status: "error" as const, error: "کانتکست فعال یافت نشد" };
+  }
+
+  const { schoolId, academicYearId } = context;
+
+  // معلم‌هایی که در این مدرسه و سال فعال هستن
+  const assignments = await prisma.teacherAssignment.findMany({
+    where: {
+      schoolId,
+      academicYearId,
+      isActive: true,
+    },
+    select: {
+      teacher: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+    orderBy: {
+      teacher: { lastName: "asc" },
+    },
+  });
+
+  // حذف تکراری‌ها (اگر معلم در چند کلاس باشه)
+  const teacherMap = new Map<
+    string,
+    { id: string; firstName: string; lastName: string }
+  >();
+  for (const a of assignments) {
+    if (a.teacher) {
+      teacherMap.set(a.teacher.id, a.teacher);
+    }
+  }
+
+  const teachers = Array.from(teacherMap.values()).map((t) => ({
+    id: t.id,
+    label: `${t.lastName} ${t.firstName}`, // ⬅️ فامیلی اول
+  }));
+
+  return { status: "success" as const, data: teachers };
 }
