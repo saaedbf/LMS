@@ -161,7 +161,10 @@ export async function getAttendanceSheets(
             },
           },
         },
-        orderBy: { student: { lastName: "asc" } },
+        orderBy: [
+          { student: { lastName: "asc" } },
+          { student: { firstName: "asc" } },
+        ],
       },
       classCourses: {
         select: {
