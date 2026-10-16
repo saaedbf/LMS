@@ -355,7 +355,7 @@ function AttendanceSheetPages({
           sheet={{ ...sheet, students: secondHalf }}
           pageLabel="صفحه ۲"
           startRowIndex={25}
-          totalRowsOverride={50}
+          totalRowsOverride={25}
         />
       </>
     );
