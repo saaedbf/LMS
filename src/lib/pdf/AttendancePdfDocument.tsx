@@ -142,8 +142,10 @@ function calculateRowHeight(totalRows: number, config: SizeConfig): number {
 function makeStyles(config: SizeConfig, calculatedRowHeight: number) {
   return StyleSheet.create({
     page: {
-      paddingVertical: config.paddingPage,
-      paddingHorizontal: config.paddingPage,
+      paddingTop: config.paddingPage, // ⬅️ جدید
+      paddingBottom: config.paddingPage, // ⬅️ جدید
+      paddingLeft: config.paddingPage, // ⬅️ جدید
+      paddingRight: config.paddingPage + 25, // ⬅️ جدید (فنر)
       fontFamily: "IRANSans",
       fontSize: 10,
       direction: "rtl",
@@ -263,11 +265,10 @@ function makeStyles(config: SizeConfig, calculatedRowHeight: number) {
    عرض ستون‌ها
    ═══════════════════════════════════════════════ */
 const COLS = {
-  binding: "4%", // ⬅️ ستون جدید سمت راست (برای فنر)
   row: "6%",
   name: "24%",
-  empty: "3.7%", // ⬅️ ۱۴ × 3.7 = 51.8%
-  desc: "14.2%", // ⬅️ کمی بیشتر شد تا جمع ۱۰۰ بشه
+  empty: "4%", // ۱۵ × 4 = 60%
+  desc: "10%",
 };
 
 const EMPTY_COLS_COUNT = 14; // ⬅️ از ۱۵ به ۱۴ کاهش یافت
