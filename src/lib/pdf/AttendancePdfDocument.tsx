@@ -263,23 +263,24 @@ function makeStyles(config: SizeConfig, calculatedRowHeight: number) {
    عرض ستون‌ها
    ═══════════════════════════════════════════════ */
 const COLS = {
+  binding: "4%", // ⬅️ ستون جدید سمت راست (برای فنر)
   row: "6%",
   name: "24%",
-  empty: "4%",
-  desc: "10%",
+  empty: "3.7%", // ⬅️ ۱۴ × 3.7 = 51.8%
+  desc: "14.2%", // ⬅️ کمی بیشتر شد تا جمع ۱۰۰ بشه
 };
 
-const EMPTY_COLS_COUNT = 15;
+const EMPTY_COLS_COUNT = 14; // ⬅️ از ۱۵ به ۱۴ کاهش یافت
 
 /* ═══════════════════════════════════════════════
    تعداد ردیف کل
    ═══════════════════════════════════════════════ */
 function getTotalRows(studentCount: number): number {
-  if (studentCount <= 25) return 25;
-  if (studentCount <= 30) return 30;
-  if (studentCount <= 35) return 35;
-  if (studentCount <= 40) return 40;
-  if (studentCount <= 45) return 45;
+  if (studentCount <= 24) return 25;
+  if (studentCount <= 29) return 30;
+  if (studentCount <= 34) return 35;
+  if (studentCount <= 39) return 40;
+  if (studentCount <= 44) return 45;
   return 50;
 }
 
