@@ -27,9 +27,14 @@ import DisiplinaryEditForm from "./DisiplinaryEditForm";
 import DisiplinaryDeleteBtn from "./DisiplinaryDeleteBtn";
 import { FaCheck } from "react-icons/fa";
 import AbsenceEditForm from "../absence/AbsenceEditForm";
-import { DisciplinaryListItem } from "@/actions/disciplinaryActions";
+import {
+  DisciplinaryListItem,
+  getAllDisciplinariesForExport,
+} from "@/actions/disciplinaryActions";
 import BackButton from "@/components/widgets/Elements/BackButton";
-
+import { exportToExcel } from "@/lib/utils/exportExcel";
+import ExportExcelBtn from "@/components/widgets/ExportExcelBtn";
+import { toast } from "react-toastify";
 type Props = {
   initialItems?: DisciplinaryListItem[];
   listItems?: DisciplinaryListItem[];
@@ -54,6 +59,64 @@ export default function DisiplinaryComp({
 
   const [openCreate, setOpenCreate] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const all = await getAllDisciplinariesForExport();
+
+      if (!all || all.length === 0) {
+        toast.warn("داده‌ای برای خروجی وجود ندارد");
+        return;
+      }
+
+      exportToExcel({
+        data: all,
+        fileName: `موارد-انضباطی-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: "موارد انضباطی",
+        columns: [
+          {
+            key: "studentName",
+            title: "نام دانش‌آموز",
+            width: 22,
+            render: (row) =>
+              `${row.studentEnrollment?.student?.lastName ?? ""} ${
+                row.studentEnrollment?.student?.firstName ?? ""
+              }`,
+          },
+          {
+            key: "nationalCode",
+            title: "کد ملی",
+            width: 15,
+            render: (row) =>
+              row.studentEnrollment?.student?.nationalCode ?? "-",
+          },
+          {
+            key: "klass",
+            title: "کلاس",
+            width: 18,
+            render: (row) => row.studentEnrollment?.klass?.title ?? "-",
+          },
+          {
+            key: "date",
+            title: "تاریخ",
+            width: 15,
+            render: (row) =>
+              row.date ? new Date(row.date).toLocaleDateString("fa-IR") : "-",
+          },
+          { key: "startTime", title: "ساعت", width: 12 },
+          { key: "reason", title: "شرح", width: 40 },
+        ],
+      });
+
+      toast.success(`فایل اکسل (${all.length} رکورد) دانلود شد`);
+    } catch (error) {
+      console.error(error);
+      toast.error("خطا در ساخت فایل اکسل");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="p-2">
@@ -68,20 +131,24 @@ export default function DisiplinaryComp({
           totalCount={count}
           pageSize={pageSize}
           action={
-            <ActionModal
-              desc="ثبت گروهی یا فردی مورد انضباطی   "
-              open={openCreate}
-              setOpen={setOpenCreate}
-              title="ثبت مورد انضباطی جدید"
-              trigger={<CreateBtn>ثبت مورد انضباطی جدید</CreateBtn>}
-              contentClassName="w-[95vw] max-w-4xl"
-            >
-              <DisiplinaryCreateForm
-                payes={payes}
-                klasses={klasses}
-                onCreated={() => setOpenCreate(false)}
-              />
-            </ActionModal>
+            <div className="flex flex-wrap gap-2">
+              <ActionModal
+                desc="ثبت گروهی یا فردی مورد انضباطی   "
+                open={openCreate}
+                setOpen={setOpenCreate}
+                title="ثبت مورد انضباطی جدید"
+                trigger={<CreateBtn>ثبت مورد انضباطی جدید</CreateBtn>}
+                contentClassName="w-[95vw] max-w-4xl"
+              >
+                <DisiplinaryCreateForm
+                  payes={payes}
+                  klasses={klasses}
+                  onCreated={() => setOpenCreate(false)}
+                />
+              </ActionModal>
+              <ExportExcelBtn onClick={handleExportExcel} loading={exporting} />
+              {/* بقیه دکمه‌ها */}
+            </div>
           }
         >
           <Table>

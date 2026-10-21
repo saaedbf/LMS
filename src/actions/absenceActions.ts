@@ -502,3 +502,29 @@ export async function deleteAbsenceAction(
     return { status: "error", error: "خطا در حذف غیبت" };
   }
 }
+export async function getAllAbsencesForExport() {
+  const scope = await getScope(PERMISSIONS.MANAGE_ABSENCES);
+  if (isScopeError(scope)) return [];
+
+  const { schoolId, academicYearId } = scope;
+
+  return prisma.studentAbsence.findMany({
+    where: {
+      studentEnrollment: {
+        schoolId,
+        academicYearId,
+      },
+    },
+    include: {
+      studentEnrollment: {
+        include: {
+          student: {
+            select: { firstName: true, lastName: true, nationalCode: true },
+          },
+          klass: { select: { title: true } },
+        },
+      },
+    },
+    orderBy: [{ date: "desc" }],
+  });
+}

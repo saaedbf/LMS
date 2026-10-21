@@ -2,7 +2,11 @@
 
 import React, { useState } from "react";
 import { AbsenceType } from "@prisma/client";
-import { AbsenceListItem, deleteAbsenceAction } from "@/actions/absenceActions";
+import {
+  AbsenceListItem,
+  deleteAbsenceAction,
+  getAllAbsencesForExport,
+} from "@/actions/absenceActions";
 import TextSearch from "@/components/widgets/Elements/table/TextSearch";
 import DateSearch from "@/components/widgets/Elements/table/DateSearch";
 import StatusSearch from "@/components/widgets/Elements/table/StatusSearch";
@@ -31,7 +35,8 @@ import BackButton from "@/components/widgets/Elements/BackButton";
 import { CalendarDays, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import ConfirmModal from "@/components/widgets/ConfirmModal";
-
+import { exportToExcel } from "@/lib/utils/exportExcel";
+import ExportExcelBtn from "@/components/widgets/ExportExcelBtn";
 type Props = {
   initialItems?: AbsenceListItem[];
   listItems?: AbsenceListItem[];
@@ -58,6 +63,7 @@ export default function AbsenceComp({
   const [statusEditId, setStatusEditId] = useState<string | null>(null);
   const [scheduleEditId, setScheduleEditId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState("");
+  const [exporting, setExporting] = useState(false);
   const handleDelete = async (id: string) => {
     try {
       const res = await deleteAbsenceAction({ id });
@@ -97,7 +103,86 @@ export default function AbsenceComp({
         );
     }
   };
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const all = await getAllAbsencesForExport();
 
+      if (!all || all.length === 0) {
+        toast.warn("داده‌ای برای خروجی وجود ندارد");
+        return;
+      }
+
+      exportToExcel({
+        data: all,
+        fileName: `غیبت-دانش‌آموزان-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: "غیبت‌ها",
+        columns: [
+          {
+            key: "studentName",
+            title: "نام دانش‌آموز",
+            width: 22,
+            render: (row) =>
+              `${row.studentEnrollment?.student?.lastName ?? ""} ${
+                row.studentEnrollment?.student?.firstName ?? ""
+              }`,
+          },
+          {
+            key: "nationalCode",
+            title: "کد ملی",
+            width: 15,
+            render: (row) =>
+              row.studentEnrollment?.student?.nationalCode ?? "-",
+          },
+          {
+            key: "klass",
+            title: "کلاس",
+            width: 18,
+            render: (row) => row.studentEnrollment?.klass?.title ?? "-",
+          },
+          {
+            key: "date",
+            title: "تاریخ",
+            width: 15,
+            render: (row) =>
+              row.date ? new Date(row.date).toLocaleDateString("fa-IR") : "-",
+          },
+          {
+            key: "time",
+            title: "ساعت",
+            width: 15,
+            render: (row) => {
+              if (row.isFullDay) return "تمام روز";
+              return `${row.startTime ?? ""} - ${row.endTime ?? ""}`;
+            },
+          },
+          {
+            key: "absenceType",
+            title: "نوع",
+            width: 12,
+            render: (row) => {
+              switch (row.absenceType) {
+                case "EXCUSED":
+                  return "موجه";
+                case "UNEXCUSED":
+                  return "غیرموجه";
+                default:
+                  return "نامشخص";
+              }
+            },
+          },
+          { key: "reason", title: "علت", width: 30 },
+        ],
+      });
+
+      toast.success(`فایل اکسل (${all.length} رکورد) دانلود شد`);
+    } catch (error) {
+      console.error(error);
+      toast.error("خطا در ساخت فایل اکسل");
+    } finally {
+      setExporting(false);
+    }
+  };
   return (
     <div className="p-2">
       <TitlePage>لیست و مدیریت غیبت دانش‌آموزان</TitlePage>
@@ -111,21 +196,24 @@ export default function AbsenceComp({
           totalCount={count}
           pageSize={pageSize}
           action={
-            <ActionModal
-              desc="ثبت گروهی یا فردی غیبت برای ساعت مشخص"
-              open={openCreate}
-              setOpen={setOpenCreate}
-              title="ثبت غیبت جدید"
-              trigger={<CreateBtn>ثبت غیبت جدید</CreateBtn>}
-              contentClassName="w-[95vw] max-w-4xl"
-            >
-              <AbsenceCreateForm
-                payes={payes}
-                klasses={klasses}
-                onCreated={() => setOpenCreate(false)}
-                setOpen={setOpenCreate} // ⬅️ این خط اضافه شود
-              />
-            </ActionModal>
+            <div className="flex flex-wrap gap-2">
+              <ActionModal
+                desc="ثبت گروهی یا فردی غیبت برای ساعت مشخص"
+                open={openCreate}
+                setOpen={setOpenCreate}
+                title="ثبت غیبت جدید"
+                trigger={<CreateBtn>ثبت غیبت جدید</CreateBtn>}
+                contentClassName="w-[95vw] max-w-4xl"
+              >
+                <AbsenceCreateForm
+                  payes={payes}
+                  klasses={klasses}
+                  onCreated={() => setOpenCreate(false)}
+                  setOpen={setOpenCreate} // ⬅️ این خط اضافه شود
+                />
+              </ActionModal>
+              <ExportExcelBtn onClick={handleExportExcel} loading={exporting} />
+            </div>
           }
         >
           <Table>

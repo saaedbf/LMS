@@ -23,9 +23,13 @@ import { TeacherAbsenceCreateForm } from "./TeacherAbsenceCreateForm";
 import TeacherAbsenceEditForm from "./TeacherAbsenceEditForm";
 import TeacherAbsenceScheduleEditForm from "./TeacherAbsenceScheduleEditForm";
 import ConfirmModal from "@/components/widgets/ConfirmModal";
-import { deleteTeacherAbsenceAction } from "@/actions/teacherAbsenceActions";
+import {
+  deleteTeacherAbsenceAction,
+  getAllTeacherAbsencesForExport,
+} from "@/actions/teacherAbsenceActions";
 import { toast } from "react-toastify";
-
+import { exportToExcel } from "@/lib/utils/exportExcel";
+import ExportExcelBtn from "@/components/widgets/ExportExcelBtn";
 type TeacherAbsenceItem = {
   id: string;
   date: Date;
@@ -55,7 +59,7 @@ export default function TeacherAbsenceComp({
   const [openCreate, setOpenCreate] = useState(false);
   const [reasonEditId, setReasonEditId] = useState<string | null>(null);
   const [scheduleEditId, setScheduleEditId] = useState<string | null>(null);
-
+  const [exporting, setExporting] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const handleDelete = async (id: string) => {
     try {
@@ -74,6 +78,86 @@ export default function TeacherAbsenceComp({
       throw error; // ⬅️ به ConfirmModal بگو خطا داد
     }
   };
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const all = await getAllTeacherAbsencesForExport();
+
+      if (!all || all.length === 0) {
+        toast.warn("داده‌ای برای خروجی وجود ندارد");
+        return;
+      }
+
+      const result = exportToExcel({
+        data: all,
+        fileName: `غیبت-معلمان-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: "غیبت معلمان",
+        columns: [
+          {
+            key: "teacherName",
+            title: "نام معلم",
+            width: 22,
+            render: (row) =>
+              `${row.teacher?.lastName ?? ""} ${
+                row.teacher?.firstName ?? ""
+              }`.trim() || "-",
+          },
+          {
+            key: "nationalCode",
+            title: "کد ملی",
+            width: 15,
+            render: (row) => row.teacher?.nationalCode ?? "-",
+          },
+          {
+            key: "personnelCode",
+            title: "کد پرسنلی",
+            width: 15,
+            render: (row) => row.teacher?.personnelCode ?? "-",
+          },
+          {
+            key: "date",
+            title: "تاریخ",
+            width: 15,
+            render: (row) => {
+              if (!row.date) return "-";
+              return new Date(row.date).toLocaleDateString("fa-IR");
+            },
+          },
+          {
+            key: "time",
+            title: "ساعت",
+            width: 18,
+            render: (row) => {
+              if (row.isFullDay) return "تمام روز";
+              const start = row.startTime ?? "";
+              const end = row.endTime ?? "";
+              if (!start && !end) return "-";
+              return `${start}${start && end ? " - " : ""}${end}`;
+            },
+          },
+          {
+            key: "reason",
+            title: "علت",
+            width: 40,
+            render: (row) => row.reason ?? "-",
+          },
+        ],
+      });
+
+      if (!result.ok) {
+        toast.warn(result.message ?? "خطا در ساخت فایل");
+        return;
+      }
+
+      toast.success(`فایل اکسل (${all.length} رکورد) دانلود شد`);
+    } catch (error) {
+      console.error("EXPORT_ERROR", error);
+      toast.error("خطا در ساخت فایل اکسل");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="p-2">
       <TitlePage>غیبت معلمان</TitlePage>
@@ -88,19 +172,23 @@ export default function TeacherAbsenceComp({
           totalCount={totalCount}
           pageSize={pageSize}
           action={
-            <ActionModal
-              desc="ثبت غیبت برای یک یا چند معلم"
-              open={openCreate}
-              setOpen={setOpenCreate}
-              title="ثبت غیبت معلمان"
-              trigger={<CreateBtn>ثبت غیبت جدید</CreateBtn>}
-              contentClassName="w-[95vw] max-w-3xl"
-            >
-              <TeacherAbsenceCreateForm
-                onCreated={() => setOpenCreate(false)}
+            <div className="flex flex-wrap gap-2">
+              {" "}
+              <ActionModal
+                desc="ثبت غیبت برای یک یا چند معلم"
+                open={openCreate}
                 setOpen={setOpenCreate}
-              />
-            </ActionModal>
+                title="ثبت غیبت معلمان"
+                trigger={<CreateBtn>ثبت غیبت جدید</CreateBtn>}
+                contentClassName="w-[95vw] max-w-3xl"
+              >
+                <TeacherAbsenceCreateForm
+                  onCreated={() => setOpenCreate(false)}
+                  setOpen={setOpenCreate}
+                />
+              </ActionModal>
+              <ExportExcelBtn onClick={handleExportExcel} loading={exporting} />
+            </div>
           }
         >
           <Table>

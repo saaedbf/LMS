@@ -547,3 +547,30 @@ export async function getStudents(
     return { items: [], total: 0 };
   }
 }
+export async function getAllStudentsForExport() {
+  const scope = await getScope(PERMISSIONS.MANAGE_STUDENTS);
+  if (isScopeError(scope)) return [];
+
+  const { schoolId, academicYearId } = scope;
+
+  return prisma.student.findMany({
+    where: {
+      enrollments: {
+        some: { schoolId, academicYearId },
+      },
+    },
+    include: {
+      enrollments: {
+        where: { schoolId, academicYearId },
+        include: {
+          klass: { select: { id: true, title: true } },
+          paye: { select: { id: true, title: true } },
+          reshtehTahsili: { select: { id: true, title: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
+}

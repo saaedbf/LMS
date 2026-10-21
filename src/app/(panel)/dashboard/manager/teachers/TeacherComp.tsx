@@ -1,7 +1,7 @@
 "use client";
 
 import { Teacher } from "@prisma/client";
-import React from "react";
+import React, { useState } from "react";
 
 import CreateBtn from "@/components/widgets/Elements/CreateBtn";
 import HeadTr from "@/components/widgets/Elements/table/HeaddTr";
@@ -20,12 +20,17 @@ import ActionModal from "@/components/widgets/ActionModal";
 import EditBtn from "@/components/widgets/Elements/EditBtn";
 import TeacherCreateAssignForm from "./TeacherCreateAssignForm";
 import { toast } from "react-toastify";
-import { resetTeacherPassword } from "@/actions/teacherActions";
+import {
+  getAllTeachersForExport,
+  resetTeacherPassword,
+} from "@/actions/teacherActions";
 import ConfirmModal from "@/components/widgets/ConfirmModal";
 import BackButton from "@/components/widgets/Elements/BackButton";
 import BulkTeacherUpload from "./BulkTeacherUpload";
 import { Trash2, Users } from "lucide-react";
 import { deleteTeacherAssignment } from "@/actions/teacherAssignmentActions";
+import { exportToExcel } from "@/lib/utils/exportExcel";
+import ExportExcelBtn from "@/components/widgets/ExportExcelBtn";
 type AssignmentForTable = {
   id: string;
   schoolId: number;
@@ -71,7 +76,7 @@ export default function TeacherComp({
   const [deletingAssignmentId, setDeletingAssignmentId] = React.useState<
     string | null
   >(null);
-
+  const [exporting, setExporting] = useState(false);
   /*
    * به‌جای state جداگانه برای هر ردیف،
    * معلم انتخاب‌شده برای ویرایش را نگه می‌داریم.
@@ -124,6 +129,39 @@ export default function TeacherComp({
       throw error;
     }
   };
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const all = await getAllTeachersForExport();
+
+      if (!all || all.length === 0) {
+        toast.warn("داده‌ای برای خروجی وجود ندارد");
+        return;
+      }
+
+      exportToExcel({
+        data: all,
+        fileName: `معلمان-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: "معلمان",
+        columns: [
+          { key: "nationalCode", title: "کد ملی", width: 15 },
+          { key: "firstName", title: "نام", width: 15 },
+          { key: "lastName", title: "نام خانوادگی", width: 18 },
+          { key: "personnelCode", title: "کد پرسنلی", width: 15 },
+          { key: "phone", title: "شماره تماس", width: 15 },
+          { key: "address", title: "آدرس", width: 30 },
+        ],
+      });
+
+      toast.success(`فایل اکسل (${all.length} رکورد) دانلود شد`);
+    } catch (error) {
+      console.error(error);
+      toast.error("خطا در ساخت فایل اکسل");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="p-2">
       <TitlePage>لیست معلمان</TitlePage>
@@ -176,6 +214,7 @@ export default function TeacherComp({
                   academicYearId={academicYearId}
                 />
               </ActionModal>
+              <ExportExcelBtn onClick={handleExportExcel} loading={exporting} />
             </div>
           }
         >

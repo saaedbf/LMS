@@ -30,6 +30,9 @@ import {
 } from "@/actions/studentEnrollmentActions";
 import { getOppositeSchoolKlasses } from "@/actions/schoolActions";
 import SearchableSelect from "@/components/widgets/Elements/SearchableSelect";
+import { exportToExcel } from "@/lib/utils/exportExcel";
+import ExportExcelBtn from "@/components/widgets/ExportExcelBtn";
+import { getAllStudentsForExport } from "@/actions/studentActions";
 type EnrollmentForTable = {
   id: string;
   schoolId: number;
@@ -129,6 +132,7 @@ export default function StudentComp({
   const [selectedKlassId, setSelectedKlassId] = useState("");
   const [transferring, setTransferring] = useState(false);
   const [loadingOpposite, setLoadingOpposite] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const handleResetStudentPassword = async (student: Student) => {
     if (!student.phone?.trim()) {
       toast.error(
@@ -230,7 +234,55 @@ export default function StudentComp({
       setTransferring(false);
     }
   };
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const allStudents = await getAllStudentsForExport();
 
+      if (!allStudents || allStudents.length === 0) {
+        toast.warn("داده‌ای برای خروجی وجود ندارد");
+        return;
+      }
+
+      exportToExcel({
+        data: allStudents,
+        fileName: `دانش‌آموزان-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: "دانش‌آموزان",
+        columns: [
+          { key: "nationalCode", title: "کد ملی", width: 15 },
+          { key: "firstName", title: "نام", width: 15 },
+          { key: "lastName", title: "نام خانوادگی", width: 18 },
+          { key: "fatherName", title: "نام پدر", width: 15 },
+          { key: "phone", title: "شماره تماس", width: 15 },
+          {
+            key: "klassTitle",
+            title: "کلاس",
+            width: 20,
+            render: (row) => row.enrollments[0]?.klass?.title ?? "-",
+          },
+          {
+            key: "payeTitle",
+            title: "پایه",
+            width: 15,
+            render: (row) => row.enrollments[0]?.paye?.title ?? "-",
+          },
+          {
+            key: "reshtehTitle",
+            title: "رشته",
+            width: 20,
+            render: (row) => row.enrollments[0]?.reshtehTahsili?.title ?? "-",
+          },
+        ],
+      });
+
+      toast.success(`فایل اکسل (${allStudents.length} رکورد) دانلود شد`);
+    } catch (error) {
+      console.error(error);
+      toast.error("خطا در ساخت فایل اکسل");
+    } finally {
+      setExporting(false);
+    }
+  };
   return (
     <div className="p-2">
       <TitlePage>لیست دانش‌آموزان</TitlePage>
@@ -298,6 +350,13 @@ export default function StudentComp({
                   }))}
                 />
               </ActionModal>
+              <div className="flex flex-wrap gap-2">
+                <ExportExcelBtn
+                  onClick={handleExportExcel}
+                  loading={exporting}
+                />
+                {/* بقیه دکمه‌ها */}
+              </div>
             </div>
           }
         >

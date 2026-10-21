@@ -441,3 +441,18 @@ export async function getTeachers(
     return { items: [], total: 0 };
   }
 }
+export async function getAllTeachersForExport() {
+  const scope = await getScope(PERMISSIONS.MANAGE_TEACHERS);
+  if (isScopeError(scope)) return [];
+
+  const { schoolId, academicYearId } = scope;
+
+  return prisma.teacher.findMany({
+    where: {
+      assignments: {
+        some: { schoolId, academicYearId, isActive: true },
+      },
+    },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
+}

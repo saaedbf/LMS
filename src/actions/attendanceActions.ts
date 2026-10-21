@@ -268,3 +268,144 @@ export async function getTeachersForFilter() {
 
   return { status: "success" as const, data: teachers };
 }
+export type TeacherCoverSheet = {
+  teacherId: string;
+  teacherFirstName: string;
+  teacherLastName: string;
+  teacherNationalCode: string;
+  teacherPersonnelCode: string | null;
+  schoolTitle: string;
+  schoolId: number;
+  academicYearTitle: string;
+  classes: Array<{
+    klassId: string;
+    klassTitle: string;
+    payeTitle: string;
+    reshtehTitle: string;
+    darsTitles: string[];
+  }>;
+};
+
+export async function getTeacherCoverSheets() {
+  const context = await getCurrentContext();
+
+  if (!context?.schoolId || !context.academicYearId) {
+    return { status: "error" as const, error: "کانتکست فعال یافت نشد" };
+  }
+
+  const { schoolId, academicYearId } = context;
+
+  // ⬅️ مدرسه رو بگیر (بدون academicYear)
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: {
+      id: true,
+      title: true,
+    },
+  });
+
+  if (!school) {
+    return { status: "error" as const, error: "مدرسه یافت نشد" };
+  }
+
+  // ⬅️ سال تحصیلی رو جدا بگیر
+  const academicYear = await prisma.academicYear.findUnique({
+    where: { id: academicYearId },
+    select: { title: true },
+  });
+
+  if (!academicYear) {
+    return { status: "error" as const, error: "سال تحصیلی یافت نشد" };
+  }
+
+  // گرفتن کلاس‌ها با درس‌ها و معلم‌ها
+  const klasses = await prisma.klass.findMany({
+    where: { schoolId, academicYearId },
+    select: {
+      id: true,
+      title: true,
+      paye: { select: { title: true } },
+      reshtehTahsili: { select: { title: true } },
+      classCourses: {
+        select: {
+          teacher: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              nationalCode: true,
+              personnelCode: true,
+            },
+          },
+          darsPayeReshteh: {
+            select: {
+              reshtehTadris: {
+                select: { title: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // تجمیع بر اساس دبیر
+  const teacherMap = new Map<string, TeacherCoverSheet>();
+
+  for (const klass of klasses) {
+    for (const course of klass.classCourses) {
+      const t = course.teacher;
+      if (!t) continue;
+
+      let sheet = teacherMap.get(t.id);
+
+      if (!sheet) {
+        sheet = {
+          teacherId: t.id,
+          teacherFirstName: t.firstName,
+          teacherLastName: t.lastName,
+          teacherNationalCode: t.nationalCode,
+          teacherPersonnelCode: t.personnelCode,
+          schoolTitle: school.title,
+          schoolId: school.id,
+          academicYearTitle: academicYear.title,
+          classes: [],
+        };
+        teacherMap.set(t.id, sheet);
+      }
+
+      let classEntry = sheet.classes.find((c) => c.klassId === klass.id);
+
+      if (!classEntry) {
+        classEntry = {
+          klassId: klass.id,
+          klassTitle: klass.title,
+          payeTitle: klass.paye?.title ?? "-",
+          reshtehTitle: klass.reshtehTahsili?.title ?? "-",
+          darsTitles: [],
+        };
+        sheet.classes.push(classEntry);
+      }
+
+      const darsTitle =
+        course.darsPayeReshteh?.reshtehTadris?.title ?? "نامشخص";
+
+      if (!classEntry.darsTitles.includes(darsTitle)) {
+        classEntry.darsTitles.push(darsTitle);
+      }
+    }
+  }
+
+  // مرتب‌سازی
+  const result = Array.from(teacherMap.values()).sort((a, b) =>
+    a.teacherLastName.localeCompare(b.teacherLastName, "fa"),
+  );
+
+  for (const sheet of result) {
+    sheet.classes.sort((a, b) =>
+      a.klassTitle.localeCompare(b.klassTitle, "fa"),
+    );
+  }
+
+  return { status: "success" as const, data: result };
+}

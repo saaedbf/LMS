@@ -40,7 +40,7 @@ export default function AttendancePrintComp({
   // ⬅️ فیلتر معلم
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
   const [teacherSearch, setTeacherSearch] = useState("");
-
+  const [downloadingCovers, setDownloadingCovers] = useState(false);
   // ⬅️ وقتی معلم عوض می‌شه، انتخاب‌ها ریست بشن
   useEffect(() => {
     setSelection(new Map());
@@ -179,7 +179,37 @@ export default function AttendancePrintComp({
       setDownloading(false);
     }
   };
+  const handleDownloadCovers = async () => {
+    setDownloadingCovers(true);
+    try {
+      const res = await fetch("/api/teacher-cover-pdf", {
+        method: "POST",
+      });
 
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "خطا در ساخت روکش دبیران");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `روکش-دبیران-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success("روکش دبیران دانلود شد");
+    } catch (error) {
+      console.error(error);
+      toast.error("خطا در دریافت PDF");
+    } finally {
+      setDownloadingCovers(false);
+    }
+  };
   return (
     <>
       <div className="print:hidden">
@@ -398,6 +428,25 @@ export default function AttendancePrintComp({
               />
               چاپ بیش از ۲۵ نفر در دو صفحه
             </label>
+            {/* ⬅️ دکمه جدید: روکش دبیران */}
+            <button
+              type="button"
+              onClick={handleDownloadCovers}
+              disabled={downloadingCovers}
+              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {downloadingCovers ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  در حال ساخت روکش...
+                </>
+              ) : (
+                <>
+                  <BookOpen size={16} />
+                  دانلود روکش دبیران
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>

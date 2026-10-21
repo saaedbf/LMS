@@ -338,3 +338,25 @@ export async function updateTeacherAbsenceAction(input: {
     return { status: "error" as const, error: "خطا در ویرایش" };
   }
 }
+export async function getAllTeacherAbsencesForExport() {
+  const scope = await getScope(PERMISSIONS.MANAGE_TEACHERS);
+  if (isScopeError(scope)) return [];
+
+  const { schoolId, academicYearId } = scope;
+
+  return prisma.teacherAbsence.findMany({
+    where: { schoolId, academicYearId },
+    include: {
+      teacher: {
+        select: {
+          firstName: true,
+          lastName: true,
+          nationalCode: true,
+          personnelCode: true,
+          phone: true,
+        },
+      },
+    },
+    orderBy: [{ date: "desc" }],
+  });
+}

@@ -408,3 +408,33 @@ export async function deleteDisiplinaryAction(
     return { status: "error", error: "خطا در حذف" };
   }
 }
+export async function getAllDisciplinariesForExport() {
+  const scope = await getScope(PERMISSIONS.MANAGE_DISCIPLINARY);
+  if (isScopeError(scope)) return [];
+
+  const { schoolId, academicYearId } = scope;
+
+  return prisma.studentDisciplinary.findMany({
+    where: {
+      studentEnrollment: {
+        schoolId,
+        academicYearId,
+      },
+    },
+    include: {
+      studentEnrollment: {
+        include: {
+          student: {
+            select: {
+              firstName: true,
+              lastName: true,
+              nationalCode: true,
+            },
+          },
+          klass: { select: { title: true } },
+        },
+      },
+    },
+    orderBy: [{ date: "desc" }],
+  });
+}
