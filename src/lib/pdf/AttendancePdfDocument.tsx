@@ -137,15 +137,31 @@ function calculateRowHeight(totalRows: number, config: SizeConfig): number {
 }
 
 /* ═══════════════════════════════════════════════
-   استایل‌ها
+   استایل‌های پویا
    ═══════════════════════════════════════════════ */
-function makeStyles(config: SizeConfig, calculatedRowHeight: number) {
+function makeStyles(
+  config: SizeConfig,
+  calculatedRowHeight: number,
+  gutterSide: "right" | "left" | "both" = "right",
+) {
+  const GUTTER_SPACE = 25;
+
+  const paddingLeft =
+    gutterSide === "left" || gutterSide === "both"
+      ? config.paddingPage + GUTTER_SPACE
+      : config.paddingPage;
+
+  const paddingRight =
+    gutterSide === "right" || gutterSide === "both"
+      ? config.paddingPage + GUTTER_SPACE
+      : config.paddingPage;
+
   return StyleSheet.create({
     page: {
-      paddingTop: config.paddingPage, // ⬅️ جدید
-      paddingBottom: config.paddingPage, // ⬅️ جدید
-      paddingLeft: config.paddingPage, // ⬅️ جدید
-      paddingRight: config.paddingPage + 25, // ⬅️ جدید (فنر)
+      paddingTop: config.paddingPage,
+      paddingBottom: config.paddingPage,
+      paddingLeft,
+      paddingRight,
       fontFamily: "IRANSans",
       fontSize: 10,
       direction: "rtl",
@@ -253,7 +269,7 @@ function makeStyles(config: SizeConfig, calculatedRowHeight: number) {
       flexDirection: "row",
     },
     cellHeaderText: {
-      fontSize: config.headerFont + 1,
+      fontSize: config.headerFont,
       textAlign: "center",
       fontWeight: "bold",
       width: "100%",
@@ -267,22 +283,26 @@ function makeStyles(config: SizeConfig, calculatedRowHeight: number) {
 const COLS = {
   row: "6%",
   name: "24%",
-  empty: "4%", // ۱۵ × 4 = 60%
+  empty: "4%",
   desc: "10%",
 };
 
-const EMPTY_COLS_COUNT = 14; // ⬅️ از ۱۵ به ۱۴ کاهش یافت
+const EMPTY_COLS_COUNT = 15;
 
 /* ═══════════════════════════════════════════════
    تعداد ردیف کل
    ═══════════════════════════════════════════════ */
 function getTotalRows(studentCount: number): number {
-  if (studentCount <= 24) return 25;
-  if (studentCount <= 29) return 30;
-  if (studentCount <= 34) return 35;
-  if (studentCount <= 39) return 40;
-  if (studentCount <= 44) return 45;
-  return 50;
+  let baseRows: number;
+  if (studentCount <= 24) baseRows = 25;
+  else if (studentCount <= 29) baseRows = 30;
+  else if (studentCount <= 34) baseRows = 35;
+  else if (studentCount <= 39) baseRows = 40;
+  else if (studentCount <= 44) baseRows = 45;
+  else baseRows = 50;
+
+  if (studentCount >= baseRows) return baseRows + 2;
+  return baseRows;
 }
 
 /* ═══════════════════════════════════════════════
@@ -328,7 +348,7 @@ export function AttendancePdfDocument({
 }
 
 /* ═══════════════════════════════════════════════
-   منطق تقسیم
+   منطق تقسیم به صفحات
    ═══════════════════════════════════════════════ */
 function AttendanceSheetPages({
   sheet,
@@ -339,27 +359,29 @@ function AttendanceSheetPages({
 }) {
   const studentCount = sheet.students.length;
 
-  // اگر چک‌باکس خورده و بیش از ۲۵ نفر
   if (splitLargeClasses && studentCount > 25) {
     const firstHalf = sheet.students.slice(0, 25);
     const secondHalf = sheet.students.slice(25);
 
     return (
       <>
-        {/* صفحه ۱ — ۲۵ ردیف */}
+        {/* صفحه ۱ — گاتر راست */}
         <AttendanceSheetPage
           sheet={{ ...sheet, students: firstHalf }}
           pageLabel="صفحه ۱"
           startRowIndex={0}
           totalRowsOverride={25}
+          gutterSide="right"
         />
 
-        {/* صفحه ۲ — ۵۰ ردیف */}
+        {/* صفحه ۲ — گاتر چپ + باکس خالی تا پایین */}
         <AttendanceSheetPage
           sheet={{ ...sheet, students: secondHalf }}
           pageLabel="صفحه ۲"
-          startRowIndex={25}
+          startRowIndex={firstHalf.length}
           totalRowsOverride={25}
+          gutterSide="left"
+          fillRemainingWithEmptyBox
         />
       </>
     );
@@ -376,11 +398,15 @@ function AttendanceSheetPage({
   startRowIndex = 0,
   pageLabel,
   totalRowsOverride,
+  gutterSide = "right",
+  fillRemainingWithEmptyBox = false,
 }: {
   sheet: AttendanceSheet;
   startRowIndex?: number;
   pageLabel?: string;
   totalRowsOverride?: number;
+  gutterSide?: "right" | "left" | "both";
+  fillRemainingWithEmptyBox?: boolean;
 }) {
   const studentCount = sheet.students.length;
   const totalRows = totalRowsOverride ?? getTotalRows(studentCount);
@@ -388,7 +414,7 @@ function AttendanceSheetPage({
 
   const config = getSizeConfig(totalRows);
   const calculatedRowHeight = calculateRowHeight(totalRows, config);
-  const styles = makeStyles(config, calculatedRowHeight);
+  const styles = makeStyles(config, calculatedRowHeight, gutterSide);
 
   return (
     <Page size="A4" style={styles.page} wrap={false}>
@@ -444,53 +470,83 @@ function AttendanceSheetPage({
         )}
       </View>
 
-      {/* ═══ جدول ═══ */}
-      <View style={styles.table}>
-        {/* سرستون */}
-        <View style={styles.tableHeader} fixed>
-          <View style={{ ...styles.cellHeader, width: COLS.row }}>
-            <Text style={styles.cellHeaderText}>ردیف</Text>
-          </View>
-          <View style={{ ...styles.cellHeader, width: COLS.name }}>
-            <Text style={styles.cellHeaderText}>نام خانوادگی و نام</Text>
-          </View>
-          {Array.from({ length: EMPTY_COLS_COUNT }).map((_, i) => (
-            <View key={i} style={{ ...styles.cellHeader, width: COLS.empty }}>
-              <Text style={styles.cellHeaderText}> </Text>
+      {/* ═══ محتوای جدول + باکس خالی ═══ */}
+      <View style={{ flex: 1, flexDirection: "column" }}>
+        {/* جدول */}
+        <View style={styles.table}>
+          {/* سرستون */}
+          <View style={styles.tableHeader} fixed>
+            <View style={{ ...styles.cellHeader, width: COLS.row }}>
+              <Text style={styles.cellHeaderText}>ردیف</Text>
             </View>
-          ))}
-          <View style={{ ...styles.cellHeaderLast, width: COLS.desc }}>
-            <Text style={styles.cellHeaderText}>توضیحات</Text>
+            <View style={{ ...styles.cellHeader, width: COLS.name }}>
+              <Text style={styles.cellHeaderText}>نام خانوادگی و نام</Text>
+            </View>
+            {Array.from({ length: EMPTY_COLS_COUNT }).map((_, i) => (
+              <View key={i} style={{ ...styles.cellHeader, width: COLS.empty }}>
+                <Text style={styles.cellHeaderText}> </Text>
+              </View>
+            ))}
+            <View style={{ ...styles.cellHeaderLast, width: COLS.desc }}>
+              <Text style={styles.cellHeaderText}>توضیحات</Text>
+            </View>
           </View>
-        </View>
 
-        {/* دانش‌آموزان */}
-        {sheet.students.map((s, i) => {
-          const fullName = `${s.lastName} ${s.firstName}`;
-          const nameFit = smartFit(fullName, config.rowFont, 22, 30);
+          {/* دانش‌آموزان */}
+          {sheet.students.map((s, i) => {
+            const fullName = `${s.lastName} ${s.firstName}`;
+            const nameFit = smartFit(fullName, config.rowFont, 22, 30);
 
-          return (
+            return (
+              <View
+                key={s.id}
+                style={
+                  i === sheet.students.length - 1 && emptyCount === 0
+                    ? styles.tableRowLast
+                    : styles.tableRow
+                }
+              >
+                <View style={{ ...styles.cell, width: COLS.row }}>
+                  <Text style={styles.cellText}>{startRowIndex + i + 1}</Text>
+                </View>
+                <View style={{ ...styles.cell, width: COLS.name }}>
+                  <Text
+                    style={{
+                      ...styles.cellTextRight,
+                      fontWeight: "bold",
+                      fontSize: nameFit.fontSize,
+                    }}
+                  >
+                    {nameFit.text}
+                  </Text>
+                </View>
+                {Array.from({ length: EMPTY_COLS_COUNT }).map((_, j) => (
+                  <View key={j} style={{ ...styles.cell, width: COLS.empty }}>
+                    <Text style={styles.cellText}> </Text>
+                  </View>
+                ))}
+                <View style={{ ...styles.cellLast, width: COLS.desc }}>
+                  <Text style={styles.cellText}> </Text>
+                </View>
+              </View>
+            );
+          })}
+
+          {/* ردیف‌های خالی */}
+          {Array.from({ length: emptyCount }).map((_, i) => (
             <View
-              key={s.id}
+              key={`empty-${i}`}
               style={
-                i === sheet.students.length - 1 && emptyCount === 0
-                  ? styles.tableRowLast
-                  : styles.tableRow
+                i === emptyCount - 1 ? styles.tableRowLast : styles.tableRow
               }
             >
               <View style={{ ...styles.cell, width: COLS.row }}>
-                <Text style={styles.cellText}>{startRowIndex + i + 1}</Text>
+                <Text style={styles.cellText}>
+                  {startRowIndex + sheet.students.length + i + 1}
+                </Text>
               </View>
               <View style={{ ...styles.cell, width: COLS.name }}>
-                <Text
-                  style={{
-                    ...styles.cellTextRight,
-                    fontWeight: "bold",
-                    fontSize: nameFit.fontSize,
-                  }}
-                >
-                  {nameFit.text}
-                </Text>
+                <Text style={styles.cellText}> </Text>
               </View>
               {Array.from({ length: EMPTY_COLS_COUNT }).map((_, j) => (
                 <View key={j} style={{ ...styles.cell, width: COLS.empty }}>
@@ -501,33 +557,22 @@ function AttendanceSheetPage({
                 <Text style={styles.cellText}> </Text>
               </View>
             </View>
-          );
-        })}
+          ))}
+        </View>
 
-        {/* ردیف‌های خالی */}
-        {Array.from({ length: emptyCount }).map((_, i) => (
+        {/* ⬅️ باکس خالی تا پایین صفحه (فقط صفحه ۲ در حالت split) */}
+        {fillRemainingWithEmptyBox && (
           <View
-            key={`empty-${i}`}
-            style={i === emptyCount - 1 ? styles.tableRowLast : styles.tableRow}
-          >
-            <View style={{ ...styles.cell, width: COLS.row }}>
-              <Text style={styles.cellText}>
-                {startRowIndex + sheet.students.length + i + 1}
-              </Text>
-            </View>
-            <View style={{ ...styles.cell, width: COLS.name }}>
-              <Text style={styles.cellText}> </Text>
-            </View>
-            {Array.from({ length: EMPTY_COLS_COUNT }).map((_, j) => (
-              <View key={j} style={{ ...styles.cell, width: COLS.empty }}>
-                <Text style={styles.cellText}> </Text>
-              </View>
-            ))}
-            <View style={{ ...styles.cellLast, width: COLS.desc }}>
-              <Text style={styles.cellText}> </Text>
-            </View>
-          </View>
-        ))}
+            style={{
+              flex: 1,
+              borderWidth: 1,
+              borderColor: "#000",
+              borderStyle: "solid",
+              borderTopWidth: 0,
+              marginTop: 0,
+            }}
+          />
+        )}
       </View>
     </Page>
   );
