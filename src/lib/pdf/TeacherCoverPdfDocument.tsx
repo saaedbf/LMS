@@ -302,7 +302,7 @@ function TeacherCoverPage({ teacher }: { teacher: TeacherCoverSheet }) {
       <View style={styles.card}>
         {/* هدر */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>کاربرگ و برنامه دبیر</Text>
+          <Text style={styles.headerTitle}> برنامه دبیر</Text>
           <Text style={styles.headerSubtitle}>
             سال تحصیلی {teacher.academicYearTitle} | {teacher.schoolTitle}
           </Text>
@@ -315,7 +315,7 @@ function TeacherCoverPage({ teacher }: { teacher: TeacherCoverSheet }) {
             <View style={styles.infoBox}>
               <Text style={styles.infoLabel}>نام دبیر</Text>
               <Text style={styles.teacherName}>
-                {teacher.teacherLastName} {teacher.teacherFirstName}
+                {teacher.teacherFirstName} {teacher.teacherLastName}
               </Text>
             </View>
 
@@ -433,7 +433,7 @@ function BellCellContent({
             position: "absolute",
             top: 0,
             right: 0,
-            width: "50%", // ⬅️ نصف عرض
+            width: "70%", // ⬅️ نصف عرض
             height: "50%", // ⬅️ نصف ارتفاع
             justifyContent: "center",
             alignItems: "flex-end", // تراز به راست
@@ -476,7 +476,7 @@ function BellCellContent({
             position: "absolute",
             top: 0,
             right: 0,
-            width: "80%", // ⬅️ نصف عرض
+            width: "70%", // ⬅️ نصف عرض
             height: "50%", // ⬅️ نصف ارتفاع
             justifyContent: "center",
             alignItems: "flex-end", // تراز به راست
@@ -493,7 +493,7 @@ function BellCellContent({
             position: "absolute",
             bottom: 0,
             left: 0,
-            width: "80%", // ⬅️ نصف عرض
+            width: "70%", // ⬅️ نصف عرض
             height: "50%", // ⬅️ نصف ارتفاع
             justifyContent: "center",
             alignItems: "flex-start", // تراز به چپ
