@@ -17,6 +17,7 @@ import TitlePage from "@/components/widgets/TitlePage";
 import TeacherSelectModal from "./TeacherSelectModal";
 import BackButton from "@/components/widgets/Elements/BackButton";
 import ScheduleModal from "./ScheduleModal";
+import ViewClassScheduleModal from "./ViewClassScheduleModal";
 
 type Teacher = {
   id: string;
@@ -189,6 +190,11 @@ export default function ClassCourseComp({
                               bellCount={initialBellCount} // باید از سرور (تنظیمات مدرسه) پاس داده شود
                             />
                           )}
+                          {/* ⬅️ دکمه مشاهده برنامه کل کلاس */}
+                          <ViewClassScheduleModal
+                            klassId={item.klassId}
+                            bellCount={initialBellCount}
+                          />
                         </div>
                       </TdActions>
                     </Tr>
