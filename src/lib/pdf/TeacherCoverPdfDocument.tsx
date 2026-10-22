@@ -427,21 +427,28 @@ function BellCellContent({
           />
         </Svg>
 
-        {/* نیمه اول (راست-بالا) — با عرض 50% در گوشه */}
         <View
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            width: "70%", // ⬅️ نصف عرض
-            height: "70%", // ⬅️ نصف ارتفاع
-            justifyContent: "center",
-            alignItems: "flex-end", // تراز به راست
-            paddingRight: 2,
-          }}
+          style={{ width: "100%", height: "100%", flexDirection: "column" }}
         >
-          <Text style={styles.scheduleKlass}>{items[0].klassTitle}</Text>
-          <Text style={styles.scheduleDars}>{items[0].darsTitle}</Text>
+          {/* نیمه اول (بالا) — راست‌چین */}
+          <View
+            style={{
+              flex: 1,
+              width: "100%",
+              justifyContent: "center",
+              paddingRight: 4,
+              paddingTop: 4,
+            }}
+          >
+            <Text style={[styles.scheduleKlass, { textAlign: "right" }]}>
+              {items[0].klassTitle}
+            </Text>
+            <Text style={[styles.scheduleDars, { textAlign: "right" }]}>
+              {items[0].darsTitle}
+            </Text>
+          </View>
+          {/* نیمه دوم خالی */}
+          <View style={{ flex: 1, width: "100%" }} />
         </View>
       </View>
     );
@@ -470,38 +477,44 @@ function BellCellContent({
           />
         </Svg>
 
-        {/* نیمه اول (راست-بالا) */}
         <View
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            width: "70%", // ⬅️ نصف عرض
-            height: "70%", // ⬅️ نصف ارتفاع
-            justifyContent: "center",
-            alignItems: "flex-end", // تراز به راست
-            paddingRight: 2,
-          }}
+          style={{ width: "100%", height: "100%", flexDirection: "column" }}
         >
-          <Text style={styles.scheduleKlass}>{top.klassTitle}</Text>
-          <Text style={styles.scheduleDars}>{top.darsTitle}</Text>
-        </View>
+          {/* نیمه اول (بالا) — راست‌چین */}
+          <View
+            style={{
+              flex: 1,
+              width: "100%",
+              justifyContent: "center",
+              paddingRight: 4,
+              paddingTop: 4,
+            }}
+          >
+            <Text style={[styles.scheduleKlass, { textAlign: "right" }]}>
+              {top.klassTitle}
+            </Text>
+            <Text style={[styles.scheduleDars, { textAlign: "right" }]}>
+              {top.darsTitle}
+            </Text>
+          </View>
 
-        {/* نیمه دوم (چپ-پایین) */}
-        <View
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            width: "70%", // ⬅️ نصف عرض
-            height: "70%", // ⬅️ نصف ارتفاع
-            justifyContent: "center",
-            alignItems: "flex-start", // تراز به چپ
-            paddingLeft: 2,
-          }}
-        >
-          <Text style={styles.scheduleKlass}>{bottom.klassTitle}</Text>
-          <Text style={styles.scheduleDars}>{bottom.darsTitle}</Text>
+          {/* نیمه دوم (پایین) — چپ‌چین */}
+          <View
+            style={{
+              flex: 1,
+              width: "100%",
+              justifyContent: "center",
+              paddingLeft: 4,
+              paddingBottom: 4,
+            }}
+          >
+            <Text style={[styles.scheduleKlass, { textAlign: "left" }]}>
+              {bottom.klassTitle}
+            </Text>
+            <Text style={[styles.scheduleDars, { textAlign: "left" }]}>
+              {bottom.darsTitle}
+            </Text>
+          </View>
         </View>
       </View>
     );
