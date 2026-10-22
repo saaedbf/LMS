@@ -38,6 +38,7 @@ type ClassCourseItem = {
   classCourseId: string | null;
   teacherId: string | null;
   teacher: Teacher | null;
+  hasSchedule: boolean; // ⬅️ این خط اضافه شود
 };
 
 type Props = {
@@ -184,6 +185,7 @@ export default function ClassCourseComp({
                             <ScheduleModal
                               classCourseId={item.classCourseId}
                               lessonTitle={item.lessonTitle}
+                              hasSchedule={item.hasSchedule} // ⬅️ این خط اضافه شود
                               bellCount={initialBellCount} // باید از سرور (تنظیمات مدرسه) پاس داده شود
                             />
                           )}

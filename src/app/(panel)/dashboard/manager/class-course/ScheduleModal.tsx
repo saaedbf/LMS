@@ -32,12 +32,14 @@ type Props = {
   classCourseId: string;
   lessonTitle: string;
   bellCount: number;
+  hasSchedule?: boolean; // ⬅️ اضافه شود
 };
 
 export default function ScheduleModal({
   classCourseId,
   lessonTitle,
   bellCount,
+  hasSchedule = false, // ⬅️ اضافه شود
 }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -113,7 +115,13 @@ export default function ScheduleModal({
       open={open}
       setOpen={setOpen}
       trigger={
-        <button className="flex items-center gap-1 rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100">
+        <button
+          className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+            hasSchedule
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" // ⬅️ سبز (دارای برنامه)
+              : "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100" // ⬅️ آبی (بدون برنامه)
+          }`}
+        >
           <Calendar size={14} />
           برنامه
         </button>

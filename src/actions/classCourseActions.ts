@@ -140,6 +140,10 @@ export async function getClassCoursesWithJoin(options?: {
               nationalCode: true,
             },
           },
+          schedules: {
+            // ⬅️ این بخش اضافه شود
+            select: { id: true },
+          },
         },
       });
 
@@ -167,6 +171,7 @@ export async function getClassCoursesWithJoin(options?: {
           classCourseId: existing?.id ?? null,
           teacherId: existing?.teacherId ?? null,
           teacher: existing?.teacher ?? null,
+          hasSchedule: (existing?.schedules?.length ?? 0) > 0, // ⬅️ این خط اضافه شود
         });
       }
     }
