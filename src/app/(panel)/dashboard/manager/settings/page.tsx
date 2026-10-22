@@ -29,6 +29,7 @@ export default async function SettingsPage() {
       <div className="container mx-auto max-w-3xl px-4 py-4">
         <SchoolSettingsForm
           initialData={{
+            dailyBellCount: res.data.dailyBellCount, // ⬅️ این خط
             gradingType: res.data.gradingType,
             showTuitionInStudentPanel: res.data.showTuitionInStudentPanel,
             showDisciplinaryInStudentPanel:
