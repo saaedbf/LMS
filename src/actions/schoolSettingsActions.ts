@@ -41,6 +41,7 @@ export async function getSchoolSettings() {
         data: {
           schoolId: scope.schoolId,
           gradingType: "NUMERIC",
+          dailyBellCount: 3,
           showTuitionInStudentPanel: true,
           showDisciplinaryInStudentPanel: true,
           showAbsencesInStudentPanel: true,
@@ -77,6 +78,7 @@ export async function updateSchoolSettings(input: unknown) {
       update: {
         gradingType: parsed.data.gradingType,
         showTuitionInStudentPanel: parsed.data.showTuitionInStudentPanel,
+        dailyBellCount: parsed.data.dailyBellCount,
         showDisciplinaryInStudentPanel:
           parsed.data.showDisciplinaryInStudentPanel,
         showAbsencesInStudentPanel: parsed.data.showAbsencesInStudentPanel,
@@ -88,6 +90,7 @@ export async function updateSchoolSettings(input: unknown) {
         schoolId: scope.schoolId,
         gradingType: parsed.data.gradingType,
         showTuitionInStudentPanel: parsed.data.showTuitionInStudentPanel,
+        dailyBellCount: parsed.data.dailyBellCount,
         showDisciplinaryInStudentPanel:
           parsed.data.showDisciplinaryInStudentPanel,
         showAbsencesInStudentPanel: parsed.data.showAbsencesInStudentPanel,

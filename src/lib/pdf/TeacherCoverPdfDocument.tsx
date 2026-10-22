@@ -7,8 +7,7 @@ import {
   StyleSheet,
   Font,
   Svg,
-  Circle,
-  Path,
+  Line,
 } from "@react-pdf/renderer";
 import type { TeacherCoverSheet } from "@/actions/attendanceActions";
 
@@ -17,157 +16,192 @@ import type { TeacherCoverSheet } from "@/actions/attendanceActions";
    ═══════════════════════════════════════════════ */
 const styles = StyleSheet.create({
   page: {
-    paddingVertical: 20, // ⬅️ ۳۰ → ۲۰
-    paddingHorizontal: 20, // ⬅️ ۳۰ → ۲۰
-    fontFamily: "Vazirmatn",
-    fontSize: 10,
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    fontFamily: "IRANSans",
+    fontSize: 9,
     direction: "rtl",
     backgroundColor: "#ffffff",
   },
-
   card: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: "#1e3a8a",
     borderStyle: "solid",
-    borderRadius: 12,
+    borderRadius: 8,
     overflow: "hidden",
-    flex: 1, // ⬅️ جدید
+    flex: 1,
   },
-
   header: {
     backgroundColor: "#1e3a8a",
-    paddingVertical: 20, // ⬅️ ۲۴ → ۲۰
-    paddingHorizontal: 16,
-    textAlign: "center",
-  },
-  headerTop: {
-    fontSize: 11,
-    color: "#c7d2fe",
-    fontWeight: "bold",
-    marginBottom: 4,
+    paddingVertical: 12,
     textAlign: "center",
   },
   headerTitle: {
-    fontSize: 20, // ⬅️ ۲۲ → ۲۰
+    fontSize: 16,
     color: "#ffffff",
     fontWeight: "bold",
-    marginBottom: 4,
     textAlign: "center",
   },
   headerSubtitle: {
-    fontSize: 12,
-    color: "#c7d2fe",
-    textAlign: "center",
-  },
-
-  schoolBox: {
-    backgroundColor: "#eff6ff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#bfdbfe",
-    borderBottomStyle: "solid",
-    padding: 14, // ⬅️ ۱۶ → ۱۴
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-  },
-  schoolItem: {
-    flex: 1,
-    textAlign: "center",
-    alignItems: "center",
-  },
-  schoolLabel: {
-    fontSize: 9,
-    color: "#64748b",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  schoolValue: {
-    fontSize: 12, // ⬅️ ۱۳ → ۱۲
-    color: "#1e3a8a",
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-
-  teacherBox: {
-    backgroundColor: "#f0fdf4",
-    borderBottomWidth: 1,
-    borderBottomColor: "#bbf7d0",
-    borderBottomStyle: "solid",
-    padding: 16, // ⬅️ ۲۰ → ۱۶
-    alignItems: "center",
-  },
-  teacherLabel: {
     fontSize: 10,
-    color: "#166534",
-    marginBottom: 4,
+    color: "#c7d2fe",
+    marginTop: 4,
     textAlign: "center",
+  },
+
+  body: {
+    flexDirection: "row-reverse",
+    flex: 1,
+  },
+  rightColumn: {
+    width: "35%",
+    borderLeftWidth: 1,
+    borderLeftColor: "#bfdbfe",
+    borderLeftStyle: "solid",
+    padding: 10,
+    backgroundColor: "#f8fafc",
+    flexDirection: "column",
+  },
+  leftColumn: {
+    width: "65%",
+    padding: 10,
+    flexDirection: "column",
+  },
+
+  infoBox: {
+    backgroundColor: "#ffffff",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 8,
+    marginBottom: 10,
+  },
+  infoLabel: {
+    fontSize: 8,
+    color: "#64748b",
+    marginBottom: 2,
+    textAlign: "right",
   },
   teacherName: {
-    fontSize: 20, // ⬅️ ۲۴ → ۲۰
+    fontSize: 12,
     color: "#15803d",
     fontWeight: "bold",
     marginBottom: 4,
-    textAlign: "center",
-  },
-  teacherMeta: {
-    fontSize: 10,
-    color: "#4b5563",
-    textAlign: "center",
-  },
-
-  classesSection: {
-    padding: 14, // ⬅️ ۱۶ → ۱۴
-    direction: "rtl",
-    flex: 1, // ⬅️ جدید
-  },
-  classesTitle: {
-    fontSize: 13, // ⬅️ ۱۴ → ۱۳
-    color: "#1e3a8a",
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-
-  classCard: {
-    backgroundColor: "#fef3c7",
-    borderRightWidth: 4,
-    borderRightColor: "#f59e0b",
-    borderRightStyle: "solid",
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 8,
-    direction: "rtl",
-  },
-  classHeader: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
+    textAlign: "right",
   },
   classTitle: {
     fontSize: 12,
+    color: "#1e3a8a",
+    fontWeight: "bold",
+    marginBottom: 6,
+    textAlign: "right",
+  },
+  classItem: {
+    backgroundColor: "#fef3c7",
+    borderRightWidth: 3,
+    borderRightColor: "#f59e0b",
+    borderRightStyle: "solid",
+    borderRadius: 4,
+    padding: 6,
+    marginBottom: 6,
+  },
+  classItemTitle: {
+    fontSize: 11,
     fontWeight: "bold",
     color: "#92400e",
-    textAlign: "right", // ⬅️ مستقیم روی Text
-  },
-  classBadge: {
-    fontSize: 9,
-    color: "#78350f",
-    backgroundColor: "#fde68a",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  classDars: {
-    fontSize: 9,
-    color: "#44403c",
-    marginTop: 4,
-    textAlign: "right", // ⬅️ مستقیم روی Text
-  },
-  classMeta: {
-    fontSize: 9,
-    color: "#78716c",
     marginBottom: 2,
-    textAlign: "right", // ⬅️ مستقیم روی Text
+    textAlign: "right",
+  },
+  classItemDars: {
+    fontSize: 10,
+    color: "#4b5563",
+    textAlign: "right",
+  },
+
+  scheduleTitle: {
+    fontSize: 11,
+    color: "#1e3a8a",
+    fontWeight: "bold",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  table: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#1e3a8a",
+    borderStyle: "solid",
+    flex: 1,
+  },
+
+  /* ─── هدر و سطرها ─── */
+  tableHeaderRow: {
+    flexDirection: "row-reverse",
+    backgroundColor: "#1e3a8a",
+  },
+  tableRow: {
+    flexDirection: "row-reverse",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e3a8a",
+    borderBottomStyle: "solid",
+    flex: 1,
+  },
+
+  /* ستون روز — عرض صریح (12%) */
+  dayCell: {
+    width: "12%",
+    padding: 2,
+    backgroundColor: "#eff6ff",
+    fontWeight: "bold",
+    fontSize: 11,
+    textAlign: "center",
+    justifyContent: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "#1e3a8a",
+    borderLeftStyle: "solid",
+  },
+  dayCellHeader: {
+    width: "12%",
+    paddingVertical: 4,
+    color: "#ffffff",
+    fontWeight: "bold",
+    fontSize: 12,
+    textAlign: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "#ffffff",
+    borderLeftStyle: "solid",
+  },
+
+  /* ستون‌های زنگ — flex: 1 */
+  bellCellHeader: {
+    flex: 1,
+    paddingVertical: 4,
+    color: "#ffffff",
+    fontWeight: "bold",
+    fontSize: 12,
+    textAlign: "center",
+    borderLeftWidth: 1,
+    borderLeftColor: "#ffffff",
+    borderLeftStyle: "solid",
+  },
+  bellCell: {
+    flex: 1,
+    padding: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: "#bfdbfe",
+    borderLeftStyle: "solid",
+    position: "relative",
+  },
+
+  scheduleKlass: {
+    fontSize: 11,
+    color: "#1e3a8a",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  scheduleDars: {
+    fontSize: 10,
+    color: "#4b5563",
+    textAlign: "center",
   },
 
   footer: {
@@ -175,76 +209,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#e2e8f0",
     borderTopStyle: "solid",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 6,
     alignItems: "center",
   },
   footerText: {
-    fontSize: 9,
-    color: "#64748b",
-    textAlign: "center",
-  },
-  footerBrand: {
     fontSize: 8,
-    color: "#94a3b8",
-    marginTop: 3,
-    textAlign: "center",
-  },
-
-  decorativeRow: {
-    flexDirection: "row-reverse",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-  badge: {
-    backgroundColor: "#dbeafe",
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    marginHorizontal: 3,
-  },
-  badgeText: {
-    fontSize: 9,
-    color: "#1e40af",
-    fontWeight: "bold",
+    color: "#64748b",
     textAlign: "center",
   },
 });
 
 /* ═══════════════════════════════════════════════
-   آیکون‌های SVG ساده
-   ═══════════════════════════════════════════════ */
-function BookIcon({ color = "#1e3a8a", size = 24 }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path
-        d="M4 4h7v16H4zM13 4h7v16h-7z"
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function TeacherIcon({ color = "#15803d", size = 32 }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle cx="12" cy="8" r="4" fill="none" stroke={color} strokeWidth={2} />
-      <Path
-        d="M4 20c0-4 4-6 8-6s8 2 8 6"
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
-/* ═══════════════════════════════════════════════
-   ثبت فونت
+   کامپوننت اصلی
    ═══════════════════════════════════════════════ */
 let fontsRegistered = false;
 
@@ -261,7 +237,7 @@ export function TeacherCoverPdfDocument({
 }: Props) {
   if (!fontsRegistered) {
     Font.register({
-      family: "Vazirmatn",
+      family: "IRANSans",
       fonts: [
         { src: regularFont, fontWeight: "normal" },
         { src: boldFont, fontWeight: "bold" },
@@ -283,110 +259,267 @@ export function TeacherCoverPdfDocument({
    یک برگه
    ═══════════════════════════════════════════════ */
 function TeacherCoverPage({ teacher }: { teacher: TeacherCoverSheet }) {
+  const DAYS: Record<string, string> = {
+    SATURDAY: "شنبه",
+    SUNDAY: "یکشنبه",
+    MONDAY: "دوشنبه",
+    TUESDAY: "سه‌شنبه",
+    WEDNESDAY: "چهارشنبه",
+    THURSDAY: "پنجشنبه",
+  };
+  const DAYS_ORDER = [
+    "SATURDAY",
+    "SUNDAY",
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+  ];
+
+  /* ⬅️ هر (day, bell) می‌تونه ۱ یا ۲ درس داشته باشه (نصف‌زنگ) */
+  const scheduleMap = new Map<
+    string,
+    Array<{
+      klassTitle: string;
+      darsTitle: string;
+      isHalfBell: boolean;
+    }>
+  >();
+
+  for (const s of teacher.schedules) {
+    const key = `${s.day}-${s.bellIndex}`;
+    const list = scheduleMap.get(key) ?? [];
+    list.push({
+      klassTitle: s.klassTitle,
+      darsTitle: s.darsTitle,
+      isHalfBell: s.isHalfBell,
+    });
+    scheduleMap.set(key, list);
+  }
+
   return (
-    <Page size="A4" style={styles.page} wrap>
+    <Page size="A4" style={styles.page}>
       <View style={styles.card}>
-        {/* ═══ هدر ═══ */}
+        {/* هدر */}
         <View style={styles.header}>
-          <Text style={styles.headerTop}>جمهوری اسلامی ایران</Text>
-          <Text style={styles.headerTitle}>کاربرگ دبیر</Text>
+          <Text style={styles.headerTitle}>کاربرگ و برنامه دبیر</Text>
           <Text style={styles.headerSubtitle}>
-            سال تحصیلی {teacher.academicYearTitle}
-          </Text>
-
-          {/* المان تزئینی */}
-          <View style={styles.decorativeRow}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>📚 آموزشی</Text>
-            </View>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>✏️ دبیر</Text>
-            </View>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>🎓 مدرسه</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ═══ مدرسه ═══ */}
-        <View style={styles.schoolBox}>
-          <View style={styles.schoolItem}>
-            <Text style={styles.schoolLabel}>مدرسه</Text>
-            <Text style={styles.schoolValue}>{teacher.schoolTitle}</Text>
-          </View>
-          <View style={styles.schoolItem}>
-            <Text style={styles.schoolLabel}>کد مدرسه</Text>
-            <Text style={styles.schoolValue}>{teacher.schoolId}</Text>
-          </View>
-          <View style={styles.schoolItem}>
-            <Text style={styles.schoolLabel}>سال تحصیلی</Text>
-            <Text style={styles.schoolValue}>{teacher.academicYearTitle}</Text>
-          </View>
-        </View>
-
-        {/* ═══ دبیر ═══ */}
-        <View style={styles.teacherBox}>
-          <TeacherIcon color="#15803d" size={36} />
-          <Text style={[styles.teacherLabel, { marginTop: 8 }]}>نام دبیر</Text>
-          <Text style={styles.teacherName}>
-            {teacher.teacherLastName} {teacher.teacherFirstName}
-          </Text>
-          <Text style={styles.teacherMeta}>
-            کد ملی: {teacher.teacherNationalCode}
-            {teacher.teacherPersonnelCode
-              ? `  |  کد پرسنلی: ${teacher.teacherPersonnelCode}`
-              : ""}
+            سال تحصیلی {teacher.academicYearTitle} | {teacher.schoolTitle}
           </Text>
         </View>
 
-        {/* ═══ کلاس‌ها ═══ */}
-        <View style={styles.classesSection}>
-          <View
-            style={{
-              flexDirection: "row-reverse",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 12,
-            }}
-          >
-            <BookIcon color="#1e3a8a" size={20} />
-            <Text style={[styles.classesTitle, { marginRight: 8 }]}>
-              کلاس‌ها و دروس
-            </Text>
-          </View>
+        {/* بدنه */}
+        <View style={styles.body}>
+          {/* ستون راست */}
+          <View style={styles.rightColumn}>
+            <View style={styles.infoBox}>
+              <Text style={styles.infoLabel}>نام دبیر</Text>
+              <Text style={styles.teacherName}>
+                {teacher.teacherLastName} {teacher.teacherFirstName}
+              </Text>
+            </View>
 
-          {teacher.classes.map((klass, idx) => (
-            <View key={klass.klassId} style={styles.classCard}>
-              <View style={styles.classHeader}>
-                <Text style={styles.classTitle}>
-                  {idx + 1}. {klass.klassTitle}
+            <Text style={styles.classTitle}>کلاس‌ها و دروس</Text>
+            {teacher.classes.map((klass) => (
+              <View key={klass.klassId} style={styles.classItem}>
+                <Text style={styles.classItemTitle}>{klass.klassTitle}</Text>
+                <Text style={styles.classItemDars}>
+                  {klass.darsTitles.join("، ")}
                 </Text>
-                <View style={styles.classBadge}>
-                  <Text style={{ fontSize: 9, color: "#78350f" }}>
-                    {klass.payeTitle}
-                  </Text>
-                </View>
               </View>
-              <Text style={{ fontSize: 9, color: "#78716c", marginBottom: 4 }}>
-                رشته: {klass.reshtehTitle}
-              </Text>
-              <Text style={styles.classDars}>
-                📖 دروس: {klass.darsTitles.join("، ")}
-              </Text>
+            ))}
+          </View>
+
+          {/* ستون چپ: برنامه */}
+          <View style={styles.leftColumn}>
+            <Text style={styles.scheduleTitle}>برنامه هفتگی</Text>
+            <View style={styles.table}>
+              {/* سرستون */}
+              <View style={styles.tableHeaderRow}>
+                <View style={styles.dayCellHeader}>
+                  <Text>روز/زنگ</Text>
+                </View>
+                {Array.from({ length: teacher.bellCount }).map((_, idx) => (
+                  <View key={idx} style={styles.bellCellHeader}>
+                    <Text>زنگ {idx + 1}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* سطرها */}
+              {DAYS_ORDER.map((day) => (
+                <View key={day} style={styles.tableRow}>
+                  <View style={styles.dayCell}>
+                    <Text>{DAYS[day]}</Text>
+                  </View>
+                  {Array.from({ length: teacher.bellCount }).map((_, idx) => {
+                    const bell = idx + 1;
+                    const items = scheduleMap.get(`${day}-${bell}`) ?? [];
+
+                    return (
+                      <View key={bell} style={styles.bellCell}>
+                        <BellCellContent items={items} />
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
             </View>
-          ))}
+          </View>
         </View>
 
-        {/* ═══ فوتر ═══ */}
+        {/* فوتر */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            این کاربرگ جهت استفاده در امور آموزشی صادر شده است
-          </Text>
-          <Text style={styles.footerBrand}>
-            سیستم مدیریت مدرسه — {new Date().getFullYear()}
+            سیستم مدیریت مدرسه — تولید شده در{" "}
+            {new Date().toLocaleDateString("fa-IR")}
           </Text>
         </View>
       </View>
     </Page>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   محتوای یک سلول زنگ
+   ═══════════════════════════════════════════════ */
+function BellCellContent({
+  items,
+}: {
+  items: Array<{ klassTitle: string; darsTitle: string; isHalfBell: boolean }>;
+}) {
+  if (items.length === 0) return null;
+
+  /* حالت ۱: یک درسِ تمام‌زنگ */
+  if (items.length === 1 && !items[0].isHalfBell) {
+    return (
+      <View
+        style={{
+          width: "100%",
+          height: "100%",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Text style={styles.scheduleKlass}>{items[0].klassTitle}</Text>
+        <Text style={styles.scheduleDars}>{items[0].darsTitle}</Text>
+      </View>
+    );
+  }
+
+  /* حالت ۲: یک درسِ نصف‌زنگ */
+  if (items.length === 1 && items[0].isHalfBell) {
+    return (
+      <View style={{ width: "100%", height: "100%", position: "relative" }}>
+        {/* خط مورب */}
+        <Svg
+          width="100%"
+          height="100%"
+          style={{ position: "absolute", top: 0, left: 0 }}
+        >
+          <Line
+            x1="0"
+            y1="0"
+            x2="100%"
+            y2="100%"
+            stroke="#f59e0b"
+            strokeWidth={1}
+          />
+        </Svg>
+
+        {/* نیمه اول (راست-بالا) — با عرض 50% در گوشه */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            width: "50%", // ⬅️ نصف عرض
+            height: "50%", // ⬅️ نصف ارتفاع
+            justifyContent: "center",
+            alignItems: "flex-end", // تراز به راست
+            paddingRight: 2,
+          }}
+        >
+          <Text style={styles.scheduleKlass}>{items[0].klassTitle}</Text>
+          <Text style={styles.scheduleDars}>{items[0].darsTitle}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  /* حالت ۳: دو درس (نصف‌زنگ کامل) */
+  if (items.length === 2) {
+    const top = items[0];
+    const bottom = items[1];
+
+    return (
+      <View style={{ width: "100%", height: "100%", position: "relative" }}>
+        {/* خط مورب */}
+        <Svg
+          width="100%"
+          height="100%"
+          style={{ position: "absolute", top: 0, left: 0 }}
+        >
+          <Line
+            x1="0"
+            y1="0"
+            x2="100%"
+            y2="100%"
+            stroke="#f59e0b"
+            strokeWidth={1}
+          />
+        </Svg>
+
+        {/* نیمه اول (راست-بالا) */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            width: "80%", // ⬅️ نصف عرض
+            height: "50%", // ⬅️ نصف ارتفاع
+            justifyContent: "center",
+            alignItems: "flex-end", // تراز به راست
+            paddingRight: 2,
+          }}
+        >
+          <Text style={styles.scheduleKlass}>{top.klassTitle}</Text>
+          <Text style={styles.scheduleDars}>{top.darsTitle}</Text>
+        </View>
+
+        {/* نیمه دوم (چپ-پایین) */}
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            width: "80%", // ⬅️ نصف عرض
+            height: "50%", // ⬅️ نصف ارتفاع
+            justifyContent: "center",
+            alignItems: "flex-start", // تراز به چپ
+            paddingLeft: 2,
+          }}
+        >
+          <Text style={styles.scheduleKlass}>{bottom.klassTitle}</Text>
+          <Text style={styles.scheduleDars}>{bottom.darsTitle}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  /* حالت ۴: بیش از ۲ درس */
+  return (
+    <View
+      style={{
+        width: "100%",
+        height: "100%",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 2,
+      }}
+    >
+      <Text style={styles.scheduleKlass}>{items[0].klassTitle}</Text>
+      <Text style={styles.scheduleDars}>+{items.length - 1}</Text>
+    </View>
   );
 }

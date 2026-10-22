@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
     );
 
     const regularFontBuffer = await fs.readFile(
-      path.join(fontDir, "Vazirmatn-Regular.ttf"), // ⬅️
+      path.join(fontDir, "IRANSansWeb(FaNum).ttf"),
     );
     const boldFontBuffer = await fs.readFile(
-      path.join(fontDir, "Vazirmatn-Bold.ttf"), // ⬅️
+      path.join(fontDir, "IRANSansWeb(FaNum)_Bold.ttf"),
     );
 
     const regularFont = `data:font/ttf;base64,${regularFontBuffer.toString("base64")}`;

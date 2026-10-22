@@ -9,6 +9,7 @@ import {
   BookOpen,
   Users,
   FileDown,
+  FileText,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import {
@@ -41,6 +42,41 @@ export default function AttendancePrintComp({
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
   const [teacherSearch, setTeacherSearch] = useState("");
   const [downloadingCovers, setDownloadingCovers] = useState(false);
+  const [downloadingNotes, setDownloadingNotes] = useState(false);
+
+  const handleDownloadNotes = async () => {
+    setDownloadingNotes(true);
+    try {
+      const res = await fetch("/api/teacher-notes-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selections: buildSelections() }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "خطا در ساخت فرم یادداشت");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `فرم-یادداشت-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("فرم یادداشت دانلود شد");
+    } catch (error) {
+      console.error(error);
+      toast.error("خطا در دریافت PDF");
+    } finally {
+      setDownloadingNotes(false);
+    }
+  };
+
   // ⬅️ وقتی معلم عوض می‌شه، انتخاب‌ها ریست بشن
   useEffect(() => {
     setSelection(new Map());
@@ -399,7 +435,6 @@ export default function AttendancePrintComp({
                 </>
               )}
             </button>
-
             {/* <button
               type="button"
               onClick={handlePrint}
@@ -418,7 +453,6 @@ export default function AttendancePrintComp({
                 </>
               )}
             </button> */}
-
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50">
               <input
                 type="checkbox"
@@ -443,9 +477,21 @@ export default function AttendancePrintComp({
               ) : (
                 <>
                   <BookOpen size={16} />
-                  دانلود روکش دبیران
+                  دانلود روکش
                 </>
               )}
+            </button>
+            <button
+              onClick={handleDownloadNotes}
+              disabled={downloadingNotes || totalSelected === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {downloadingNotes ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <FileText size={16} />
+              )}
+              دانلود فرم یادداشت
             </button>
           </div>
         </div>

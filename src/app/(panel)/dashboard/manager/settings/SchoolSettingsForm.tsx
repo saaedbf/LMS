@@ -13,6 +13,7 @@ import {
   CalendarX,
   FileText,
   Save,
+  Bell,
 } from "lucide-react";
 
 import FormContainer from "@/components/widgets/Elements/FormContainer";
@@ -26,6 +27,7 @@ import { updateSchoolSettings } from "@/actions/schoolSettingsActions";
 type Props = {
   initialData: {
     gradingType: "DESCRIPTIVE" | "NUMERIC";
+    dailyBellCount: number;
     showTuitionInStudentPanel: boolean;
     showDisciplinaryInStudentPanel: boolean;
     showAbsencesInStudentPanel: boolean;
@@ -209,7 +211,40 @@ export default function SchoolSettingsForm({ initialData }: Props) {
           />
         </div>
       </div>
+      {/* ==========================================
+          بخش ۲: تعداد زنگ در روز
+      ========================================== */}
+      <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="mb-4 flex items-center gap-2 border-b border-zinc-100 pb-3 dark:border-zinc-800">
+          <Bell size={20} className="text-amber-500" />
+          <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-100">
+            تعداد زنگ در روز
+          </h2>
+        </div>
 
+        <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+          این تعداد در لیست‌های حضور و غیاب و کاربرگ‌ها برای ایجاد ستون‌های خالی
+          استفاده می‌شود.
+        </p>
+
+        <div className="max-w-xs">
+          <select
+            {...register("dailyBellCount", { valueAsNumber: true })}
+            className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <option key={n} value={n}>
+                {n} زنگ
+              </option>
+            ))}
+          </select>
+          {errors.dailyBellCount && (
+            <p className="mt-2 text-xs text-rose-600">
+              {errors.dailyBellCount.message}
+            </p>
+          )}
+        </div>
+      </div>
       {/* ==========================================
           دکمه ذخیره
       ========================================== */}

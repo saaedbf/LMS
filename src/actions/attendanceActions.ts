@@ -73,7 +73,6 @@ export async function getAttendanceTree() {
       classCourses: {
         select: {
           id: true,
-
           darsPayeReshteh: {
             select: {
               units: true,
@@ -195,7 +194,6 @@ export async function getAttendanceSheets(
       fatherName: e.student.fatherName,
     }));
 
-    // برای هر ClassCourse انتخاب‌شده، یک برگه بساز
     for (const courseId of selection.classCourseIds) {
       const course = klass.classCourses.find((c) => c.id === courseId);
       if (!course) continue;
@@ -220,6 +218,10 @@ export async function getAttendanceSheets(
 
   return { status: "success" as const, data: sheets };
 }
+
+/* ═══════════════════════════════════════════════
+   معلمان برای فیلتر
+   ═══════════════════════════════════════════════ */
 export async function getTeachersForFilter() {
   const context = await getCurrentContext();
 
@@ -229,7 +231,6 @@ export async function getTeachersForFilter() {
 
   const { schoolId, academicYearId } = context;
 
-  // معلم‌هایی که در این مدرسه و سال فعال هستن
   const assignments = await prisma.teacherAssignment.findMany({
     where: {
       schoolId,
@@ -250,7 +251,6 @@ export async function getTeachersForFilter() {
     },
   });
 
-  // حذف تکراری‌ها (اگر معلم در چند کلاس باشه)
   const teacherMap = new Map<
     string,
     { id: string; firstName: string; lastName: string }
@@ -263,11 +263,15 @@ export async function getTeachersForFilter() {
 
   const teachers = Array.from(teacherMap.values()).map((t) => ({
     id: t.id,
-    label: `${t.lastName} ${t.firstName}`, // ⬅️ فامیلی اول
+    label: `${t.lastName} ${t.firstName}`,
   }));
 
   return { status: "success" as const, data: teachers };
 }
+
+/* ═══════════════════════════════════════════════
+   روکش دبیر — با برنامه هفتگی
+   ═══════════════════════════════════════════════ */
 export type TeacherCoverSheet = {
   teacherId: string;
   teacherFirstName: string;
@@ -276,6 +280,7 @@ export type TeacherCoverSheet = {
   teacherPersonnelCode: string | null;
   schoolTitle: string;
   schoolId: number;
+  bellCount: number;
   academicYearTitle: string;
   classes: Array<{
     klassId: string;
@@ -283,6 +288,14 @@ export type TeacherCoverSheet = {
     payeTitle: string;
     reshtehTitle: string;
     darsTitles: string[];
+  }>;
+  schedules: Array<{
+    classCourseId: string;
+    klassTitle: string;
+    darsTitle: string;
+    day: string;
+    bellIndex: number;
+    isHalfBell: boolean;
   }>;
 };
 
@@ -295,20 +308,17 @@ export async function getTeacherCoverSheets() {
 
   const { schoolId, academicYearId } = context;
 
-  // ⬅️ مدرسه رو بگیر (بدون academicYear)
+  // ۱. مدرسه
   const school = await prisma.school.findUnique({
     where: { id: schoolId },
-    select: {
-      id: true,
-      title: true,
-    },
+    select: { id: true, title: true },
   });
 
   if (!school) {
     return { status: "error" as const, error: "مدرسه یافت نشد" };
   }
 
-  // ⬅️ سال تحصیلی رو جدا بگیر
+  // ۲. سال تحصیلی
   const academicYear = await prisma.academicYear.findUnique({
     where: { id: academicYearId },
     select: { title: true },
@@ -318,7 +328,14 @@ export async function getTeacherCoverSheets() {
     return { status: "error" as const, error: "سال تحصیلی یافت نشد" };
   }
 
-  // گرفتن کلاس‌ها با درس‌ها و معلم‌ها
+  // ۳. تعداد زنگ از تنظیمات
+  const settings = await prisma.schoolSettings.findUnique({
+    where: { schoolId },
+    select: { dailyBellCount: true },
+  });
+  const bellCount = settings?.dailyBellCount ?? 3;
+
+  // ۴. کلاس‌ها با درس‌ها، معلم‌ها و برنامه هفتگی
   const klasses = await prisma.klass.findMany({
     where: { schoolId, academicYearId },
     select: {
@@ -328,6 +345,7 @@ export async function getTeacherCoverSheets() {
       reshtehTahsili: { select: { title: true } },
       classCourses: {
         select: {
+          id: true,
           teacher: {
             select: {
               id: true,
@@ -339,9 +357,14 @@ export async function getTeacherCoverSheets() {
           },
           darsPayeReshteh: {
             select: {
-              reshtehTadris: {
-                select: { title: true },
-              },
+              reshtehTadris: { select: { title: true } },
+            },
+          },
+          schedules: {
+            select: {
+              day: true,
+              bellIndex: true,
+              isHalfBell: true,
             },
           },
         },
@@ -349,7 +372,7 @@ export async function getTeacherCoverSheets() {
     },
   });
 
-  // تجمیع بر اساس دبیر
+  // ۵. تجمیع بر اساس دبیر
   const teacherMap = new Map<string, TeacherCoverSheet>();
 
   for (const klass of klasses) {
@@ -368,14 +391,19 @@ export async function getTeacherCoverSheets() {
           teacherPersonnelCode: t.personnelCode,
           schoolTitle: school.title,
           schoolId: school.id,
+          bellCount,
           academicYearTitle: academicYear.title,
           classes: [],
+          schedules: [],
         };
         teacherMap.set(t.id, sheet);
       }
 
-      let classEntry = sheet.classes.find((c) => c.klassId === klass.id);
+      const darsTitle =
+        course.darsPayeReshteh?.reshtehTadris?.title ?? "نامشخص";
 
+      // کلاس
+      let classEntry = sheet.classes.find((c) => c.klassId === klass.id);
       if (!classEntry) {
         classEntry = {
           klassId: klass.id,
@@ -386,12 +414,20 @@ export async function getTeacherCoverSheets() {
         };
         sheet.classes.push(classEntry);
       }
-
-      const darsTitle =
-        course.darsPayeReshteh?.reshtehTadris?.title ?? "نامشخص";
-
       if (!classEntry.darsTitles.includes(darsTitle)) {
         classEntry.darsTitles.push(darsTitle);
+      }
+
+      // برنامه‌های هفتگی
+      for (const schedule of course.schedules) {
+        sheet.schedules.push({
+          classCourseId: course.id,
+          klassTitle: klass.title,
+          darsTitle,
+          day: schedule.day,
+          bellIndex: schedule.bellIndex,
+          isHalfBell: schedule.isHalfBell,
+        });
       }
     }
   }

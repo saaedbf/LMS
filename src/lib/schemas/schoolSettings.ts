@@ -7,6 +7,7 @@ export const updateSchoolSettingsSchema = z.object({
   showDisciplinaryInStudentPanel: z.boolean(),
   showAbsencesInStudentPanel: z.boolean(),
   showReportCardsInStudentPanel: z.boolean(),
+  dailyBellCount: z.number().int().min(1).max(10).default(3),
 });
 
 // ⬅️ این دو نوع را جداگانه صادر کنید

@@ -16,6 +16,7 @@ import Pagination from "@/components/widgets/Pagination";
 import TitlePage from "@/components/widgets/TitlePage";
 import TeacherSelectModal from "./TeacherSelectModal";
 import BackButton from "@/components/widgets/Elements/BackButton";
+import ScheduleModal from "./ScheduleModal";
 
 type Teacher = {
   id: string;
@@ -43,12 +44,14 @@ type Props = {
   listItems: ClassCourseItem[];
   totalCount: number;
   pageSize: number;
+  initialBellCount: number;
 };
 
 export default function ClassCourseComp({
   listItems,
   totalCount,
   pageSize,
+  initialBellCount,
 }: Props) {
   // ذخیره تغییرات محلی برای به‌روزرسانی UI بدون refresh
   const [localChanges, setLocalChanges] = useState<
@@ -166,7 +169,7 @@ export default function ClassCourseComp({
                       </Td>
 
                       <TdActions>
-                        <div className="flex items-center justify-center">
+                        <div className="flex items-center justify-center gap-2">
                           <TeacherSelectModal
                             klassId={item.klassId}
                             darsPayeReshtehId={item.darsPayeReshtehId}
@@ -175,6 +178,15 @@ export default function ClassCourseComp({
                               handleTeacherChange(item.id, newTeacher)
                             }
                           />
+
+                          {/* ⬅️ دکمه برنامه هفتگی */}
+                          {item.classCourseId && (
+                            <ScheduleModal
+                              classCourseId={item.classCourseId}
+                              lessonTitle={item.lessonTitle}
+                              bellCount={initialBellCount} // باید از سرور (تنظیمات مدرسه) پاس داده شود
+                            />
+                          )}
                         </div>
                       </TdActions>
                     </Tr>

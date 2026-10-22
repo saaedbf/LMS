@@ -409,7 +409,7 @@ model ClassCourse {
 
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
-
+schedules            ClassSchedule[]
   // هر درس در یک کلاس فقط یک‌بار تعریف می‌شود
   @@unique([klassId, darsPayeReshtehId])
   @@index([klassId])
@@ -558,7 +558,8 @@ model SchoolSettings {
   showDisciplinaryInStudentPanel  Boolean @default(true)   // موارد انضباطی
   showAbsencesInStudentPanel      Boolean @default(true)   // غیبت‌ها
   showReportCardsInStudentPanel   Boolean @default(true)   // کارنامه‌ها
-
+// ⬅️ فیلد جدید
+  dailyBellCount Int @default(3)
   // ==========================================
   // فیلدهای سیستمی
   // ==========================================
@@ -773,4 +774,30 @@ model FinancialTransaction {
   @@index([date])
   @@index([type])
   @@map("financial_transaction")
+}
+// prisma/schema.prisma
+
+enum DayOfWeek {
+  SATURDAY
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+}
+
+model ClassSchedule {
+  id               String    @id @default(cuid())
+  classCourseId    String
+  classCourse      ClassCourse @relation(fields: [classCourseId], references: [id], onDelete: Cascade)
+  
+  day              DayOfWeek
+  bellIndex        Int       // شماره زنگ (مثلاً 1 تا 8)
+  isHalfBell       Boolean   @default(false) // آیا نصف زنگ است؟
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([classCourseId, day, bellIndex]) // یک درس نمی‌تواند دوبار در یک زنگ باشد
+  @@map("class_schedule")
 }
