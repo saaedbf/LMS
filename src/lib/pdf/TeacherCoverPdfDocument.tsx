@@ -434,7 +434,7 @@ function BellCellContent({
             top: 0,
             right: 0,
             width: "70%", // ⬅️ نصف عرض
-            height: "50%", // ⬅️ نصف ارتفاع
+            height: "70%", // ⬅️ نصف ارتفاع
             justifyContent: "center",
             alignItems: "flex-end", // تراز به راست
             paddingRight: 2,
@@ -477,7 +477,7 @@ function BellCellContent({
             top: 0,
             right: 0,
             width: "70%", // ⬅️ نصف عرض
-            height: "50%", // ⬅️ نصف ارتفاع
+            height: "70%", // ⬅️ نصف ارتفاع
             justifyContent: "center",
             alignItems: "flex-end", // تراز به راست
             paddingRight: 2,
@@ -494,7 +494,7 @@ function BellCellContent({
             bottom: 0,
             left: 0,
             width: "70%", // ⬅️ نصف عرض
-            height: "50%", // ⬅️ نصف ارتفاع
+            height: "70%", // ⬅️ نصف ارتفاع
             justifyContent: "center",
             alignItems: "flex-start", // تراز به چپ
             paddingLeft: 2,
