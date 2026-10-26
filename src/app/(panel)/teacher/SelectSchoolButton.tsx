@@ -20,9 +20,8 @@ export default function SelectSchoolButton({
   const handleSelect = () => {
     startTransition(async () => {
       try {
-        // ۱. ست کردن مدرسه
-        await setActiveContext(assignmentId);
-        // ۲. رفتن به صفحه دوره‌ها
+        // ⬅️ setActiveContext انتظار یک عدد (Int) را دارد
+        await setActiveContext(Number(assignmentId));
         router.push(`/teacher/${schoolId}/periods`);
       } catch (error) {
         toast.error("خطا در انتخاب مدرسه");

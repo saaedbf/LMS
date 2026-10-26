@@ -26,25 +26,31 @@ export async function getTeacherSchools() {
   if (!context?.user)
     return { status: "error" as const, error: "کاربر یافت نشد" };
 
-  const teacher = await prisma.teacher.findUnique({
-    where: { userId: context.user.id },
+  // ⬅️ دریافت دسترسی‌های کاربر از جدول UserAssignment
+  const userAssignments = await prisma.userAssignment.findMany({
+    where: {
+      userId: context.user.id,
+      role: "TEACHER",
+      isActive: true,
+      school: { isActive: true },
+      academicYear: { isActive: true },
+    },
     include: {
-      assignments: {
-        where: { isActive: true },
-        include: {
-          school: true,
-          academicYear: true,
-        },
-      },
+      school: true,
+      academicYear: true,
     },
   });
 
-  if (!teacher)
-    return { status: "error" as const, error: "پروفایل معلم یافت نشد" };
+  if (userAssignments.length === 0) {
+    return {
+      status: "error" as const,
+      error: "هیچ مدرسه‌ای برای شما ثبت نشده است",
+    };
+  }
 
   const schoolMap = new Map();
 
-  for (const assignment of teacher.assignments) {
+  for (const assignment of userAssignments) {
     const school = assignment.school;
     if (!schoolMap.has(school.id)) {
       schoolMap.set(school.id, {
@@ -52,7 +58,7 @@ export async function getTeacherSchools() {
         schoolTitle: school.title,
         schoolSubTitle: school.subTitle,
         schoolSex: school.sex,
-        // ⬅️ این خط مهم است: assignmentId را برای کلیک کردن لازم داریم
+        // ⬅️ اینجا assignment.id از جدول UserAssignment است که Int است
         assignmentId: assignment.id,
         academicYears: [],
       });
