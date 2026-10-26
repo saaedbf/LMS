@@ -2,7 +2,8 @@
 import React, { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentContext } from "@/actions/authActions";
-import TeacherHeader from "./TeacherHeader";
+import TeacherHeader from "@/components/layout/teacher/TeacherHeader";
+// ⚠️ مسیر ایمپورت TeacherHeader را چک کنید. اگر در جای دیگری است، اصلاح کنید.
 
 export default async function TeacherLayout({
   children,
@@ -19,30 +20,28 @@ export default async function TeacherLayout({
     redirect("/login?error=account_disabled");
   }
 
-  if (!context) {
-    redirect("/select-context");
+  // ⬅️ اگر معلم به هر دلیلی نقش دیگری داشت، به پنل خودش برود
+  if (context && context.role !== "TEACHER") {
+    if (context.role === "MANAGER" || context.role === "DEPUTY")
+      redirect("/dashboard");
+    if (context.role === "STUDENT") redirect("/student");
   }
 
-  // ⬅️ اگر معلم نیست، به پنل خودش برود
-  if (context.role !== "TEACHER") {
-    if (context.role === "MANAGER" || context.role === "DEPUTY") {
-      redirect("/dashboard");
-    }
-    if (context.role === "STUDENT") {
-      redirect("/student");
-    }
-  }
+  // ⬅️ نکته مهم: اگر context وجود نداشت (معلم هنوز مدرسه انتخاب نکرده)،
+  // به select-context ریدایرکت نمی‌کنیم تا خودش از لیست انتخاب کند.
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <TeacherHeader
-        schoolName={context.school.title}
-        year={context.academicYear.title}
-        userName={
-          user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim()
-        }
-      />
-
+      {/* هدر فقط اگر مدرسه انتخاب شده باشد نمایش داده می‌شود */}
+      {context && (
+        <TeacherHeader
+          schoolName={context.school.title}
+          year={context.academicYear.title}
+          userName={
+            user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim()
+          }
+        />
+      )}
       <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         {children}
       </main>

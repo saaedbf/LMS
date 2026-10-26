@@ -39,7 +39,10 @@ export default async function SelectContextPage() {
   }
 
   const assignments = await getUserAssignments(true);
-
+  const hasTeacherRole = assignments.some((a) => a.role === "TEACHER");
+  if (hasTeacherRole) {
+    redirect("/teacher");
+  }
   // اگر هیچ دسترسی فعالی نیست
   if (assignments.length === 0) {
     const allAssignments = await getUserAssignments(false);

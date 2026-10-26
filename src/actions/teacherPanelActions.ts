@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-server";
 import { revalidatePath } from "next/cache";
+import { getCurrentContext } from "./authActions";
 
 type ActionSuccess<T> = { status: "success"; data: T };
 type ActionError = { status: "error"; error: string };
@@ -19,62 +20,56 @@ function error(message: string): ActionError {
 // ==========================================
 // ۱. دریافت لیست مدارس معلم
 // ==========================================
+
 export async function getTeacherSchools() {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) return error("ابتدا وارد حساب کاربری شوید");
+  const context = await getCurrentContext();
+  if (!context?.user)
+    return { status: "error" as const, error: "کاربر یافت نشد" };
 
-  try {
-    const assignments = await prisma.teacherAssignment.findMany({
-      where: {
-        teacher: { userId: currentUser.id },
-        isActive: true,
-      },
-      include: {
-        school: {
-          select: {
-            id: true,
-            title: true,
-            subTitle: true,
-            sex: true,
-            schoolType: true,
-          },
-        },
-        academicYear: {
-          select: { id: true, title: true, isActive: true },
+  const teacher = await prisma.teacher.findUnique({
+    where: { userId: context.user.id },
+    include: {
+      assignments: {
+        where: { isActive: true },
+        include: {
+          school: true,
+          academicYear: true,
         },
       },
-      orderBy: [
-        { academicYear: { isActive: "desc" } },
-        { school: { title: "asc" } },
-      ],
-    });
+    },
+  });
 
-    // گروه‌بندی بر اساس مدرسه (ممکن است معلم در چند سال در یک مدرسه باشد)
-    const schoolMap = new Map<number, any>();
+  if (!teacher)
+    return { status: "error" as const, error: "پروفایل معلم یافت نشد" };
 
-    for (const a of assignments) {
-      if (!schoolMap.has(a.schoolId)) {
-        schoolMap.set(a.schoolId, {
-          schoolId: a.schoolId,
-          schoolTitle: a.school.title,
-          schoolSubTitle: a.school.subTitle,
-          schoolSex: a.school.sex,
-          schoolType: a.school.schoolType,
-          academicYears: [],
-        });
-      }
-      schoolMap.get(a.schoolId)!.academicYears.push({
-        id: a.academicYear.id,
-        title: a.academicYear.title,
-        isActive: a.academicYear.isActive,
+  const schoolMap = new Map();
+
+  for (const assignment of teacher.assignments) {
+    const school = assignment.school;
+    if (!schoolMap.has(school.id)) {
+      schoolMap.set(school.id, {
+        schoolId: school.id,
+        schoolTitle: school.title,
+        schoolSubTitle: school.subTitle,
+        schoolSex: school.sex,
+        // ⬅️ این خط مهم است: assignmentId را برای کلیک کردن لازم داریم
+        assignmentId: assignment.id,
+        academicYears: [],
       });
     }
-
-    return success(Array.from(schoolMap.values()));
-  } catch (err) {
-    console.error("getTeacherSchools error:", err);
-    return error("خطا در دریافت مدارس");
+    const entry = schoolMap.get(school.id);
+    if (
+      !entry.academicYears.some((y: any) => y.id === assignment.academicYear.id)
+    ) {
+      entry.academicYears.push({
+        id: assignment.academicYear.id,
+        title: assignment.academicYear.title,
+        isActive: assignment.academicYear.isActive,
+      });
+    }
   }
+
+  return { status: "success" as const, data: Array.from(schoolMap.values()) };
 }
 
 // ==========================================
@@ -693,5 +688,60 @@ export async function getClassLessonsForGrading(
   } catch (err) {
     console.error("getClassLessonsForGrading error:", err);
     return error("خطا در دریافت دروس");
+  }
+}
+
+export async function deleteGradeByTeacher(gradeId: string) {
+  const context = await getCurrentContext();
+
+  if (!context?.user || context.role !== "TEACHER") {
+    return { status: "error" as const, error: "دسترسی غیرمجاز" };
+  }
+
+  try {
+    // ۱. بررسی اینکه این نمره متعلق به کلاسی است که این معلم درس می‌دهد
+    const grade = await prisma.grade.findUnique({
+      where: { id: gradeId },
+      include: {
+        gradePeriodLesson: {
+          include: {
+            darsPayeReshteh: {
+              include: {
+                classCourses: {
+                  where: {
+                    teacher: { userId: context.user.id }, // معلم جاری
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!grade) return { status: "error" as const, error: "نمره یافت نشد" };
+
+    // اگر معلم به این درس دسترسی ندارد
+    if (grade.gradePeriodLesson.darsPayeReshteh.classCourses.length === 0) {
+      return {
+        status: "error" as const,
+        error: "شما مجاز به حذف این نمره نیستید",
+      };
+    }
+
+    // ۲. حذف نمره
+    await prisma.grade.delete({
+      where: { id: gradeId },
+    });
+
+    // ⬅️ آدرس صفحه‌ای که معلم در آن است را برای رفرش کردن پاس دهید
+    // اینجا باید آدرس داینامیک را پاس دهید.
+    // برای سادگی، از revalidatePath با الگوی داینامیک استفاده می‌کنیم:
+    revalidatePath("/teacher", "layout");
+
+    return { status: "success" as const, data: true };
+  } catch (error) {
+    console.error("DELETE_GRADE_ERROR", error);
+    return { status: "error" as const, error: "خطا در حذف نمره" };
   }
 }

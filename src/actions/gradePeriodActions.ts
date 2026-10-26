@@ -9,6 +9,7 @@ import {
   createGradePeriodSchema,
   updateGradePeriodSchema,
 } from "@/lib/schemas/gradePeriod";
+import { getCurrentContext } from "./authActions";
 
 const GRADE_PERIOD_ROUTE = "/dashboard/manager/grade-periods";
 
@@ -517,16 +518,69 @@ export async function deleteGradePeriod(id: string) {
   if (isScopeError(scope)) return error(scope.error);
 
   try {
+    // ۱. بررسی وجود دوره
     const existing = await prisma.gradePeriod.findFirst({
       where: {
         id,
         schoolId: scope.schoolId,
         academicYearId: scope.academicYearId,
       },
+      include: {
+        // ⬅️ گرفتن درس‌های این دوره برای چک کردن نمرات
+        lessonPeriods: {
+          select: {
+            id: true,
+            // برای نمایش بهتر در پیام خطا (اختیاری)
+            darsPayeReshteh: {
+              select: {
+                reshtehTadris: { select: { title: true } },
+              },
+            },
+            klass: { select: { title: true } },
+          },
+        },
+      },
     });
 
     if (!existing) return error("دوره یافت نشد");
 
+    // ۲. ⬅️ بررسی وجود نمره برای درس‌های این دوره
+    const lessonPeriodIds = existing.lessonPeriods.map((lp) => lp.id);
+
+    if (lessonPeriodIds.length > 0) {
+      const gradesCount = await prisma.grade.count({
+        where: {
+          gradePeriodLessonId: { in: lessonPeriodIds },
+        },
+      });
+
+      if (gradesCount > 0) {
+        // پیدا کردن جزئیات درس‌هایی که نمره دارند (برای پیام بهتر)
+        const lessonsWithGrades = await prisma.gradePeriodLesson.findMany({
+          where: {
+            id: { in: lessonPeriodIds },
+            grades: { some: {} }, // فقط درس‌هایی که حداقل یک نمره دارند
+          },
+          select: {
+            klass: { select: { title: true } },
+            darsPayeReshteh: {
+              select: { reshtehTadris: { select: { title: true } } },
+            },
+          },
+        });
+
+        const lines = lessonsWithGrades.map(
+          (l) =>
+            `• ${l.klass.title} - ${l.darsPayeReshteh.reshtehTadris.title}`,
+        );
+
+        return error(
+          `امکان حذف این دوره وجود ندارد زیرا در برخی از دروس آن نمره ثبت شده است:\n${lines.join("\n")}\n\nابتدا نمرات را حذف کنید یا دوره را غیرفعال کنید.`,
+        );
+      }
+    }
+
+    // ۳. اگر نمره‌ای وجود نداشت، حذف انجام شود
     await prisma.gradePeriod.delete({ where: { id } });
 
     revalidatePath(GRADE_PERIOD_ROUTE);
