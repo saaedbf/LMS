@@ -2,7 +2,8 @@
 import React, { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentContext } from "@/actions/authActions";
-import TeacherHeader from "@/components/layout/teacher/TeacherHeader";
+import TeacherHeader from "./TeacherHeader";
+
 // ⚠️ مسیر ایمپورت TeacherHeader را چک کنید. اگر در جای دیگری است، اصلاح کنید.
 
 export default async function TeacherLayout({
