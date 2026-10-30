@@ -11,6 +11,8 @@ import {
 } from "@/actions/teacherAbsenceActions";
 import { convertJalaliToGregorian } from "@/lib/dateUtils";
 import { Clock, CalendarDays, User } from "lucide-react";
+import TimePicker from "@/components/ui/TimePicker";
+import { getNowHHmm, getNowPlusHour } from "@/lib/utils";
 
 interface Props {
   onCreated?: () => void;
@@ -26,8 +28,8 @@ export function TeacherAbsenceCreateForm({ onCreated, setOpen }: Props) {
 
   const [date, setDate] = useState<Date>(new Date());
   const [isFullDay, setIsFullDay] = useState(false);
-  const [startTime, setStartTime] = useState("07:30");
-  const [endTime, setEndTime] = useState("09:00");
+  const [startTime, setStartTime] = useState<string>(() => getNowHHmm());
+  const [endTime, setEndTime] = useState<string>(() => getNowPlusHour());
   const [reason, setReason] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
@@ -246,26 +248,20 @@ export function TeacherAbsenceCreateForm({ onCreated, setOpen }: Props) {
 
         {!isFullDay && (
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                از ساعت
-              </label>
-              <input
-                type="time"
+            <div className="grid grid-cols-2 gap-2">
+              <TimePicker
+                label="ساعت شروع"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 py-2 text-sm text-center dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                onChange={setStartTime}
+                required
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                تا ساعت
-              </label>
-              <input
-                type="time"
+            <div className="grid grid-cols-2 gap-2">
+              <TimePicker
+                label="ساعت پایان"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 py-2 text-sm text-center dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                onChange={setEndTime}
+                required
               />
             </div>
           </div>

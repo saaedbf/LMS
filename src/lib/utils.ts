@@ -18,3 +18,16 @@ export function handleFormServerErrors<TFieldValues extends FieldValues>(
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+export function getNowHHmm(): string {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, "0");
+  const m = String(now.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+export function getNowPlusHour(): string {
+  const now = new Date();
+  now.setHours(now.getHours() + 1);
+  const h = String(now.getHours()).padStart(2, "0");
+  const m = String(now.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}

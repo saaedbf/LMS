@@ -6,6 +6,7 @@ import DatePicker from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import { updateEncouragementAction } from "@/actions/encouragementActions";
+import TimePicker from "@/components/ui/TimePicker";
 
 interface Props {
   encouragement: {
@@ -89,13 +90,12 @@ export default function EncouragementEditForm({
             inputClass="w-full rounded-lg border p-2 text-sm text-right"
           />
         </div>
-        <div>
-          <label className="mb-1 block font-medium">ساعت</label>
-          <input
-            type="time"
+        <div className="grid grid-cols-2 gap-2">
+          <TimePicker
+            label="ساعت شروع"
             value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className="w-full rounded-lg border p-2 text-sm text-center"
+            onChange={setStartTime}
+            required
           />
         </div>
       </div>

@@ -140,6 +140,7 @@ export default function DisiplinaryComp({
                 contentClassName="w-[95vw] max-w-4xl"
               >
                 <DisiplinaryCreateForm
+                  setOpen={setOpenCreate}
                   payes={payes}
                   klasses={klasses}
                   onCreated={() => setOpenCreate(false)}

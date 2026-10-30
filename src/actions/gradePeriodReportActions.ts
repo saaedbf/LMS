@@ -25,7 +25,6 @@ export async function getGradeRegistrationReport(gradePeriodId: string) {
 
     const { schoolId, academicYearId } = scope;
 
-    // ⬇️ دوره + مدرسه + سال
     const period = await prisma.gradePeriod.findFirst({
       where: { id: gradePeriodId, schoolId, academicYearId },
       select: {
@@ -40,6 +39,8 @@ export async function getGradeRegistrationReport(gradePeriodId: string) {
       return { status: "error" as const, error: "دوره یافت نشد" };
     }
 
+    // ⬇️ همه‌ی GradePeriodLesson این دوره
+    //    برای هر کدوم، ClassCourse متناظر رو با (klassId + darsPayeReshtehId) پیدا کن
     const lessons = await prisma.gradePeriodLesson.findMany({
       where: { gradePeriodId },
       select: {
@@ -47,23 +48,56 @@ export async function getGradeRegistrationReport(gradePeriodId: string) {
         klassId: true,
         darsPayeReshtehId: true,
         _count: { select: { grades: true } },
-        klass: {
-          select: {
-            id: true,
-            title: true,
-            classCourses: {
-              select: {
-                teacherId: true,
-                teacher: {
-                  select: { id: true, firstName: true, lastName: true },
-                },
-              },
-            },
-          },
+      },
+    });
+
+    // ⬇️ یک‌جا همه‌ی ClassCourseهای مربوطه رو بگیر (بهینه‌تر از N+1)
+    const pairs = lessons.map((l) => ({
+      klassId: l.klassId,
+      darsPayeReshtehId: l.darsPayeReshtehId,
+    }));
+
+    const classCourses = await prisma.classCourse.findMany({
+      where: {
+        OR: pairs.map((p) => ({
+          klassId: p.klassId,
+          darsPayeReshtehId: p.darsPayeReshtehId,
+        })),
+      },
+      select: {
+        klassId: true,
+        darsPayeReshtehId: true,
+        teacherId: true,
+        teacher: {
+          select: { id: true, firstName: true, lastName: true },
         },
       },
     });
 
+    // ⬇️ map با کلید ترکیبی (klassId + darsPayeReshtehId)
+    const courseKey = (klassId: string, darsId: string) =>
+      `${klassId}::${darsId}`;
+
+    const courseMap = new Map<
+      string,
+      {
+        teacherId: string | null;
+        teacher: {
+          id: string;
+          firstName: string | null;
+          lastName: string | null;
+        } | null;
+      }
+    >();
+
+    for (const cc of classCourses) {
+      courseMap.set(courseKey(cc.klassId, cc.darsPayeReshtehId), {
+        teacherId: cc.teacherId,
+        teacher: cc.teacher,
+      });
+    }
+
+    // ⬇️ تعداد دانش‌آموزان هر کلاس
     const klassIds = Array.from(new Set(lessons.map((l) => l.klassId)));
     const enrollments = await prisma.studentEnrollment.groupBy({
       by: ["klassId"],
@@ -74,16 +108,17 @@ export async function getGradeRegistrationReport(gradePeriodId: string) {
       enrollments.map((e) => [e.klassId, e._count._all]),
     );
 
+    // ⬇️ گروه‌بندی بر اساس معلم
     const map = new Map<string, TeacherReportRow>();
     const NO_TEACHER_KEY = "__no_teacher__";
 
     for (const l of lessons) {
-      const course = l.klass.classCourses.find((cc) => cc.teacherId);
+      const course = courseMap.get(courseKey(l.klassId, l.darsPayeReshtehId));
       const teacherId = course?.teacherId ?? NO_TEACHER_KEY;
       const teacherName = course?.teacher
         ? `${course.teacher.firstName ?? ""} ${course.teacher.lastName ?? ""}`.trim() ||
           "نامشخص"
-        : "بدون معلم";
+        : "بدون معلم (بدون تخصیص)";
 
       if (!map.has(teacherId)) {
         map.set(teacherId, {
@@ -112,8 +147,7 @@ export async function getGradeRegistrationReport(gradePeriodId: string) {
       );
     }
 
-    // ⬇️ مرتب‌سازی: بر اساس درصد پیشرفت نزولی
-    //    (معلم‌هایی که بیشتر ثبت کردن بالا، «بدون معلم» آخر)
+    // ⬇️ مرتب‌سازی بر اساس درصد پیشرفت نزولی
     const rows = Array.from(map.values()).sort((a, b) => {
       if (a.teacherId === NO_TEACHER_KEY) return 1;
       if (b.teacherId === NO_TEACHER_KEY) return -1;
@@ -124,12 +158,8 @@ export async function getGradeRegistrationReport(gradePeriodId: string) {
         b.totalAssignments > 0 ? b.submittedCount / b.totalAssignments : 0;
 
       if (pctB !== pctA) return pctB - pctA;
-
-      // اگر درصد برابر بود، تعداد دروس بیشتر اول
       if (b.totalAssignments !== a.totalAssignments)
         return b.totalAssignments - a.totalAssignments;
-
-      // در آخر بر اساس نام
       return a.teacherName.localeCompare(b.teacherName, "fa");
     });
 

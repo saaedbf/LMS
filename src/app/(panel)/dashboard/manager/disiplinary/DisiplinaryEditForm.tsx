@@ -6,6 +6,7 @@ import DatePicker from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import { updateDisiplinaryAction } from "@/actions/disciplinaryActions";
+import TimePicker from "@/components/ui/TimePicker";
 
 interface Props {
   disiplinary: {
@@ -105,15 +106,12 @@ export default function DisiplinaryEditForm({ disiplinary, setOpen }: Props) {
 
       {/* ساعت شروع و  */}
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block font-medium text-zinc-700 dark:text-zinc-300">
-            ساعت شروع
-          </label>
-          <input
-            type="time"
+        <div className="grid grid-cols-2 gap-2">
+          <TimePicker
+            label="ساعت شروع"
             value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300  py-2 text-sm text-center dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            onChange={setStartTime}
+            required
           />
         </div>
       </div>

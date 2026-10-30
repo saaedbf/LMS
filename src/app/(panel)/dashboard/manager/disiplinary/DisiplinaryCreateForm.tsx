@@ -11,6 +11,8 @@ import {
   StudentOption,
 } from "@/actions/disciplinaryActions";
 import { convertJalaliToGregorian } from "@/lib/dateUtils";
+import { getNowHHmm } from "@/lib/utils";
+import TimePicker from "@/components/ui/TimePicker";
 
 interface Props {
   payes: { id: number; title: string }[];
@@ -39,7 +41,7 @@ export function DisiplinaryCreateForm({
 
   // تاریخ و ساعت پیش‌فرض
   const [date, setDate] = useState<Date>(new Date());
-  const [startTime, setStartTime] = useState<string>("07:30");
+  const [startTime, setStartTime] = useState<string>(() => getNowHHmm());
 
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [message, setMessage] = useState<{
@@ -136,7 +138,7 @@ export function DisiplinaryCreateForm({
     setSelectedEnrollmentIds([]);
     setSearchQuery("");
     setDate(new Date());
-    setStartTime("07:30");
+    setStartTime(getNowHHmm()); // ⬅️ دوباره ساعت جاری
     setMessage(null);
   };
 
@@ -286,18 +288,12 @@ export function DisiplinaryCreateForm({
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block  text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                ساعت
-              </label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 py-2  text-sm text-center dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-                required
-              />
-            </div>
+            <TimePicker
+              label="ساعت شروع"
+              value={startTime}
+              onChange={setStartTime}
+              required
+            />
           </div>
           <div>
             <label className="mb-1 block font-medium text-zinc-700 dark:text-zinc-300">

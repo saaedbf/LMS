@@ -10,6 +10,8 @@ import {
   StudentOption,
 } from "@/actions/disciplinaryActions"; // استفاده مجدد از اکشن انضباطی برای لیست دانش آموزان
 import { convertJalaliToGregorian } from "@/lib/dateUtils";
+import { getNowHHmm } from "@/lib/utils";
+import TimePicker from "@/components/ui/TimePicker";
 
 interface Props {
   payes: { id: number; title: string }[];
@@ -40,7 +42,7 @@ export function EncouragementCreateForm({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [date, setDate] = useState<Date>(new Date());
-  const [startTime, setStartTime] = useState<string>("07:30");
+  const [startTime, setStartTime] = useState<string>(() => getNowHHmm());
 
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [message, setMessage] = useState<{
@@ -274,15 +276,11 @@ export function EncouragementCreateForm({
               inputClass="w-full rounded-lg border border-zinc-300 p-2 text-sm text-right"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600">
-              ساعت
-            </label>
-            <input
-              type="time"
+          <div className="grid grid-cols-2 gap-2">
+            <TimePicker
+              label="ساعت شروع"
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full rounded-lg border border-zinc-300 py-2 text-sm text-center"
+              onChange={setStartTime}
               required
             />
           </div>
