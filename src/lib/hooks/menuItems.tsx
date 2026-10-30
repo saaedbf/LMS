@@ -16,7 +16,7 @@ import {
   MdLayers,
   MdAttachMoney,
 } from "react-icons/md";
-import { FaUserPlus } from "react-icons/fa";
+import { FaAward, FaUserPlus } from "react-icons/fa";
 import { ClipboardCheck } from "lucide-react";
 
 export type MenuItem = {
@@ -141,6 +141,16 @@ export const managerMenuItems: MenuItem[] = [
     subMenu: false,
     subMenuItems: [],
     icon: <MdGavel />,
+    color: "text-red-600",
+    bgColor: "bg-red-100",
+  },
+  {
+    title: "مدیریت تشویقها ",
+    href: "/dashboard/manager/encouragement",
+    spacing: false,
+    subMenu: false,
+    subMenuItems: [],
+    icon: <FaAward />,
     color: "text-red-600",
     bgColor: "bg-red-100",
   },
