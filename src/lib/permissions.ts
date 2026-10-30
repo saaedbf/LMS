@@ -34,7 +34,7 @@ export const PERMISSIONS = {
   MANAGE_FINANCIAL: "manage_financial",
   VIEW_FINANCIAL: "view_financial",
   VIEW_KARBARG: "view_karbarg",
-  MANAGE_GRADE_PERIODS: "manage_grade_periods",
+  //MANAGE_GRADE_PERIODS: "manage_grade_periods",
   VIEW_GRADE_PERIODS: "view_grade_periods",
 } as const;
 

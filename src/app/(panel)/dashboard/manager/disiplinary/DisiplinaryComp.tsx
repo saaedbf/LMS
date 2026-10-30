@@ -25,8 +25,7 @@ import { convertGregorianToJalali } from "@/lib/dateUtils";
 import { DisiplinaryCreateForm } from "./DisiplinaryCreateForm";
 import DisiplinaryEditForm from "./DisiplinaryEditForm";
 import DisiplinaryDeleteBtn from "./DisiplinaryDeleteBtn";
-import { FaCheck } from "react-icons/fa";
-import AbsenceEditForm from "../absence/AbsenceEditForm";
+
 import {
   DisciplinaryListItem,
   getAllDisciplinariesForExport,
