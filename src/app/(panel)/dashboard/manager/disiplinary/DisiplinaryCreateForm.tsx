@@ -299,19 +299,20 @@ export function DisiplinaryCreateForm({
               />
             </div>
           </div>
+          <div>
+            <label className="mb-1 block font-medium text-zinc-700 dark:text-zinc-300">
+              توضیحات / دلیل
+            </label>
+            <textarea
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="مورد بی انضباطی"
+              className="w-full rounded-lg border border-zinc-300 p-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+            />
+          </div>
         </div>
-        <div>
-          <label className="mb-1 block font-medium text-zinc-700 dark:text-zinc-300">
-            توضیحات / دلیل
-          </label>
-          <textarea
-            rows={3}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="مورد بی انضباطی"
-            className="w-full rounded-lg border border-zinc-300 p-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-          />
-        </div>
+
         {/* فیلد چندانتخابی جستجوپذیر */}
         <div className="relative space-y-2" ref={dropdownRef}>
           <div className="flex items-center justify-between">

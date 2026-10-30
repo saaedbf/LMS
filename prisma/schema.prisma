@@ -332,7 +332,7 @@ model StudentEnrollment {
  disciplinaris StudentDisciplinary[]
  grades  Grade[]
  financialTransactions FinancialTransaction[]  // ⬅️ اضافه شود
-  
+  encouragements StudentEncouragement[] // ⬅️ این خط اضافه شود
   @@unique([studentId, schoolId, academicYearId])
   @@index([schoolId, academicYearId])
   @@index([payeId, reshtehTahsiliId])
@@ -800,4 +800,33 @@ model ClassSchedule {
 
   @@unique([classCourseId, day, bellIndex]) // یک درس نمی‌تواند دوبار در یک زنگ باشد
   @@map("class_schedule")
+}
+// ⬅️ اضافه کردن Enum
+enum EncouragementType {
+  EDUCATIONAL     // آموزشی
+  CULTURAL        // پرورشی
+  DISCIPLINARY    // انضباطی
+  COMPETITIONS    // مسابقات
+  KHAVARAZMI      // جشنواره خوارزمی
+  OTHER           // سایر
+}
+
+// ⬅️ کپی از StudentDisciplinary
+model StudentEncouragement {
+  id                   String            @id @default(cuid())
+  studentEnrollmentId  String
+  date                 DateTime          @db.Date
+  startTime            String            // فرمت "HH:mm"
+  reason               String
+  type                 EncouragementType @default(EDUCATIONAL) // ⬅️ فیلد جدید
+  lastEditedByUsername String?
+
+  studentEnrollment    StudentEnrollment @relation(fields: [studentEnrollmentId], references: [id], onDelete: Cascade)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([date])
+  @@index([studentEnrollmentId])
+  @@map("student_encouragement")
 }

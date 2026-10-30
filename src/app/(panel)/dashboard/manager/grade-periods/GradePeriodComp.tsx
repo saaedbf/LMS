@@ -30,6 +30,7 @@ import {
 } from "@/actions/gradePeriodActions";
 import { convertGregorianToJalali } from "@/lib/dateUtils";
 import BackButton from "@/components/widgets/Elements/BackButton";
+import ReportButtons from "./ReportButtons";
 
 // ==========================================
 // Types
@@ -334,7 +335,12 @@ export default function GradePeriodComp({
                               }}
                             />
                           </ActionModal>
-
+                          <div className="p-4">
+                            <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
+                              خروجی گزارش ثبت نمرات این دوره را انتخاب کنید:
+                            </p>
+                            <ReportButtons gradePeriodId={item.id} />
+                          </div>
                           {/* فعال/غیرفعال */}
                           <button
                             type="button"
