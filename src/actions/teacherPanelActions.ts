@@ -751,3 +751,126 @@ export async function deleteGradeByTeacher(gradeId: string) {
     return { status: "error" as const, error: "خطا در حذف نمره" };
   }
 }
+export async function bulkSaveGrades(input: {
+  periodId: string;
+  lessonId: string;
+  klassId: string;
+  grades: { nationalCode: string; value: string | number }[];
+  gradingType: "NUMERIC" | "DESCRIPTIVE";
+}) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return error("ابتدا وارد حساب کاربری شوید");
+
+  try {
+    const teacher = await prisma.teacher.findFirst({
+      where: { userId: currentUser.id },
+    });
+    if (!teacher) return error("پروفایل معلم یافت نشد");
+
+    const username = currentUser.email || currentUser.name || "unknown";
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    const gradePeriodLesson = await prisma.gradePeriodLesson.findFirst({
+      where: {
+        gradePeriodId: input.periodId,
+        darsPayeReshtehId: input.lessonId,
+        klassId: input.klassId,
+      },
+    });
+
+    if (!gradePeriodLesson) return error("درس در این دوره یافت نشد");
+
+    const enrollments = await prisma.studentEnrollment.findMany({
+      where: { klassId: input.klassId },
+      include: { student: { select: { nationalCode: true } } },
+    });
+
+    // ⬅️ نرمال‌سازی کد ملی دیتابیس با گرفتن ۱۰ رقم آخر
+    const enrollmentMap = new Map(
+      enrollments.map((e) => {
+        const cleanCode = e.student.nationalCode.replace(/\D/g, "");
+        const normalizedCode = cleanCode.slice(-10); // فقط ۱۰ رقم آخر
+        return [normalizedCode, e.id];
+      }),
+    );
+
+    for (const item of input.grades) {
+      // ⬅️ نرمال‌سازی کد ملی ورودی
+      const cleanInputCode = String(item.nationalCode).replace(/\D/g, "");
+      const normalizedInputCode = cleanInputCode.slice(-10); // گرفتن ۱۰ رقم آخر
+
+      const enrollmentId = enrollmentMap.get(normalizedInputCode);
+
+      if (!enrollmentId) {
+        skipped++;
+        errors.push(`کد ملی ${item.nationalCode} در این کلاس یافت نشد`);
+        continue;
+      }
+
+      let score: number | null = null;
+      let descriptiveValue: string | null = null;
+
+      if (input.gradingType === "NUMERIC") {
+        const num = Number(item.value);
+        if (isNaN(num) || num < 0 || num > 20) {
+          skipped++;
+          errors.push(
+            `نمره ${item.value} برای کد ملی ${item.nationalCode} نامعتبر است`,
+          );
+          continue;
+        }
+        score = num;
+      } else {
+        descriptiveValue = String(item.value).trim();
+        if (
+          !["خیلی خوب", "خوب", "قابل قبول", "نیاز به تلاش"].includes(
+            descriptiveValue,
+          )
+        ) {
+          skipped++;
+          errors.push(
+            `مقدار "${descriptiveValue}" برای کد ملی ${item.nationalCode} نامعتبر است`,
+          );
+          continue;
+        }
+      }
+
+      const existing = await prisma.grade.findUnique({
+        where: {
+          studentEnrollmentId_gradePeriodLessonId: {
+            studentEnrollmentId: enrollmentId,
+            gradePeriodLessonId: gradePeriodLesson.id,
+          },
+        },
+      });
+
+      if (existing) {
+        await prisma.grade.update({
+          where: { id: existing.id },
+          data: { score, descriptiveValue, lastEditedByUsername: username },
+        });
+        updated++;
+      } else {
+        await prisma.grade.create({
+          data: {
+            studentEnrollmentId: enrollmentId,
+            gradePeriodLessonId: gradePeriodLesson.id,
+            score,
+            descriptiveValue,
+            lastEditedByUsername: username,
+          },
+        });
+        created++;
+      }
+    }
+
+    revalidatePath(`/teacher`);
+    return success({ created, updated, skipped, errors });
+  } catch (err) {
+    console.error("bulkSaveGrades error:", err);
+    return error("خطا در ثبت گروهی نمرات");
+  }
+}

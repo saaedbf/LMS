@@ -2,17 +2,13 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { toast } from "react-toastify";
-import Link from "next/link";
+import { Check, Loader2, Users, BookOpen, Trash2 } from "lucide-react";
 import {
-  Check,
-  Loader2,
-  Users,
-  BookOpen,
-  ChevronRight,
-  ArrowRight,
-} from "lucide-react";
-import { saveGrade } from "@/actions/teacherPanelActions";
+  saveGrade,
+  getClassStudentsWithGrades,
+} from "@/actions/teacherPanelActions";
 import BackButton from "@/components/widgets/Elements/BackButton";
+import BulkGradesModal from "./BulkGradesModal";
 
 type Student = {
   enrollmentId: string;
@@ -56,6 +52,9 @@ export default function GradesForm({
   students,
   gradingType,
 }: Props) {
+  // ⬅️ استفاده از State محلی برای آپدیت داینامیک لیست
+  const [localStudents, setLocalStudents] = useState<Student[]>(students);
+
   const [values, setValues] = useState<Record<string, any>>(() => {
     const initial: Record<string, any> = {};
     for (const s of students) {
@@ -69,25 +68,44 @@ export default function GradesForm({
 
   const [isPending, startTransition] = useTransition();
 
+  // ⬅️ تابع رفرش لیست نمرات بعد از ثبت گروهی
+  const refreshGrades = async () => {
+    const res = await getClassStudentsWithGrades(
+      schoolId,
+      periodId,
+      klassId,
+      lessonId,
+    );
+    if (res.status === "success" && res.data) {
+      setLocalStudents(res.data.students);
+      const newVals: Record<string, any> = {};
+      for (const s of res.data.students) {
+        newVals[s.enrollmentId] = s.currentValue;
+      }
+      setValues(newVals);
+    }
+  };
+
   // پیشرفت
   const stats = useMemo(() => {
     let filled = 0;
-    for (const s of students) {
+    for (const s of localStudents) {
       const val = values[s.enrollmentId];
       if (val !== undefined && val !== null && val !== "") {
         filled++;
       }
     }
     return {
-      total: students.length,
+      total: localStudents.length,
       filled,
       percent:
-        students.length > 0 ? Math.round((filled / students.length) * 100) : 0,
+        localStudents.length > 0
+          ? Math.round((filled / localStudents.length) * 100)
+          : 0,
     };
-  }, [values, students]);
+  }, [values, localStudents]);
 
   const handleChange = (enrollmentId: string, value: any) => {
-    // اعتبارسنجی
     if (gradingType === "NUMERIC") {
       if (value !== "" && value !== null && value !== undefined) {
         const num = Number(value);
@@ -145,10 +163,22 @@ export default function GradesForm({
 
   return (
     <div className="space-y-4">
-      <BackButton
-        href={`/teacher/${schoolId}/periods/${periodId}/classes/${klassId}`}
-        label="بازگشت به لیست دروس"
-      />
+      <div className="flex items-center justify-between">
+        <BackButton
+          href={`/teacher/${schoolId}/periods/${periodId}/classes/${klassId}`}
+          label="بازگشت به لیست دروس"
+        />
+
+        {/* ⬅️ دکمه ثبت گروهی */}
+        <BulkGradesModal
+          periodId={periodId}
+          lessonId={lessonId}
+          klassId={klassId}
+          gradingType={gradingType}
+          onSuccess={refreshGrades}
+        />
+      </div>
+
       {/* هدر */}
       <div className="rounded-xl bg-gradient-to-l from-emerald-600 to-emerald-500 p-5 text-white shadow-lg">
         <div className="flex items-start justify-between">
@@ -166,7 +196,7 @@ export default function GradesForm({
         <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-emerald-100">
           <div className="flex items-center gap-1.5">
             <Users size={16} />
-            <span>{students.length} دانش‌آموز</span>
+            <span>{localStudents.length} دانش‌آموز</span>
           </div>
           <div className="flex items-center gap-1.5">
             <BookOpen size={16} />
@@ -199,9 +229,9 @@ export default function GradesForm({
         </div>
       </div>
 
-      {/* لیست دانش‌آموزان - موبایل-فرندلی */}
+      {/* لیست دانش‌آموزان */}
       <div className="space-y-2">
-        {students.map((student, idx) => {
+        {localStudents.map((student, idx) => {
           const value = values[student.enrollmentId] ?? "";
           const isSaving = savingCells.has(student.enrollmentId);
           const isSaved = savedCells.has(student.enrollmentId);
@@ -227,7 +257,7 @@ export default function GradesForm({
               </div>
 
               {/* ورودی نمره */}
-              <div className="relative flex-shrink-0">
+              <div className="relative flex flex-shrink-0 items-center gap-2">
                 {gradingType === "NUMERIC" ? (
                   <input
                     type="number"
@@ -264,7 +294,20 @@ export default function GradesForm({
                   </select>
                 )}
 
-                {/* نشانگر */}
+                {/* ⬅️ دکمه حذف نمره */}
+                {value !== "" && value !== null && value !== undefined && (
+                  <button
+                    type="button"
+                    onClick={() => handleChange(student.enrollmentId, "")}
+                    disabled={isSaving}
+                    className="flex h-11 w-11 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                    title="پاک کردن نمره"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+
+                {/* نشانگر ذخیره */}
                 {(isSaving || isSaved) && (
                   <div className="absolute -right-1 -top-1">
                     {isSaving ? (
@@ -283,7 +326,7 @@ export default function GradesForm({
         })}
       </div>
 
-      {students.length === 0 && (
+      {localStudents.length === 0 && (
         <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center">
           <p className="text-sm text-zinc-500">
             دانش‌آموزی در این کلاس وجود ندارد.
