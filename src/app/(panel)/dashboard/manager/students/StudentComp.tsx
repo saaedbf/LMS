@@ -3,7 +3,7 @@
 import { Student } from "@prisma/client";
 import React, { useState } from "react";
 import BulkStudentUpload from "./BulkStudentUpload";
-import { ArrowLeftRight, Trash2, Users } from "lucide-react";
+import { ArrowLeftRight, FileText, Trash2, Users } from "lucide-react";
 import CreateBtn from "@/components/widgets/Elements/CreateBtn";
 import HeadTr from "@/components/widgets/Elements/table/HeaddTr";
 import Table from "@/components/widgets/Elements/table/Table";
@@ -201,7 +201,10 @@ export default function StudentComp({
       setLoadingOpposite(false);
     }
   };
-
+  const handleDownloadReport = (enrollmentId: string) => {
+    // باز کردن لینک دانلود در تب جدید
+    window.open(`/api/disciplinary-report/${enrollmentId}`, "_blank");
+  };
   const handleTransfer = async () => {
     if (!transferStudent || !selectedKlassId) return;
 
@@ -350,6 +353,7 @@ export default function StudentComp({
                   }))}
                 />
               </ActionModal>
+
               <div className="flex flex-wrap gap-2">
                 <ExportExcelBtn
                   onClick={handleExportExcel}
@@ -503,7 +507,20 @@ export default function StudentComp({
                           ) : (
                             <EditBtn disabled />
                           )}
-
+                          {/* ⬅️ دکمه دانلود کارنامه انضباطی */}
+                          {latestEnrollment && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDownloadReport(latestEnrollment.id)
+                              }
+                              title="دانلود کارنامه انضباطی"
+                              className="inline-flex h-9 items-center justify-center rounded-md border border-emerald-300 px-2 text-xs text-emerald-700 transition hover:bg-emerald-50"
+                            >
+                              <FileText size={16} className="ml-1" />
+                              کارنامه انضباطی
+                            </button>
+                          )}
                           <ConfirmModal
                             title="ریست کلمه عبور دانش‌آموز"
                             desc="پس از تأیید، کلمه عبور دانش‌آموز تغییر خواهد کرد."

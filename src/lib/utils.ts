@@ -31,3 +31,38 @@ export function getNowPlusHour(): string {
   const m = String(now.getMinutes()).padStart(2, "0");
   return `${h}:${m}`;
 }
+export function toJalaliMonthKey(date: Date): { key: string; label: string } {
+  // تبدیل دقیق تاریخ میلادی به شمسی
+  const faDate = new Intl.DateTimeFormat("fa-IR", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).format(date);
+
+  // خروجی معمولاً به شکل 1405/7/15 است
+  const parts = faDate.split("/");
+  const year = parts[0];
+  const monthNum = Number(parts[1]); // مثلا 7
+
+  const monthNames = [
+    "فروردین",
+    "اردیبهشت",
+    "خرداد",
+    "تیر",
+    "مرداد",
+    "شهریور",
+    "مهر",
+    "آبان",
+    "آذر",
+    "دی",
+    "بهمن",
+    "اسفند",
+  ];
+
+  const monthLabel = monthNames[monthNum - 1] || parts[1]; // اگر عدد پیدا نشد، خود عدد را بگذارد
+
+  return {
+    key: `${year}/${String(monthNum).padStart(2, "0")}`,
+    label: `${monthLabel} ${year}`, // مثلا: مهر 1405
+  };
+}
