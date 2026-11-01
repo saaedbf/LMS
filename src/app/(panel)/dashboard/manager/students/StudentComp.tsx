@@ -33,6 +33,7 @@ import SearchableSelect from "@/components/widgets/Elements/SearchableSelect";
 import { exportToExcel } from "@/lib/utils/exportExcel";
 import ExportExcelBtn from "@/components/widgets/ExportExcelBtn";
 import { getAllStudentsForExport } from "@/actions/studentActions";
+import AcademicReportModal from "./AcademicReportModal";
 type EnrollmentForTable = {
   id: string;
   schoolId: number;
@@ -521,6 +522,9 @@ export default function StudentComp({
                               کارنامه انضباطی
                             </button>
                           )}
+                          <AcademicReportModal
+                            enrollmentId={student.enrollments[0].id}
+                          />
                           <ConfirmModal
                             title="ریست کلمه عبور دانش‌آموز"
                             desc="پس از تأیید، کلمه عبور دانش‌آموز تغییر خواهد کرد."
