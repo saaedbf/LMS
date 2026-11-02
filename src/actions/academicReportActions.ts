@@ -171,6 +171,7 @@ export async function getAcademicReportData(
       .sort((a, b) => b.avg - a.avg);
 
     // ۱۰. محاسبه رتبه‌های تک‌تک دروس
+
     const lessonsData = studentClassLessons.map((lesson) => {
       const studentGrade = gradeMap.get(`${enrollmentId}_${lesson.id}`);
 
@@ -180,13 +181,25 @@ export async function getAcademicReportData(
       );
       const teacher = classCourse?.teacher;
 
-      // نمرات کلاس و پایه
+      // نمرات کلاس: فقط دانش‌آموزان همین کلاس که نمره این درس را دارند
       const classLessonScores = classEnrollments
         .map((e) => gradeMap.get(`${e.id}_${lesson.id}`)?.score)
         .filter((s) => s !== undefined && s !== null) as number[];
+
+      // ⬅️ نمرات پایه: باید دانش‌آموزانی را پیدا کنیم که این درس را در کلاس خودشان دارند
       const gradeLessonScores = gradeEnrollments
-        .map((e) => gradeMap.get(`${e.id}_${lesson.id}`)?.score)
-        .filter((s) => s !== undefined && s !== null) as number[];
+        .map((e) => {
+          // درس معادل این درس در کلاس دانش‌آموز پایه
+          const equivalentLesson = allPeriodLessons.find(
+            (pl) =>
+              pl.klassId === e.klassId &&
+              pl.darsPayeReshtehId === lesson.darsPayeReshtehId,
+          );
+          if (!equivalentLesson) return null; // اگر این درس را ندارد
+          const g = gradeMap.get(`${e.id}_${equivalentLesson.id}`);
+          return g?.score ?? null;
+        })
+        .filter((s) => s !== null) as number[];
 
       let classRank = null;
       let gradeRank = null;
