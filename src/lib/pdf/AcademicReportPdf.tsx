@@ -377,43 +377,6 @@ export function AcademicReportPdf({
               </View>
             </View>
           ))}
-
-          {/* سطر معدل کل */}
-          <View
-            style={[
-              styles.tableRow,
-              {
-                backgroundColor: "#f1f5f9",
-                borderTopWidth: 1,
-                borderTopColor: "#000",
-              },
-            ]}
-          >
-            <View style={[styles.td, { flex: 5.7 }]}>
-              <Text
-                style={{
-                  fontSize: 9,
-                  fontWeight: "bold",
-                  textAlign: "left",
-                  paddingLeft: 10,
-                }}
-              >
-                معدل کل دانش‌آموز
-              </Text>
-            </View>
-            <View style={[styles.td, { flex: 0.8 }]}>
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontWeight: "bold",
-                  color: "#1e3a8a",
-                  textAlign: "center",
-                }}
-              >
-                {data.studentAverage.toFixed(2)}
-              </Text>
-            </View>
-          </View>
         </View>
 
         {/* ═══════════ سه نفر اول ═══════════ */}

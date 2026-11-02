@@ -68,8 +68,6 @@ export async function getAcademicReportData(
     if (!period) return { status: "error", error: "دوره یافت نشد" };
 
     // ۳. درس‌های این دوره برای کلاس این دانش‌آموز
-    // ⬅️ اینجا علت اینکه علوم و عربی نمی‌آمدند را برطرف کردیم.
-    // به جای فیلتر کردن بر اساس معلم، همه درس‌های این دوره و کلاس را می‌گیریم.
     const periodLessons = await prisma.gradePeriodLesson.findMany({
       where: {
         gradePeriodId: periodId,
@@ -79,7 +77,6 @@ export async function getAcademicReportData(
         darsPayeReshteh: {
           include: {
             reshtehTadris: true,
-            // برای گرفتن نام معلم
             classCourses: {
               where: { klassId: enrollment.klassId },
               include: { teacher: true },
@@ -99,7 +96,7 @@ export async function getAcademicReportData(
       };
     }
 
-    // ۴. تمام دانش‌آموزان کلاس (برای محاسبه رتبه و معدل کلاس)
+    // ۴. تمام دانش‌آموزان کلاس
     const classEnrollments = await prisma.studentEnrollment.findMany({
       where: { klassId: enrollment.klassId, schoolId, academicYearId },
       include: { student: true },
@@ -131,14 +128,13 @@ export async function getAcademicReportData(
       },
     });
 
-    // نگاشت نمرات برای دسترسی سریع‌تر
-    // کلید: studentEnrollmentId_gradePeriodLessonId
+    // نگاشت نمرات
     const gradeMap = new Map();
     for (const g of allGrades) {
       gradeMap.set(`${g.studentEnrollmentId}_${g.gradePeriodLessonId}`, g);
     }
 
-    // ۷. تابع محاسبه معدل یک دانش‌آموز
+    // ۷. تابع محاسبه معدل
     const calcAvg = (studentEnrollmentId: string) => {
       let totalScore = 0;
       let totalUnits = 0;
@@ -152,7 +148,7 @@ export async function getAcademicReportData(
       return totalUnits > 0 ? totalScore / totalUnits : 0;
     };
 
-    // ۸. محاسبه معدل همه دانش‌آموزان کلاس و پایه
+    // ۸. محاسبه معدل و رتبه کلاس
     const classAverages = classEnrollments
       .map((e) => ({
         enrollmentId: e.id,
@@ -161,6 +157,7 @@ export async function getAcademicReportData(
       }))
       .sort((a, b) => b.avg - a.avg);
 
+    // ۹. محاسبه معدل و رتبه پایه (با استفاده از ثبت‌نام خود هر دانش‌آموز در پایه)
     const gradeAverages = gradeEnrollments
       .map((e) => ({
         enrollmentId: e.id,
@@ -170,12 +167,11 @@ export async function getAcademicReportData(
       }))
       .sort((a, b) => b.avg - a.avg);
 
-    // ۹. محاسبه رتبه‌های تک‌تک دروس
+    // ۱۰. محاسبه رتبه‌های تک‌تک دروس
     const lessonsData = periodLessons.map((lesson) => {
       const studentGrade = gradeMap.get(`${enrollmentId}_${lesson.id}`);
       const teacher = lesson.darsPayeReshteh.classCourses[0]?.teacher;
 
-      // گرفتن نمرات این درس برای همه دانش‌آموزان کلاس و پایه
       const classLessonScores = classEnrollments
         .map((e) => gradeMap.get(`${e.id}_${lesson.id}`)?.score)
         .filter((s) => s !== undefined && s !== null) as number[];
@@ -183,7 +179,6 @@ export async function getAcademicReportData(
         .map((e) => gradeMap.get(`${e.id}_${lesson.id}`)?.score)
         .filter((s) => s !== undefined && s !== null) as number[];
 
-      // محاسبه رتبه (تعداد کسانی که نمره بالاتری دارند + ۱)
       let classRank = null;
       let gradeRank = null;
       if (studentGrade && studentGrade.score !== null) {
@@ -193,7 +188,6 @@ export async function getAcademicReportData(
           gradeLessonScores.filter((s) => s > studentGrade.score!).length + 1;
       }
 
-      // معدل کلاس در این درس
       const classAvg =
         classLessonScores.length > 0
           ? classLessonScores.reduce((a, b) => a + b, 0) /
@@ -212,7 +206,7 @@ export async function getAcademicReportData(
       };
     });
 
-    // ۱۰. معدل و رتبه خود دانش‌آموز
+    // ۱۱. معدل و رتبه خود دانش‌آموز
     const studentAvg = calcAvg(enrollmentId);
     const classRank =
       classAverages.findIndex((e) => e.enrollmentId === enrollmentId) + 1;
