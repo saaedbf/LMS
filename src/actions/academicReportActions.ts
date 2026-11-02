@@ -67,42 +67,40 @@ export async function getAcademicReportData(
     });
     if (!period) return { status: "error", error: "دوره یافت نشد" };
 
-    // ۳. درس‌های این دوره برای کلاس این دانش‌آموز
-    const periodLessons = await prisma.gradePeriodLesson.findMany({
-      where: {
-        gradePeriodId: periodId,
-        klassId: enrollment.klassId,
-      },
+    // ۳. تمام درس‌های این دوره برای تمام کلاس‌ها (با واحدها)
+    const allPeriodLessons = await prisma.gradePeriodLesson.findMany({
+      where: { gradePeriodId: periodId },
       include: {
         darsPayeReshteh: {
           include: {
             reshtehTadris: true,
             classCourses: {
-              where: { klassId: enrollment.klassId },
               include: { teacher: true },
             },
           },
         },
       },
-      orderBy: {
-        darsPayeReshteh: { reshtehTadris: { title: "asc" } },
-      },
     });
 
-    if (periodLessons.length === 0) {
+    // ۴. درس‌های مخصوص کلاس این دانش‌آموز
+    const studentClassLessons = allPeriodLessons.filter(
+      (l) => l.klassId === enrollment.klassId,
+    );
+
+    if (studentClassLessons.length === 0) {
       return {
         status: "error",
         error: "هیچ درسی در این دوره برای این کلاس ثبت نشده است.",
       };
     }
 
-    // ۴. تمام دانش‌آموزان کلاس
+    // ۵. تمام دانش‌آموزان کلاس
     const classEnrollments = await prisma.studentEnrollment.findMany({
       where: { klassId: enrollment.klassId, schoolId, academicYearId },
       include: { student: true },
     });
 
-    // ۵. تمام دانش‌آموزان پایه (برای رتبه در پایه)
+    // ۶. تمام دانش‌آموزان پایه
     const gradeEnrollments = await prisma.studentEnrollment.findMany({
       where: {
         schoolId,
@@ -113,10 +111,10 @@ export async function getAcademicReportData(
       include: { student: true, klass: true },
     });
 
-    // ۶. گرفتن تمام نمرات مربوط به این دوره برای تمام دانش‌آموزان درگیر
+    // ۷. گرفتن تمام نمرات مربوط به این دوره برای تمام دانش‌آموزان درگیر
     const allGrades = await prisma.grade.findMany({
       where: {
-        gradePeriodLessonId: { in: periodLessons.map((l) => l.id) },
+        gradePeriodLessonId: { in: allPeriodLessons.map((l) => l.id) },
         studentEnrollmentId: {
           in: Array.from(
             new Set([
@@ -128,50 +126,61 @@ export async function getAcademicReportData(
       },
     });
 
-    // نگاشت نمرات
     const gradeMap = new Map();
     for (const g of allGrades) {
       gradeMap.set(`${g.studentEnrollmentId}_${g.gradePeriodLessonId}`, g);
     }
 
-    // ۷. تابع محاسبه معدل
-    const calcAvg = (studentEnrollmentId: string) => {
+    // ⬅️ تابع محاسبه معدل: حالا کلاس دانش‌آموز را چک می‌کند
+    const calcAvg = (enrId: string, klassId: string) => {
       let totalScore = 0;
       let totalUnits = 0;
-      for (const lesson of periodLessons) {
-        const g = gradeMap.get(`${studentEnrollmentId}_${lesson.id}`);
+
+      const lessonsForThisClass = allPeriodLessons.filter(
+        (pl) => pl.klassId === klassId,
+      );
+
+      for (const lesson of lessonsForThisClass) {
+        const g = gradeMap.get(`${enrId}_${lesson.id}`);
         if (g && g.score !== null) {
-          totalScore += g.score * lesson.darsPayeReshteh.units;
-          totalUnits += lesson.darsPayeReshteh.units;
+          const units = lesson.darsPayeReshteh.units || 1;
+          totalScore += g.score * units;
+          totalUnits += units;
         }
       }
       return totalUnits > 0 ? totalScore / totalUnits : 0;
     };
 
-    // ۸. محاسبه معدل و رتبه کلاس
+    // ۸. محاسبه معدل کلاس
     const classAverages = classEnrollments
       .map((e) => ({
         enrollmentId: e.id,
         student: e.student,
-        avg: calcAvg(e.id),
+        avg: calcAvg(e.id, e.klassId),
       }))
       .sort((a, b) => b.avg - a.avg);
 
-    // ۹. محاسبه معدل و رتبه پایه (با استفاده از ثبت‌نام خود هر دانش‌آموز در پایه)
+    // ۹. محاسبه معدل پایه (برای هر دانش‌آموز بر اساس کلاس خودش)
     const gradeAverages = gradeEnrollments
       .map((e) => ({
         enrollmentId: e.id,
         student: e.student,
         klass: e.klass,
-        avg: calcAvg(e.id),
+        avg: calcAvg(e.id, e.klassId),
       }))
       .sort((a, b) => b.avg - a.avg);
 
     // ۱۰. محاسبه رتبه‌های تک‌تک دروس
-    const lessonsData = periodLessons.map((lesson) => {
+    const lessonsData = studentClassLessons.map((lesson) => {
       const studentGrade = gradeMap.get(`${enrollmentId}_${lesson.id}`);
-      const teacher = lesson.darsPayeReshteh.classCourses[0]?.teacher;
 
+      // پیدا کردن معلم این درس در این کلاس
+      const classCourse = lesson.darsPayeReshteh.classCourses.find(
+        (cc) => cc.klassId === enrollment.klassId,
+      );
+      const teacher = classCourse?.teacher;
+
+      // نمرات کلاس و پایه
       const classLessonScores = classEnrollments
         .map((e) => gradeMap.get(`${e.id}_${lesson.id}`)?.score)
         .filter((s) => s !== undefined && s !== null) as number[];
@@ -207,7 +216,7 @@ export async function getAcademicReportData(
     });
 
     // ۱۱. معدل و رتبه خود دانش‌آموز
-    const studentAvg = calcAvg(enrollmentId);
+    const studentAvg = calcAvg(enrollmentId, enrollment.klassId);
     const classRank =
       classAverages.findIndex((e) => e.enrollmentId === enrollmentId) + 1;
     const gradeRank =
