@@ -7,19 +7,31 @@ import {
   StyleSheet,
   Font,
   Svg,
-  Polyline,
   Rect,
   Line,
   Circle,
 } from "@react-pdf/renderer";
 import type { AcademicReportData } from "@/actions/academicReportActions";
+import { toPersianNum } from "../utils";
 
 let fontsRegistered = false;
 
 const styles = StyleSheet.create({
-  page: { padding: 15, fontFamily: "IRANSans", fontSize: 9, direction: "rtl" },
-  headerBox: { borderWidth: 1, borderColor: "#000", marginBottom: 10 },
-  headerRow: { flexDirection: "row-reverse" },
+  page: {
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    fontFamily: "IRANSans",
+    fontSize: 9,
+    direction: "rtl",
+  },
+  headerBox: {
+    borderWidth: 1,
+    borderColor: "#000",
+    marginBottom: 10,
+  },
+  headerRow: {
+    flexDirection: "row-reverse",
+  },
   headerCell: {
     flex: 1,
     padding: 5,
@@ -27,34 +39,74 @@ const styles = StyleSheet.create({
     borderLeftColor: "#000",
     textAlign: "center",
     fontSize: 8,
+    lineHeight: 1.4,
   },
-  headerCellLast: { flex: 1, padding: 5, textAlign: "center", fontSize: 8 },
+  headerCellLast: {
+    flex: 1,
+    padding: 5,
+    textAlign: "center",
+    fontSize: 8,
+    lineHeight: 1.4,
+  },
   titleBar: {
     borderTopWidth: 1,
     borderTopColor: "#000",
     paddingVertical: 4,
     backgroundColor: "#f0f0f0",
   },
-  titleText: { fontSize: 12, fontWeight: "bold", textAlign: "center" },
+  titleText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  bold: {
+    fontWeight: "bold",
+  },
 
+  // آمار کلی
+  statsBox: {
+    flexDirection: "row-reverse",
+    gap: 10,
+    marginBottom: 10,
+  },
+  statCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#000",
+    padding: 6,
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+  },
+  statTitle: {
+    fontSize: 8,
+    color: "#475569",
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#0f172a",
+  },
+
+  // جدول دروس
   table: {
     width: "100%",
     borderWidth: 1,
     borderColor: "#000",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   tableHeader: {
     flexDirection: "row-reverse",
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#e2e8f0",
     borderBottomWidth: 1,
     borderBottomColor: "#000",
-    height: 22,
+    height: 24,
   },
   tableRow: {
     flexDirection: "row-reverse",
     borderBottomWidth: 0.5,
-    borderBottomColor: "#666",
-    height: 20,
+    borderBottomColor: "#94a3b8",
+    height: 22,
   },
   th: {
     padding: 2,
@@ -63,7 +115,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  thText: { fontSize: 8, fontWeight: "bold" },
+  thText: {
+    fontSize: 8,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
   td: {
     padding: 2,
     borderLeftWidth: 0.5,
@@ -71,45 +127,81 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  tdText: { fontSize: 8, textAlign: "center" },
+  tdText: {
+    fontSize: 8,
+    textAlign: "center",
+  },
 
-  statsBox: { flexDirection: "row-reverse", gap: 10, marginBottom: 10 },
-  statCard: {
+  // سه نفر اول
+  top3Container: {
+    flexDirection: "row-reverse",
+    gap: 10,
+    marginBottom: 12,
+  },
+  top3Box: {
     flex: 1,
     borderWidth: 1,
     borderColor: "#000",
-    padding: 5,
-    alignItems: "center",
-  },
-  statTitle: { fontSize: 8, color: "#555" },
-  statValue: { fontSize: 12, fontWeight: "bold" },
-
-  top3Box: {
-    borderWidth: 1,
-    borderColor: "#000",
-    marginBottom: 10,
-    padding: 5,
+    padding: 6,
+    backgroundColor: "#fff",
   },
   top3Title: {
     fontSize: 10,
     fontWeight: "bold",
-    marginBottom: 5,
+    marginBottom: 6,
     textAlign: "center",
+    color: "#1e3a8a",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#cbd5e1",
+    paddingBottom: 3,
   },
   top3Row: {
     flexDirection: "row-reverse",
     justifyContent: "space-between",
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#ddd",
+    borderBottomColor: "#f1f5f9",
+  },
+  top3Text: {
+    fontSize: 8,
+  },
+  top3Avg: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#0f172a",
   },
 
-  chartBox: { borderWidth: 1, borderColor: "#000", padding: 10, height: 200 },
+  // نمودار
+  chartBox: {
+    borderWidth: 1,
+    borderColor: "#000",
+    padding: 10,
+    alignItems: "center",
+  },
   chartTitle: {
     fontSize: 10,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 15,
     textAlign: "center",
+  },
+  chartLegend: {
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    gap: 20,
+    marginTop: 10,
+  },
+  legendItem: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    marginLeft: 4,
+  },
+  legendText: {
+    fontSize: 8,
+    color: "#333",
   },
 });
 
@@ -133,25 +225,25 @@ export function AcademicReportPdf({
     fontsRegistered = true;
   }
 
-  // داده‌های نمودار
+  // تنظیمات نمودار
   const maxScore = 20;
-  const chartWidth = 450;
-  const chartHeight = 120;
-  const barWidth = (chartWidth / data.lessons.length) * 0.6;
-  const gap = (chartWidth / data.lessons.length) * 0.4;
-  const paddingX = 30;
+  const chartWidth = 480;
+  const chartHeight = 130;
+  const barWidth = 25;
+  const gap =
+    (chartWidth - data.lessons.length * barWidth) / (data.lessons.length + 1);
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* هدر */}
+        {/* ═══════════ هدر ═══════════ */}
         <View style={styles.headerBox}>
           <View style={styles.headerRow}>
             <View style={styles.headerCell}>
               <Text>جمهوری اسلامی ایران</Text>
               <Text>وزارت آموزش و پرورش</Text>
               <Text>سال تحصیلی: {data.academicYear.title}</Text>
-              <Text style={{ fontWeight: "bold" }}>کارنامه تحصیلی</Text>
+              <Text style={styles.bold}>کارنامه تحصیلی</Text>
             </View>
             <View style={styles.headerCell}>
               <Text>مدرسه: {data.school.title}</Text>
@@ -160,7 +252,7 @@ export function AcademicReportPdf({
               <Text>رشته: {data.klass.reshteh}</Text>
             </View>
             <View style={styles.headerCellLast}>
-              <Text style={{ fontWeight: "bold" }}>
+              <Text style={styles.bold}>
                 {data.student.firstName} {data.student.lastName}
               </Text>
               <Text>نام پدر: {data.student.fatherName || "-"}</Text>
@@ -174,7 +266,8 @@ export function AcademicReportPdf({
           </View>
         </View>
 
-        {/* آمار کلی */}
+        {/* ═══════════ آمار کلی ═══════════ */}
+
         <View style={styles.statsBox}>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>معدل کل</Text>
@@ -182,60 +275,94 @@ export function AcademicReportPdf({
               {data.studentAverage.toFixed(2)}
             </Text>
           </View>
+
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>رتبه در کلاس</Text>
-            <Text style={styles.statValue}>
-              {data.classRank} از {data.classSize}
-            </Text>
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                marginTop: 2,
+              }}
+            >
+              <Text style={styles.statValue}>{data.classRank}</Text>
+              <Text
+                style={{ fontSize: 9, color: "#475569", marginHorizontal: 3 }}
+              >
+                از
+              </Text>
+              <Text style={styles.statValue}>{data.classSize}</Text>
+            </View>
           </View>
+
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>رتبه در پایه</Text>
-            <Text style={styles.statValue}>
-              {data.gradeRank} از {data.gradeSize}
-            </Text>
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                alignItems: "center",
+                marginTop: 2,
+              }}
+            >
+              <Text style={styles.statValue}>{data.gradeRank}</Text>
+              <Text
+                style={{ fontSize: 9, color: "#475569", marginHorizontal: 3 }}
+              >
+                از
+              </Text>
+              <Text style={styles.statValue}>{data.gradeSize}</Text>
+            </View>
           </View>
         </View>
 
-        {/* جدول دروس */}
+        {/* ═══════════ جدول دروس ═══════════ */}
         <View style={styles.table}>
+          {/* سرستون‌ها */}
           <View style={styles.tableHeader}>
-            <View style={[styles.th, { flex: 2 }]}>
+            <View style={[styles.th, { flex: 2.5 }]}>
               <Text style={styles.thText}>نام درس</Text>
             </View>
-            <View style={[styles.th, { flex: 0.5 }]}>
+            <View style={[styles.th, { flex: 0.6 }]}>
               <Text style={styles.thText}>واحد</Text>
             </View>
-            <View style={[styles.th, { flex: 1.5 }]}>
+            <View style={[styles.th, { flex: 1.8 }]}>
               <Text style={styles.thText}>دبیر</Text>
             </View>
-            <View style={[styles.th, { flex: 0.7 }]}>
+            <View style={[styles.th, { flex: 0.8 }]}>
               <Text style={styles.thText}>نمره</Text>
             </View>
             <View style={[styles.th, { flex: 0.8 }]}>
               <Text style={styles.thText}>رتبه کلاس</Text>
             </View>
-            <View style={[{ flex: 0.8 }]}>
-              <Text>رتبه پایه</Text>
+            <View style={[styles.th, { flex: 0.8 }]}>
+              <Text style={styles.thText}>رتبه پایه</Text>
             </View>
           </View>
+
+          {/* ردیف‌های دروس */}
           {data.lessons.map((l, i) => (
             <View key={i} style={styles.tableRow}>
-              <View style={[styles.td, { flex: 2 }]}>
-                <Text style={{ fontSize: 8 }}>{l.lessonTitle}</Text>
+              <View style={[styles.td, { flex: 2.5 }]}>
+                <Text
+                  style={{ fontSize: 8, textAlign: "right", paddingRight: 4 }}
+                >
+                  {l.lessonTitle}
+                </Text>
               </View>
-              <View style={[styles.td, { flex: 0.5 }]}>
+              <View style={[styles.td, { flex: 0.6 }]}>
                 <Text style={styles.tdText}>{l.units}</Text>
               </View>
-              <View style={[styles.td, { flex: 1.5 }]}>
+              <View style={[styles.td, { flex: 1.8 }]}>
                 <Text style={{ fontSize: 7, textAlign: "center" }}>
                   {l.teacherName}
                 </Text>
               </View>
-              <View style={[styles.td, { flex: 0.7 }]}>
+              <View style={[styles.td, { flex: 0.8 }]}>
                 <Text
                   style={{
                     fontSize: 9,
                     fontWeight: "bold",
+                    textAlign: "center",
                     color: l.score && l.score >= 10 ? "#15803d" : "#be123c",
                   }}
                 >
@@ -245,28 +372,43 @@ export function AcademicReportPdf({
               <View style={[styles.td, { flex: 0.8 }]}>
                 <Text style={styles.tdText}>{l.classRank ?? "-"}</Text>
               </View>
-              <View style={[{ flex: 0.8 }]}>
-                <Text>{l.gradeRank ?? "-"}</Text>
+              <View style={[styles.td, { flex: 0.8 }]}>
+                <Text style={styles.tdText}>{l.gradeRank ?? "-"}</Text>
               </View>
             </View>
           ))}
-          {/* سطر معدل */}
+
+          {/* سطر معدل کل */}
           <View
             style={[
               styles.tableRow,
               {
-                backgroundColor: "#f3f4f6",
+                backgroundColor: "#f1f5f9",
                 borderTopWidth: 1,
                 borderTopColor: "#000",
               },
             ]}
           >
-            <View style={[styles.td, { flex: 4.5 }]}>
-              <Text style={{ fontSize: 9, fontWeight: "bold" }}>معدل کل</Text>
-            </View>
-            <View style={[{ flex: 1.5 }]}>
+            <View style={[styles.td, { flex: 5.7 }]}>
               <Text
-                style={{ fontSize: 10, fontWeight: "bold", color: "#1e3a8a" }}
+                style={{
+                  fontSize: 9,
+                  fontWeight: "bold",
+                  textAlign: "left",
+                  paddingLeft: 10,
+                }}
+              >
+                معدل کل دانش‌آموز
+              </Text>
+            </View>
+            <View style={[styles.td, { flex: 0.8 }]}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: "bold",
+                  color: "#1e3a8a",
+                  textAlign: "center",
+                }}
               >
                 {data.studentAverage.toFixed(2)}
               </Text>
@@ -274,171 +416,269 @@ export function AcademicReportPdf({
           </View>
         </View>
 
-        {/* سه نفر اول */}
-        <View
-          style={{ flexDirection: "row-reverse", gap: 10, marginBottom: 10 }}
-        >
-          <View style={{ flex: 1, ...styles.top3Box }}>
-            <Text style={styles.top3Title}>🏆 برترین‌های کلاس</Text>
+        {/* ═══════════ سه نفر اول ═══════════ */}
+        <View style={styles.top3Container}>
+          <View style={styles.top3Box}>
+            <Text style={styles.top3Title}> برترین‌های کلاس</Text>
             {data.top3Class.map((s, i) => (
               <View key={i} style={styles.top3Row}>
-                <Text style={{ fontSize: 8 }}>
+                <Text style={styles.top3Text}>
                   {i + 1}. {s.name}
                 </Text>
-                <Text style={{ fontSize: 8, fontWeight: "bold" }}>{s.avg}</Text>
+                <Text style={styles.top3Avg}>{s.avg}</Text>
               </View>
             ))}
           </View>
-          <View style={{ flex: 1, ...styles.top3Box }}>
-            <Text style={styles.top3Title}>🏆 برترین‌های پایه</Text>
+          <View style={styles.top3Box}>
+            <Text style={styles.top3Title}> برترین‌های پایه</Text>
             {data.top3Grade.map((s, i) => (
               <View key={i} style={styles.top3Row}>
-                <Text style={{ fontSize: 8 }}>
-                  {i + 1}. {s.name} ({s.klass})
+                <Text style={styles.top3Text}>
+                  {i + 1}. {s.name}{" "}
+                  <Text style={{ fontSize: 7, color: "#64748b" }}>
+                    ({s.klass})
+                  </Text>
                 </Text>
-                <Text style={{ fontSize: 8, fontWeight: "bold" }}>{s.avg}</Text>
+                <Text style={styles.top3Avg}>{s.avg}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* نمودار میله‌ای */}
-        <View style={styles.chartBox}>
-          <Text style={styles.chartTitle}>
-            نمودار نمرات دروس (میله: نمره دانش‌آموز، خط: معدل کلاس)
-          </Text>
-          <Svg width={chartWidth} height={chartHeight}>
-            {/* خطوط راهنما */}
-            {[0, 5, 10, 15, 20].map((val) => {
-              const y = chartHeight - (val / maxScore) * chartHeight;
-              return (
-                <React.Fragment key={val}>
-                  <Line
-                    x1={0}
-                    y1={y}
-                    x2={chartWidth}
-                    y2={y}
-                    stroke="#ddd"
-                    strokeWidth={0.5}
-                  />
-                  <Text x={5} y={y} style={{ fontSize: 6 }}>
-                    {val}
-                  </Text>
-                </React.Fragment>
-              );
-            })}
+        {/* ═══════════ نمودار میله‌ای ═══════════ */}
 
-            {/* میله‌ها و خطوط */}
-            {data.lessons.map((l, i) => {
-              const x = i * (barWidth + gap) + gap / 2;
-              const barHeight = ((l.score ?? 0) / maxScore) * chartHeight;
-              const barY = chartHeight - barHeight;
-              const classAvgY =
-                chartHeight - (l.classAvg / maxScore) * chartHeight;
+        {/* محوطه نمودار */}
+        <View style={{ flexDirection: "row-reverse", width: chartWidth }}>
+          {/* محوطه اصلی نمودار */}
+          <View style={{ flex: 1, height: chartHeight, position: "relative" }}>
+            {/* خطوط راهنمای افقی */}
+            {[5, 10, 15, 20].map((val) => (
+              <View
+                key={val}
+                style={{
+                  position: "absolute",
+                  bottom: (val / 20) * chartHeight,
+                  left: 0,
+                  right: 0,
+                  borderTopWidth: 0.5,
+                  borderTopColor: "#e2e8f0",
+                  borderStyle: "dashed",
+                }}
+              />
+            ))}
+            {/* خط شکسته معدل کلاس */}
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 10,
+              }}
+            >
+              <Svg width="100%" height="100%">
+                {data.lessons.map((l, i) => {
+                  if (i === data.lessons.length - 1) return null;
 
-              return (
-                <React.Fragment key={i}>
-                  {/* میله نمره دانش‌آموز */}
-                  <Rect
-                    x={x}
-                    y={barY}
-                    width={barWidth}
-                    height={barHeight}
-                    fill="#3b82f6"
-                  />
-                  {/* عدد روی میله */}
-                  {l.score !== null && (
+                  // مختصات مرکز میله‌ها با ترتیب راست به چپ
+                  const currentX =
+                    chartWidth -
+                    25 -
+                    (i * (barWidth + gap) + (barWidth + gap) / 2);
+
+                  const nextX =
+                    chartWidth -
+                    25 -
+                    ((i + 1) * (barWidth + gap) + (barWidth + gap) / 2);
+
+                  const currentY =
+                    chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
+
+                  const nextY =
+                    chartHeight -
+                    ((data.lessons[i + 1].classAvg ?? 0) / 20) * chartHeight;
+
+                  return (
+                    <Line
+                      key={i}
+                      x1={currentX + 26}
+                      y1={currentY + 13}
+                      x2={nextX + 26}
+                      y2={nextY + 13}
+                      stroke="#f59e0b"
+                      strokeWidth={1.5}
+                    />
+                  );
+                })}
+
+                {/* نقاط معدل کلاس */}
+                {data.lessons.map((l, i) => {
+                  const x =
+                    chartWidth -
+                    25 -
+                    (i * (barWidth + gap) + (barWidth + gap) / 2) +
+                    26;
+
+                  const y =
+                    chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight + 13;
+
+                  return (
+                    <Circle
+                      key={i}
+                      cx={x}
+                      cy={y}
+                      r={3}
+                      fill="#f59e0b"
+                      stroke="#ffffff"
+                      strokeWidth={1}
+                    />
+                  );
+                })}
+              </Svg>
+            </View>
+            {/* میله‌ها */}
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                width: "100%",
+                height: "100%",
+                alignItems: "flex-end",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                zIndex: 2,
+                opacity: 0.75, // ⬅️ این خط را اضافه کنید
+              }}
+            >
+              {data.lessons.map((l, i) => {
+                const score = l.score ?? 0;
+                const barHeight = (score / 20) * chartHeight;
+
+                return (
+                  <View
+                    key={i}
+                    style={{
+                      width: barWidth + gap,
+                      height: "100%",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      position: "relative",
+                      opacity: 0.75, // ⬅️ این خط را اضافه کنید
+                    }}
+                  >
+                    {/* عدد نمره */}
                     <Text
-                      x={x + barWidth / 2}
-                      y={barY - 2}
-                      style={{ fontSize: 6, textAnchor: "middle" }}
+                      style={{
+                        fontSize: 7,
+                        fontWeight: "bold",
+                        color: "#0f172a",
+                        position: "absolute",
+                        bottom: barHeight,
+                        marginBottom: 2,
+                        zIndex: 3,
+                      }}
                     >
-                      {l.score}
+                      {l.score !== null ? l.score : "-"}
                     </Text>
-                  )}
-                  {/* نقطه معدل کلاس (خط شکسته) */}
-                  <Line
-                    x1={x + barWidth / 2}
-                    y1={classAvgY}
-                    x2={
-                      i < data.lessons.length - 1
-                        ? (i + 1) * (barWidth + gap) + gap / 2 + barWidth / 2
-                        : x + barWidth / 2
-                    }
-                    y2={
-                      i < data.lessons.length - 1
-                        ? chartHeight -
-                          (data.lessons[i + 1].classAvg / maxScore) *
-                            chartHeight
-                        : classAvgY
-                    }
-                    stroke="#f59e0b"
-                    strokeWidth={1.5}
-                    strokeDasharray="3,3"
-                  />
-                  <Circle
-                    cx={x + barWidth / 2}
-                    cy={classAvgY}
-                    r={1.5}
-                    fill="#f59e0b"
-                  />
-                </React.Fragment>
-              );
-            })}
-          </Svg>
-          {/* برچسب دروس */}
-          <View
-            style={{
-              flexDirection: "row-reverse",
-              width: chartWidth,
-              marginTop: 5,
-            }}
-          >
+
+                    {/* بدنه میله */}
+                    <View
+                      style={{
+                        width: barWidth,
+                        height: barHeight,
+                        backgroundColor: "#3b82f6",
+                        borderTopLeftRadius: 2,
+                        borderTopRightRadius: 2,
+                      }}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+            {/* محور Y */}
+            <View
+              style={{
+                width: 25,
+                height: chartHeight,
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderRightWidth: 1,
+                borderRightColor: "#cbd5e1",
+              }}
+            >
+              {[20, 15, 10, 5, 0].map((val) => (
+                <Text
+                  key={val}
+                  style={{
+                    fontSize: 6,
+                    color: "#64748b",
+                    height: 10,
+                    textAlign: "center",
+                  }}
+                >
+                  {val}
+                </Text>
+              ))}
+            </View>
+          </View>
+        </View>
+        {/* نام دروس زیر نمودار */}
+        <View
+          style={{
+            flexDirection: "row-reverse",
+            width: chartWidth,
+            marginTop: 4,
+            alignItems: "flex-start",
+          }}
+        >
+          <View style={{ flex: 1, flexDirection: "row-reverse" }}>
             {data.lessons.map((l, i) => (
               <View
                 key={i}
-                style={{ width: barWidth + gap, alignItems: "center" }}
+                style={{
+                  width: barWidth + gap,
+                  alignItems: "center",
+                  paddingHorizontal: 1,
+                }}
               >
-                <Text style={{ fontSize: 6 }}>{l.lessonTitle}</Text>
+                <Text
+                  style={{
+                    fontSize: 6,
+                    textAlign: "center",
+                    color: "#475569",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {l.lessonTitle}
+                </Text>
               </View>
             ))}
           </View>
-          {/* راهنمای نمودار */}
-          <View
-            style={{
-              flexDirection: "row-reverse",
-              justifyContent: "center",
-              gap: 15,
-              marginTop: 5,
-            }}
-          >
+          <View style={{ width: 25 }} />
+        </View>
+        {/* راهنمای نمودار */}
+        <View style={styles.chartLegend}>
+          <View style={styles.legendItem}>
             <View
-              style={{ flexDirection: "row-reverse", alignItems: "center" }}
-            >
-              <View
-                style={{
-                  width: 8,
-                  height: 8,
-                  backgroundColor: "#3b82f6",
-                  marginLeft: 3,
-                }}
-              />
-              <Text style={{ fontSize: 7 }}>نمره دانش‌آموز</Text>
-            </View>
+              style={{
+                ...styles.legendDot,
+                backgroundColor: "#3b82f6",
+              }}
+            />
+            <Text style={styles.legendText}>نمره دانش‌آموز</Text>
+          </View>
+
+          <View style={styles.legendItem}>
             <View
-              style={{ flexDirection: "row-reverse", alignItems: "center" }}
-            >
-              <View
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: "#f59e0b",
-                  marginLeft: 3,
-                }}
-              />
-              <Text style={{ fontSize: 7 }}>معدل کلاس</Text>
-            </View>
+              style={{
+                ...styles.legendDot,
+                backgroundColor: "#f59e0b",
+                borderRadius: 5,
+              }}
+            />
+            <Text style={styles.legendText}>معدل کلاس</Text>
           </View>
         </View>
       </Page>

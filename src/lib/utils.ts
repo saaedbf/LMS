@@ -66,3 +66,7 @@ export function toJalaliMonthKey(date: Date): { key: string; label: string } {
     label: `${monthLabel} ${year}`, // مثلا: مهر 1405
   };
 }
+export const toPersianNum = (num: number | string) => {
+  const farsiDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+  return num.toString().replace(/\d/g, (x) => farsiDigits[parseInt(x)]);
+};

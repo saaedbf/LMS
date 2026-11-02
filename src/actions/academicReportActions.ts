@@ -68,6 +68,8 @@ export async function getAcademicReportData(
     if (!period) return { status: "error", error: "دوره یافت نشد" };
 
     // ۳. درس‌های این دوره برای کلاس این دانش‌آموز
+    // ⬅️ اینجا علت اینکه علوم و عربی نمی‌آمدند را برطرف کردیم.
+    // به جای فیلتر کردن بر اساس معلم، همه درس‌های این دوره و کلاس را می‌گیریم.
     const periodLessons = await prisma.gradePeriodLesson.findMany({
       where: {
         gradePeriodId: periodId,
@@ -77,6 +79,7 @@ export async function getAcademicReportData(
         darsPayeReshteh: {
           include: {
             reshtehTadris: true,
+            // برای گرفتن نام معلم
             classCourses: {
               where: { klassId: enrollment.klassId },
               include: { teacher: true },
@@ -84,26 +87,25 @@ export async function getAcademicReportData(
           },
         },
       },
-    });
-
-    // ۴. نمرات این دانش‌آموز
-    const studentGrades = await prisma.grade.findMany({
-      where: {
-        studentEnrollmentId: enrollmentId,
-        gradePeriodLessonId: { in: periodLessons.map((l) => l.id) },
+      orderBy: {
+        darsPayeReshteh: { reshtehTadris: { title: "asc" } },
       },
     });
-    const gradeMap = new Map(
-      studentGrades.map((g) => [g.gradePeriodLessonId, g]),
-    );
 
-    // ۵. تمام دانش‌آموزان کلاس (برای محاسبه رتبه و معدل کلاس)
+    if (periodLessons.length === 0) {
+      return {
+        status: "error",
+        error: "هیچ درسی در این دوره برای این کلاس ثبت نشده است.",
+      };
+    }
+
+    // ۴. تمام دانش‌آموزان کلاس (برای محاسبه رتبه و معدل کلاس)
     const classEnrollments = await prisma.studentEnrollment.findMany({
       where: { klassId: enrollment.klassId, schoolId, academicYearId },
       include: { student: true },
     });
 
-    // ۶. تمام دانش‌آموزان پایه (برای رتبه در پایه)
+    // ۵. تمام دانش‌آموزان پایه (برای رتبه در پایه)
     const gradeEnrollments = await prisma.studentEnrollment.findMany({
       where: {
         schoolId,
@@ -114,12 +116,34 @@ export async function getAcademicReportData(
       include: { student: true, klass: true },
     });
 
-    // ۷. توابع محاسبه معدل
-    const calcAvg = (grades: any[], lessons: any[]) => {
+    // ۶. گرفتن تمام نمرات مربوط به این دوره برای تمام دانش‌آموزان درگیر
+    const allGrades = await prisma.grade.findMany({
+      where: {
+        gradePeriodLessonId: { in: periodLessons.map((l) => l.id) },
+        studentEnrollmentId: {
+          in: Array.from(
+            new Set([
+              ...classEnrollments.map((e) => e.id),
+              ...gradeEnrollments.map((e) => e.id),
+            ]),
+          ),
+        },
+      },
+    });
+
+    // نگاشت نمرات برای دسترسی سریع‌تر
+    // کلید: studentEnrollmentId_gradePeriodLessonId
+    const gradeMap = new Map();
+    for (const g of allGrades) {
+      gradeMap.set(`${g.studentEnrollmentId}_${g.gradePeriodLessonId}`, g);
+    }
+
+    // ۷. تابع محاسبه معدل یک دانش‌آموز
+    const calcAvg = (studentEnrollmentId: string) => {
       let totalScore = 0;
       let totalUnits = 0;
-      for (const lesson of lessons) {
-        const g = grades.find((x) => x.gradePeriodLessonId === lesson.id);
+      for (const lesson of periodLessons) {
+        const g = gradeMap.get(`${studentEnrollmentId}_${lesson.id}`);
         if (g && g.score !== null) {
           totalScore += g.score * lesson.darsPayeReshteh.units;
           totalUnits += lesson.darsPayeReshteh.units;
@@ -128,102 +152,68 @@ export async function getAcademicReportData(
       return totalUnits > 0 ? totalScore / totalUnits : 0;
     };
 
-    // ۸. محاسبه معدل همه دانش‌آموزان کلاس
-    const classAverages = await Promise.all(
-      classEnrollments.map(async (e) => {
-        const grades = await prisma.grade.findMany({
-          where: {
-            studentEnrollmentId: e.id,
-            gradePeriodLessonId: { in: periodLessons.map((l) => l.id) },
-          },
-        });
-        return {
-          enrollmentId: e.id,
-          student: e.student,
-          avg: calcAvg(grades, periodLessons),
-        };
-      }),
-    );
-    classAverages.sort((a, b) => b.avg - a.avg);
+    // ۸. محاسبه معدل همه دانش‌آموزان کلاس و پایه
+    const classAverages = classEnrollments
+      .map((e) => ({
+        enrollmentId: e.id,
+        student: e.student,
+        avg: calcAvg(e.id),
+      }))
+      .sort((a, b) => b.avg - a.avg);
 
-    // ۹. محاسبه معدل همه دانش‌آموزان پایه
-    const gradeAverages = await Promise.all(
-      gradeEnrollments.map(async (e) => {
-        const grades = await prisma.grade.findMany({
-          where: {
-            studentEnrollmentId: e.id,
-            gradePeriodLessonId: { in: periodLessons.map((l) => l.id) },
-          },
-        });
-        return {
-          enrollmentId: e.id,
-          student: e.student,
-          klass: e.klass,
-          avg: calcAvg(grades, periodLessons),
-        };
-      }),
-    );
-    gradeAverages.sort((a, b) => b.avg - a.avg);
+    const gradeAverages = gradeEnrollments
+      .map((e) => ({
+        enrollmentId: e.id,
+        student: e.student,
+        klass: e.klass,
+        avg: calcAvg(e.id),
+      }))
+      .sort((a, b) => b.avg - a.avg);
 
-    // ۱۰. نمرات و رتبه‌های تک‌تک دروس
-    const lessonsData = await Promise.all(
-      periodLessons.map(async (lesson) => {
-        const g = gradeMap.get(lesson.id);
-        const teacher = lesson.darsPayeReshteh.classCourses[0]?.teacher;
+    // ۹. محاسبه رتبه‌های تک‌تک دروس
+    const lessonsData = periodLessons.map((lesson) => {
+      const studentGrade = gradeMap.get(`${enrollmentId}_${lesson.id}`);
+      const teacher = lesson.darsPayeReshteh.classCourses[0]?.teacher;
 
-        // رتبه در کلاس
-        const classLessonGrades = classAverages.map(async (e) => {
-          const grade = await prisma.grade.findFirst({
-            where: {
-              studentEnrollmentId: e.enrollmentId,
-              gradePeriodLessonId: lesson.id,
-            },
-          });
-          return grade?.score ?? -1;
-        });
-        const scores = await Promise.all(classLessonGrades);
-        scores.sort((a, b) => b - a);
-        const classRank = g?.score != null ? scores.indexOf(g.score) + 1 : null;
+      // گرفتن نمرات این درس برای همه دانش‌آموزان کلاس و پایه
+      const classLessonScores = classEnrollments
+        .map((e) => gradeMap.get(`${e.id}_${lesson.id}`)?.score)
+        .filter((s) => s !== undefined && s !== null) as number[];
+      const gradeLessonScores = gradeEnrollments
+        .map((e) => gradeMap.get(`${e.id}_${lesson.id}`)?.score)
+        .filter((s) => s !== undefined && s !== null) as number[];
 
-        // رتبه در پایه
-        const gradeLessonGrades = gradeAverages.map(async (e) => {
-          const grade = await prisma.grade.findFirst({
-            where: {
-              studentEnrollmentId: e.enrollmentId,
-              gradePeriodLessonId: lesson.id,
-            },
-          });
-          return grade?.score ?? -1;
-        });
-        const gradeScores = await Promise.all(gradeLessonGrades);
-        gradeScores.sort((a, b) => b - a);
-        const gradeRank =
-          g?.score != null ? gradeScores.indexOf(g.score) + 1 : null;
+      // محاسبه رتبه (تعداد کسانی که نمره بالاتری دارند + ۱)
+      let classRank = null;
+      let gradeRank = null;
+      if (studentGrade && studentGrade.score !== null) {
+        classRank =
+          classLessonScores.filter((s) => s > studentGrade.score!).length + 1;
+        gradeRank =
+          gradeLessonScores.filter((s) => s > studentGrade.score!).length + 1;
+      }
 
-        // معدل کلاس در این درس
-        const validScores = scores.filter((s) => s >= 0);
-        const classAvg =
-          validScores.length > 0
-            ? validScores.reduce((a, b) => a + b, 0) / validScores.length
-            : 0;
+      // معدل کلاس در این درس
+      const classAvg =
+        classLessonScores.length > 0
+          ? classLessonScores.reduce((a, b) => a + b, 0) /
+            classLessonScores.length
+          : 0;
 
-        return {
-          lessonTitle: lesson.darsPayeReshteh.reshtehTadris.title,
-          units: lesson.darsPayeReshteh.units,
-          teacherName: teacher
-            ? `${teacher.firstName} ${teacher.lastName}`
-            : "-",
-          score: g?.score ?? null,
-          descriptiveValue: g?.descriptiveValue ?? null,
-          classRank,
-          gradeRank,
-          classAvg,
-        };
-      }),
-    );
+      return {
+        lessonTitle: lesson.darsPayeReshteh.reshtehTadris.title,
+        units: lesson.darsPayeReshteh.units,
+        teacherName: teacher ? `${teacher.firstName} ${teacher.lastName}` : "-",
+        score: studentGrade?.score ?? null,
+        descriptiveValue: studentGrade?.descriptiveValue ?? null,
+        classRank,
+        gradeRank,
+        classAvg,
+      };
+    });
 
-    // ۱۱. معدل و رتبه خود دانش‌آموز
-    const studentAvg = calcAvg(studentGrades, periodLessons);
+    // ۱۰. معدل و رتبه خود دانش‌آموز
+    const studentAvg = calcAvg(enrollmentId);
     const classRank =
       classAverages.findIndex((e) => e.enrollmentId === enrollmentId) + 1;
     const gradeRank =
@@ -248,9 +238,9 @@ export async function getAcademicReportData(
         period: { title: period.title },
         lessons: lessonsData,
         studentAverage: studentAvg,
-        classRank,
+        classRank: classRank > 0 ? classRank : 0,
         classSize: classAverages.length,
-        gradeRank,
+        gradeRank: gradeRank > 0 ? gradeRank : 0,
         gradeSize: gradeAverages.length,
         top3Class: classAverages.slice(0, 3).map((e) => ({
           name: `${e.student.firstName} ${e.student.lastName}`,
@@ -269,7 +259,7 @@ export async function getAcademicReportData(
     return { status: "error", error: "خطا در محاسبه کارنامه" };
   }
 }
-// در actions/academicReportActions.ts اضافه کنید:
+
 export async function getPeriodsForReport() {
   const context = await getCurrentContext();
   if (!context?.schoolId || !context?.academicYearId) return [];
