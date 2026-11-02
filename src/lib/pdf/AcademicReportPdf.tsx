@@ -468,7 +468,6 @@ export function AcademicReportPdf({
             ))}
             {/* خط شکسته معدل کلاس */}
             <View
-              pointerEvents="none"
               style={{
                 position: "absolute",
                 top: 0,
