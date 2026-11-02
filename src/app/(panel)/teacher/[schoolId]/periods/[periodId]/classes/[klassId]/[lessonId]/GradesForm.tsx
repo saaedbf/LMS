@@ -2,14 +2,21 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { toast } from "react-toastify";
-import { Check, Loader2, Users, BookOpen, Trash2 } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  Users,
+  BookOpen,
+  Trash2,
+  ArrowRight,
+} from "lucide-react";
 import {
   saveGrade,
   getClassStudentsWithGrades,
 } from "@/actions/teacherPanelActions";
 import BackButton from "@/components/widgets/Elements/BackButton";
 import BulkGradesModal from "./BulkGradesModal";
-
+import { useRouter } from "next/navigation"; // ⬅️ ایمپورت اضافه شد
 type Student = {
   enrollmentId: string;
   studentId: string;
@@ -65,9 +72,13 @@ export default function GradesForm({
 
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
   const [savedCells, setSavedCells] = useState<Set<string>>(new Set());
-
+  const router = useRouter(); // ⬅️ اضافه شد
   const [isPending, startTransition] = useTransition();
-
+  // ⬅️ تابع بازگشت با رفرش
+  const handleBack = () => {
+    router.push(`/teacher/${schoolId}/periods/${periodId}/classes/${klassId}`);
+    router.refresh(); // صفحه مقصد را مجبور به دریافت دیتای جدید می‌کند
+  };
   // ⬅️ تابع رفرش لیست نمرات بعد از ثبت گروهی
   const refreshGrades = async () => {
     const res = await getClassStudentsWithGrades(
@@ -164,10 +175,15 @@ export default function GradesForm({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <BackButton
-          href={`/teacher/${schoolId}/periods/${periodId}/classes/${klassId}`}
-          label="بازگشت به لیست دروس"
-        />
+        {/* ⬅️ دکمه بازگشت اصلاح‌شده */}
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          <ArrowRight size={16} />
+          بازگشت به لیست دروس
+        </button>
 
         {/* ⬅️ دکمه ثبت گروهی */}
         <BulkGradesModal
@@ -333,10 +349,15 @@ export default function GradesForm({
           </p>
         </div>
       )}
-      <BackButton
-        href={`/teacher/${schoolId}/periods/${periodId}/classes/${klassId}`}
-        label="بازگشت به لیست دروس"
-      />
+      {/* ⬅️ دکمه بازگشت اصلاح‌شده */}
+      <button
+        type="button"
+        onClick={handleBack}
+        className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+      >
+        <ArrowRight size={16} />
+        بازگشت به لیست دروس
+      </button>
     </div>
   );
 }

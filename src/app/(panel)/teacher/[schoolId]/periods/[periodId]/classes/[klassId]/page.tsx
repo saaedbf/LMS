@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getClassLessonsForGrading } from "@/actions/teacherPanelActions";
 import { notFound } from "next/navigation";
 import Link from "next/link";
