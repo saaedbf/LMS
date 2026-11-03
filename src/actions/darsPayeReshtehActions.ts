@@ -133,3 +133,25 @@ export async function disconnectDarsFromReshteh(
     return { status: "error", error: "خطا در قطع ارتباط درس" };
   }
 }
+
+// حذف رابطه درس از پایه و رشته
+export async function updateDarsUnits(
+  id: string,
+  units: number,
+  reshtehId: number,
+) {
+  try {
+    await prisma.darsPayeReshteh.update({
+      where: { id, reshtehTahsiliId: reshtehId },
+      data: { units },
+    });
+
+    // ⬅️ مسیر دقیق صفحه فعلی (بر اساس URL پروژه خودتان تغییر دهید)
+    revalidatePath(`/dashboard/master/reshtehTahsili/${reshtehId}/courses`);
+
+    return { status: "success" as const, data: true };
+  } catch (err) {
+    console.error("updateDarsUnits error:", err);
+    return { status: "error" as const, error: "خطا در ویرایش تعداد واحد" };
+  }
+}

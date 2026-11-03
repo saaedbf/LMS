@@ -19,9 +19,12 @@ import SearchableSelect from "@/components/widgets/Elements/SearchableSelect";
 import DataTableLayout from "@/components/widgets/DataTableLayout";
 import {
   connectDarsToReshteh,
-  disconnectDarsFromReshteh,
   getAvailableDars,
+  disconnectDarsFromReshteh,
 } from "@/actions/darsPayeReshtehActions";
+import ActionModal from "@/components/widgets/ActionModal";
+import EditBtn from "@/components/widgets/Elements/EditBtn";
+import EditUnitsForm from "./ManageReshtehCoursesEditForm";
 
 type AssignedItem = {
   id: string;
@@ -48,7 +51,7 @@ export default function ManageReshtehCoursesForm({
   const [selectedPaye, setSelectedPaye] = useState<number>(0);
   const [selectedDars, setSelectedDars] = useState<string>("");
   const [units, setUnits] = useState<number>(1);
-
+  const [editingItem, setEditingItem] = useState<AssignedItem | null>(null);
   const [availableDars, setAvailableDars] = useState<
     { id: string; title: string }[]
   >([]);
@@ -193,19 +196,42 @@ export default function ManageReshtehCoursesForm({
                 <Td>{item.reshtehTadris.title}</Td>
                 <Td>{item.units}</Td>
                 <TdActions>
-                  <DeleteBtn
-                    onClick={() => {
-                      setSelectedItemToDelete(item);
-                      setOpenDelete(true);
-                    }}
-                  />
+                  <div className="flex items-center justify-center gap-2">
+                    {/* دکمه ویرایش */}
+                    <EditBtn onClick={() => setEditingItem(item)} />
+
+                    {/* دکمه حذف */}
+                    <DeleteBtn
+                      onClick={() => {
+                        setSelectedItemToDelete(item);
+                        setOpenDelete(true);
+                      }}
+                    />
+                  </div>
                 </TdActions>
               </Tr>
             ))}
           </Tbody>
         </Table>
       </DataTableLayout>
-
+      {/* مودال ویرایش تعداد واحد */}
+      <ActionModal
+        title="ویرایش تعداد واحد"
+        desc="تعداد واحد درس را در برنامه این رشته تغییر دهید."
+        open={!!editingItem}
+        setOpen={(v) => !v && setEditingItem(null)}
+        trigger={null}
+        contentClassName="w-[95vw] max-w-md"
+      >
+        {editingItem && (
+          <EditUnitsForm
+            key={editingItem.id}
+            item={editingItem}
+            reshtehId={reshtehId}
+            setOpen={(v) => !v && setEditingItem(null)}
+          />
+        )}
+      </ActionModal>
       <DeleteConfirmModal
         open={openDelete}
         setOpen={(v) => {
