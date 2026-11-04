@@ -12,6 +12,7 @@ import {
   teacherSchema,
   TeacherSchema,
 } from "@/lib/schemas/teacher";
+import { getCurrentContext } from "./authActions";
 
 type ActionSuccess<T> = { status: "success"; data: T };
 type ActionError = { status: "error"; error: string };
@@ -455,4 +456,62 @@ export async function getAllTeachersForExport() {
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
+}
+
+export async function createTeacherUserAssignment(
+  teacherId: string,
+  schoolId: number,
+  academicYearId: number,
+) {
+  const context = await getCurrentContext();
+
+  // فقط مدیر یا Master اجازه دارد
+  if (!context?.user || (context.role !== "MANAGER" && !context.isMaster)) {
+    return { status: "error", error: "دسترسی غیرمجاز" };
+  }
+
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { userId: true },
+    });
+
+    if (!teacher || !teacher.userId) {
+      return {
+        status: "error",
+        error: "این معلم حساب کاربری (لاگین) ندارد. ابتدا برای او حساب بسازید.",
+      };
+    }
+
+    // بررسی اینکه آیا از قبل وجود دارد
+    const existing = await prisma.userAssignment.findFirst({
+      where: {
+        userId: teacher.userId,
+        schoolId,
+        academicYearId,
+        role: "TEACHER",
+      },
+    });
+
+    if (existing) {
+      return { status: "success", data: existing }; // از قبل وجود دارد
+    }
+
+    // ایجاد دسترسی
+    const newAssignment = await prisma.userAssignment.create({
+      data: {
+        userId: teacher.userId,
+        schoolId,
+        academicYearId,
+        role: "TEACHER",
+        isActive: true,
+      },
+    });
+
+    revalidatePath("/dashboard/manager/teachers");
+    return { status: "success", data: newAssignment };
+  } catch (error: any) {
+    console.error("CREATE_TEACHER_ASSIGNMENT_ERROR", error);
+    return { status: "error", error: "خطا در ایجاد دسترسی معلم" };
+  }
 }

@@ -31,6 +31,7 @@ import { Trash2, Users } from "lucide-react";
 import { deleteTeacherAssignment } from "@/actions/teacherAssignmentActions";
 import { exportToExcel } from "@/lib/utils/exportExcel";
 import ExportExcelBtn from "@/components/widgets/ExportExcelBtn";
+import { FixTeacherAssignmentBtn } from "./FixTeacherAssignmentBtn";
 type AssignmentForTable = {
   id: string;
   schoolId: number;
@@ -352,6 +353,11 @@ export default function TeacherComp({
                           ) : (
                             <EditBtn disabled />
                           )}
+                          <FixTeacherAssignmentBtn
+                            teacherId={teacher.id}
+                            schoolId={schoolId}
+                            academicYearId={academicYearId}
+                          />
                           <ConfirmModal
                             title="ریست کلمه عبور معلم"
                             desc="پس از تأیید، کلمه عبور معلم تغییر خواهد کرد."
