@@ -227,14 +227,6 @@ export async function createGradePeriod(input: unknown) {
       return error("برخی از کلاس‌های انتخاب‌شده معتبر نیستند");
     }
 
-    const klassesByPaye = new Map<number, string[]>();
-    for (const k of validKlasses) {
-      if (!klassesByPaye.has(k.payeId)) {
-        klassesByPaye.set(k.payeId, []);
-      }
-      klassesByPaye.get(k.payeId)!.push(k.id);
-    }
-
     const allLessonIds = parsed.data.lessonsByPaye.flatMap((l) => l.lessonIds);
     const validLessons = await prisma.darsPayeReshteh.findMany({
       where: { id: { in: allLessonIds } },
@@ -261,6 +253,7 @@ export async function createGradePeriod(input: unknown) {
         },
       });
 
+      // ایجاد رابطه دوره با کلاس‌ها (برای نمایش در جدول)
       await tx.gradePeriodKlass.createMany({
         data: parsed.data.klassIds.map((klassId) => ({
           gradePeriodId: period.id,
@@ -275,14 +268,19 @@ export async function createGradePeriod(input: unknown) {
         klassId: string;
       }[] = [];
 
+      // ⬅️ اصلاح اصلی: گرفتن تمام کلاس‌های فعلی آن پایه
       for (const { payeId, lessonIds } of parsed.data.lessonsByPaye) {
-        const payeKlassIds = klassesByPaye.get(payeId) || [];
+        const payeKlasses = await tx.klass.findMany({
+          where: { schoolId, academicYearId, payeId },
+          select: { id: true },
+        });
+
         for (const lessonId of lessonIds) {
-          for (const klassId of payeKlassIds) {
+          for (const klass of payeKlasses) {
             lessonPeriods.push({
               gradePeriodId: period.id,
               darsPayeReshtehId: lessonId,
-              klassId,
+              klassId: klass.id,
             });
           }
         }
@@ -347,28 +345,25 @@ export async function updateGradePeriod(input: unknown) {
       return error("برخی از دروس انتخاب‌شده معتبر نیستند");
     }
 
-    const klassesByPaye = new Map<number, string[]>();
-    for (const k of validKlasses) {
-      if (!klassesByPaye.has(k.payeId)) {
-        klassesByPaye.set(k.payeId, []);
-      }
-      klassesByPaye.get(k.payeId)!.push(k.id);
-    }
-
     const requiredLessonPeriods: {
       gradePeriodId: string;
       darsPayeReshtehId: string;
       klassId: string;
     }[] = [];
 
+    // ⬅️ اصلاح اصلی: گرفتن تمام کلاس‌های فعلی آن پایه
     for (const { payeId, lessonIds } of parsed.data.lessonsByPaye) {
-      const payeKlassIds = klassesByPaye.get(payeId) || [];
+      const payeKlasses = await prisma.klass.findMany({
+        where: { schoolId, academicYearId, payeId },
+        select: { id: true },
+      });
+
       for (const lessonId of lessonIds) {
-        for (const klassId of payeKlassIds) {
+        for (const klass of payeKlasses) {
           requiredLessonPeriods.push({
             gradePeriodId: parsed.data.id,
             darsPayeReshtehId: lessonId,
-            klassId,
+            klassId: klass.id,
           });
         }
       }
@@ -457,6 +452,7 @@ export async function updateGradePeriod(input: unknown) {
         },
       });
 
+      // آپدیت کلاس‌های دوره
       await tx.gradePeriodKlass.deleteMany({
         where: {
           gradePeriodId: period.id,
@@ -518,7 +514,6 @@ export async function deleteGradePeriod(id: string) {
   if (isScopeError(scope)) return error(scope.error);
 
   try {
-    // ۱. بررسی وجود دوره
     const existing = await prisma.gradePeriod.findFirst({
       where: {
         id,
@@ -526,11 +521,9 @@ export async function deleteGradePeriod(id: string) {
         academicYearId: scope.academicYearId,
       },
       include: {
-        // ⬅️ گرفتن درس‌های این دوره برای چک کردن نمرات
         lessonPeriods: {
           select: {
             id: true,
-            // برای نمایش بهتر در پیام خطا (اختیاری)
             darsPayeReshteh: {
               select: {
                 reshtehTadris: { select: { title: true } },
@@ -544,7 +537,6 @@ export async function deleteGradePeriod(id: string) {
 
     if (!existing) return error("دوره یافت نشد");
 
-    // ۲. ⬅️ بررسی وجود نمره برای درس‌های این دوره
     const lessonPeriodIds = existing.lessonPeriods.map((lp) => lp.id);
 
     if (lessonPeriodIds.length > 0) {
@@ -555,11 +547,10 @@ export async function deleteGradePeriod(id: string) {
       });
 
       if (gradesCount > 0) {
-        // پیدا کردن جزئیات درس‌هایی که نمره دارند (برای پیام بهتر)
         const lessonsWithGrades = await prisma.gradePeriodLesson.findMany({
           where: {
             id: { in: lessonPeriodIds },
-            grades: { some: {} }, // فقط درس‌هایی که حداقل یک نمره دارند
+            grades: { some: {} },
           },
           select: {
             klass: { select: { title: true } },
@@ -580,7 +571,6 @@ export async function deleteGradePeriod(id: string) {
       }
     }
 
-    // ۳. اگر نمره‌ای وجود نداشت، حذف انجام شود
     await prisma.gradePeriod.delete({ where: { id } });
 
     revalidatePath(GRADE_PERIOD_ROUTE);
