@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { getStudentReport } from "@/actions/studentReportActions";
-import { Loader2, Award, BookOpen, TrendingUp } from "lucide-react";
+import { Loader2, Award, BookOpen, TrendingUp, Download } from "lucide-react";
 import type { AcademicReportData } from "@/actions/academicReportActions";
 
 export default function StudentReportForm({
@@ -15,6 +15,7 @@ export default function StudentReportForm({
 }) {
   const [selectedPeriod, setSelectedPeriod] = useState("");
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [reportData, setReportData] = useState<AcademicReportData | null>(null);
 
   const handleFetchReport = async () => {
@@ -28,6 +29,33 @@ export default function StudentReportForm({
       toast.error(res.error);
     } else {
       setReportData(res.data);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!selectedPeriod) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(
+        `/api/academic-report/${enrollmentId}?periodId=${selectedPeriod}`,
+      );
+      if (!res.ok) throw new Error("خطا در دریافت فایل");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `کارنامه-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("کارنامه دانلود شد");
+    } catch (error) {
+      console.error(error);
+      toast.error("خطا در دانلود کارنامه");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -72,16 +100,35 @@ export default function StudentReportForm({
       {/* نمایش کارنامه */}
       {reportData && (
         <div className="space-y-6">
+          {/* هدر کارنامه با دکمه دانلود */}
+          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <h2 className="text-lg font-bold text-zinc-800">
+              کارنامه: {periods.find((p) => p.id === selectedPeriod)?.title}
+            </h2>
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
+            >
+              {downloading ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <Download size={16} />
+              )}
+              دانلود PDF کارنامه
+            </button>
+          </div>
+
           {/* کارت‌های آمار */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center shadow-sm">
-              <div className="text-xs text-zinc-500 mb-1">معدل کل</div>
+              <div className="mb-1 text-xs text-zinc-500">معدل کل</div>
               <div className="text-xl font-bold text-emerald-600">
                 {reportData.studentAverage.toFixed(2)}
               </div>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center shadow-sm">
-              <div className="text-xs text-zinc-500 mb-1">رتبه در کلاس</div>
+              <div className="mb-1 text-xs text-zinc-500">رتبه در کلاس</div>
               <div className="text-xl font-bold text-blue-600">
                 {reportData.classRank}{" "}
                 <span className="text-xs font-normal text-zinc-400">
@@ -90,7 +137,7 @@ export default function StudentReportForm({
               </div>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center shadow-sm">
-              <div className="text-xs text-zinc-500 mb-1">رتبه در پایه</div>
+              <div className="mb-1 text-xs text-zinc-500">رتبه در پایه</div>
               <div className="text-xl font-bold text-indigo-600">
                 {reportData.gradeRank}{" "}
                 <span className="text-xs font-normal text-zinc-400">
@@ -99,7 +146,7 @@ export default function StudentReportForm({
               </div>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center shadow-sm">
-              <div className="text-xs text-zinc-500 mb-1">تعداد دروس</div>
+              <div className="mb-1 text-xs text-zinc-500">تعداد دروس</div>
               <div className="text-xl font-bold text-zinc-800">
                 {reportData.lessons.length}
               </div>
@@ -107,7 +154,7 @@ export default function StudentReportForm({
           </div>
 
           {/* جدول دروس */}
-          <div className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
             <div className="border-b border-zinc-200 bg-zinc-50 p-4">
               <h2 className="text-sm font-bold text-zinc-800">نمرات دروس</h2>
             </div>
@@ -125,7 +172,7 @@ export default function StudentReportForm({
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {reportData.lessons.map((l, i) => (
-                    <tr key={i} className="hover:bg-zinc-50 transition-colors">
+                    <tr key={i} className="transition-colors hover:bg-zinc-50">
                       <td className="p-3 font-medium text-zinc-800">
                         {l.lessonTitle}
                       </td>
@@ -133,7 +180,11 @@ export default function StudentReportForm({
                       <td className="p-3 text-zinc-500">{l.teacherName}</td>
                       <td className="p-3">
                         <span
-                          className={`font-bold ${l.score && l.score >= 10 ? "text-emerald-600" : "text-rose-600"}`}
+                          className={`font-bold ${
+                            l.score && l.score >= 10
+                              ? "text-emerald-600"
+                              : "text-rose-600"
+                          }`}
                         >
                           {l.score ?? l.descriptiveValue ?? "-"}
                         </span>
@@ -154,7 +205,7 @@ export default function StudentReportForm({
           {/* سه نفر اول */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-3 text-sm font-bold text-amber-600">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-600">
                 <Award size={18} />
                 برترین‌های کلاس
               </div>
@@ -162,7 +213,7 @@ export default function StudentReportForm({
                 {reportData.top3Class.map((s, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between text-sm border-b border-zinc-100 pb-2"
+                    className="flex items-center justify-between border-b border-zinc-100 pb-2 text-sm"
                   >
                     <span className="text-zinc-700">
                       {i + 1}. {s.name}
@@ -174,7 +225,7 @@ export default function StudentReportForm({
             </div>
 
             <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-3 text-sm font-bold text-amber-600">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-600">
                 <Award size={18} />
                 برترین‌های پایه
               </div>
@@ -182,7 +233,7 @@ export default function StudentReportForm({
                 {reportData.top3Grade.map((s, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between text-sm border-b border-zinc-100 pb-2"
+                    className="flex items-center justify-between border-b border-zinc-100 pb-2 text-sm"
                   >
                     <span className="text-zinc-700">
                       {i + 1}. {s.name}{" "}
@@ -197,7 +248,7 @@ export default function StudentReportForm({
 
           {/* نمودار میله‌ای */}
           <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-4 text-sm font-bold text-zinc-800">
+            <div className="mb-4 flex items-center gap-2 text-sm font-bold text-zinc-800">
               <TrendingUp size={18} className="text-blue-600" />
               نمودار نمرات دروس
             </div>
@@ -208,14 +259,16 @@ export default function StudentReportForm({
                 return (
                   <div key={i} className="flex items-center gap-3 text-xs">
                     <span
-                      className="w-24 truncate text-zinc-600 text-left"
+                      className="w-24 truncate text-left text-zinc-600"
                       dir="rtl"
                     >
                       {l.lessonTitle}
                     </span>
-                    <div className="flex-1 h-3 bg-zinc-100 rounded-full overflow-hidden">
+                    <div className="h-3 flex-1 overflow-hidden rounded-full bg-zinc-100">
                       <div
-                        className={`h-full rounded-full ${score >= 10 ? "bg-emerald-500" : "bg-rose-500"}`}
+                        className={`h-full rounded-full ${
+                          score >= 10 ? "bg-emerald-500" : "bg-rose-500"
+                        }`}
                         style={{ width: `${width}%` }}
                       />
                     </div>
