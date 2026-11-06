@@ -2,15 +2,20 @@ import { redirect } from "next/navigation";
 import { getCurrentContext } from "@/actions/authActions";
 import { prisma } from "@/lib/prisma";
 import { FileText } from "lucide-react";
+import {
+  getStudentGradePeriods,
+  getStudentEnrollmentId,
+} from "@/actions/studentReportActions";
+import StudentReportForm from "./StudentReportForm";
 
 export default async function StudentGradesPage() {
-  const { user, context } = await getCurrentContext();
+  const context = await getCurrentContext();
 
   if (!context?.schoolId || !context.academicYearId) {
     redirect("/student");
   }
 
-  // چک تنظیمات
+  // چک تنظیمات مدرسه برای نمایش کارنامه
   const settings = await prisma.schoolSettings.findUnique({
     where: { schoolId: context.schoolId },
   });
@@ -18,6 +23,12 @@ export default async function StudentGradesPage() {
   if (!settings?.showReportCardsInStudentPanel) {
     redirect("/student");
   }
+
+  // گرفتن لیست دوره‌ها و شناسه ثبت‌نام
+  const [periods, enrollmentId] = await Promise.all([
+    getStudentGradePeriods(),
+    getStudentEnrollmentId(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -30,22 +41,20 @@ export default async function StudentGradesPage() {
           <div>
             <h1 className="text-lg font-bold">کارنامه‌ها</h1>
             <p className="mt-1 text-sm text-emerald-100">
-              کارنامه‌ها و نمرات شما
+              مشاهده نمرات و رتبه‌ها
             </p>
           </div>
         </div>
       </div>
 
-      {/* محتوای placeholder */}
-      <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-12 text-center">
-        <FileText size={48} className="mx-auto mb-4 text-zinc-300" />
-        <p className="text-sm font-medium text-zinc-600">
-          کارنامه‌ها به زودی اضافه می‌شود
-        </p>
-        <p className="mt-2 text-xs text-zinc-400">
-          پس از ثبت نمرات توسط معلمان، کارنامه شما در اینجا نمایش داده می‌شود.
-        </p>
-      </div>
+      {/* کامپوننت انتخاب دوره و نمایش کارنامه */}
+      {enrollmentId ? (
+        <StudentReportForm periods={periods} enrollmentId={enrollmentId} />
+      ) : (
+        <div className="rounded-xl bg-rose-50 p-6 text-center text-rose-600">
+          ثبت‌نامی برای شما در این سال تحصیلی یافت نشد.
+        </div>
+      )}
     </div>
   );
 }

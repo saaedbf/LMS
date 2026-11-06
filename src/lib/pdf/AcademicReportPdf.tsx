@@ -158,6 +158,7 @@ const styles = StyleSheet.create({
   top3Row: {
     flexDirection: "row-reverse",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 3,
     borderBottomWidth: 0.5,
     borderBottomColor: "#f1f5f9",
@@ -231,7 +232,8 @@ export function AcademicReportPdf({
   const chartHeight = 130;
   const barWidth = 25;
   const gap =
-    (chartWidth - data.lessons.length * barWidth) / (data.lessons.length + 1);
+    (chartWidth - 25 - data.lessons.length * barWidth) /
+    (data.lessons.length + 1);
 
   return (
     <Document>
@@ -267,7 +269,6 @@ export function AcademicReportPdf({
         </View>
 
         {/* ═══════════ آمار کلی ═══════════ */}
-
         <View style={styles.statsBox}>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>معدل کل</Text>
@@ -385,9 +386,23 @@ export function AcademicReportPdf({
             <Text style={styles.top3Title}> برترین‌های کلاس</Text>
             {data.top3Class.map((s, i) => (
               <View key={i} style={styles.top3Row}>
-                <Text style={styles.top3Text}>
-                  {i + 1}. {s.name}
-                </Text>
+                <View
+                  style={{
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    flex: 1,
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.top3Text,
+                      { fontWeight: "bold", marginLeft: 4 },
+                    ]}
+                  >
+                    . {toPersianNum(i + 1)}
+                  </Text>
+                  <Text style={styles.top3Text}>{s.name}</Text>
+                </View>
                 <Text style={styles.top3Avg}>{s.avg}</Text>
               </View>
             ))}
@@ -396,12 +411,28 @@ export function AcademicReportPdf({
             <Text style={styles.top3Title}> برترین‌های پایه</Text>
             {data.top3Grade.map((s, i) => (
               <View key={i} style={styles.top3Row}>
-                <Text style={styles.top3Text}>
-                  {i + 1}. {s.name}{" "}
-                  <Text style={{ fontSize: 7, color: "#64748b" }}>
-                    ({s.klass})
+                <View
+                  style={{
+                    flexDirection: "row-reverse",
+                    alignItems: "center",
+                    flex: 1,
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.top3Text,
+                      { fontWeight: "bold", marginLeft: 4 },
+                    ]}
+                  >
+                    .{toPersianNum(i + 1)}
                   </Text>
-                </Text>
+                  <Text style={styles.top3Text}>
+                    {s.name}{" "}
+                    <Text style={{ fontSize: 7, color: "#64748b" }}>
+                      ({s.klass})
+                    </Text>
+                  </Text>
+                </View>
                 <Text style={styles.top3Avg}>{s.avg}</Text>
               </View>
             ))}
@@ -409,165 +440,17 @@ export function AcademicReportPdf({
         </View>
 
         {/* ═══════════ نمودار میله‌ای ═══════════ */}
-
-        {/* محوطه نمودار */}
-        <View style={{ flexDirection: "row-reverse", width: chartWidth }}>
-          {/* محوطه اصلی نمودار */}
-          <View style={{ flex: 1, height: chartHeight, position: "relative" }}>
-            {/* خطوط راهنمای افقی */}
-            {[5, 10, 15, 20].map((val) => (
-              <View
-                key={val}
-                style={{
-                  position: "absolute",
-                  bottom: (val / 20) * chartHeight,
-                  left: 0,
-                  right: 0,
-                  borderTopWidth: 0.5,
-                  borderTopColor: "#e2e8f0",
-                  borderStyle: "dashed",
-                }}
-              />
-            ))}
-            {/* خط شکسته معدل کلاس */}
-            <View
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                zIndex: 10,
-              }}
-            >
-              <Svg width="100%" height="100%">
-                {data.lessons.map((l, i) => {
-                  if (i === data.lessons.length - 1) return null;
-
-                  // مختصات مرکز میله‌ها با ترتیب راست به چپ
-                  const currentX =
-                    chartWidth -
-                    25 -
-                    (i * (barWidth + gap) + (barWidth + gap) / 2);
-
-                  const nextX =
-                    chartWidth -
-                    25 -
-                    ((i + 1) * (barWidth + gap) + (barWidth + gap) / 2);
-
-                  const currentY =
-                    chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
-
-                  const nextY =
-                    chartHeight -
-                    ((data.lessons[i + 1].classAvg ?? 0) / 20) * chartHeight;
-
-                  return (
-                    <Line
-                      key={i}
-                      x1={currentX + 26}
-                      y1={currentY + 13}
-                      x2={nextX + 26}
-                      y2={nextY + 13}
-                      stroke="#f59e0b"
-                      strokeWidth={1.5}
-                    />
-                  );
-                })}
-
-                {/* نقاط معدل کلاس */}
-                {data.lessons.map((l, i) => {
-                  const x =
-                    chartWidth -
-                    25 -
-                    (i * (barWidth + gap) + (barWidth + gap) / 2) +
-                    26;
-
-                  const y =
-                    chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight + 13;
-
-                  return (
-                    <Circle
-                      key={i}
-                      cx={x}
-                      cy={y}
-                      r={3}
-                      fill="#f59e0b"
-                      stroke="#ffffff"
-                      strokeWidth={1}
-                    />
-                  );
-                })}
-              </Svg>
-            </View>
-            {/* میله‌ها */}
-            <View
-              style={{
-                flexDirection: "row-reverse",
-                width: "100%",
-                height: "100%",
-                alignItems: "flex-end",
-                position: "absolute",
-                top: 0,
-                left: 0,
-                zIndex: 2,
-                opacity: 0.75, // ⬅️ این خط را اضافه کنید
-              }}
-            >
-              {data.lessons.map((l, i) => {
-                const score = l.score ?? 0;
-                const barHeight = (score / 20) * chartHeight;
-
-                return (
-                  <View
-                    key={i}
-                    style={{
-                      width: barWidth + gap,
-                      height: "100%",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      position: "relative",
-                      opacity: 0.75, // ⬅️ این خط را اضافه کنید
-                    }}
-                  >
-                    {/* عدد نمره */}
-                    <Text
-                      style={{
-                        fontSize: 7,
-                        fontWeight: "bold",
-                        color: "#0f172a",
-                        position: "absolute",
-                        bottom: barHeight,
-                        marginBottom: 2,
-                        zIndex: 3,
-                      }}
-                    >
-                      {l.score !== null ? l.score : "-"}
-                    </Text>
-
-                    {/* بدنه میله */}
-                    <View
-                      style={{
-                        width: barWidth,
-                        height: barHeight,
-                        backgroundColor: "#3b82f6",
-                        borderTopLeftRadius: 2,
-                        borderTopRightRadius: 2,
-                      }}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-            {/* محور Y */}
+        <View style={{ width: chartWidth, alignSelf: "flex-start" }}>
+          <View style={{ flexDirection: "row", width: chartWidth }}>
+            {/* محور Y — سمت راست */}
             <View
               style={{
                 width: 25,
                 height: chartHeight,
                 justifyContent: "space-between",
                 alignItems: "center",
-                borderRightWidth: 1,
-                borderRightColor: "#cbd5e1",
+                borderLeftWidth: 1,
+                borderLeftColor: "#cbd5e1",
               }}
             >
               {[20, 15, 10, 5, 0].map((val) => (
@@ -580,46 +463,198 @@ export function AcademicReportPdf({
                     textAlign: "center",
                   }}
                 >
-                  {val}
+                  {toPersianNum(val)}
                 </Text>
+              ))}
+            </View>
+
+            {/* محوطه اصلی نمودار */}
+            <View
+              style={{ flex: 1, height: chartHeight, position: "relative" }}
+            >
+              {/* خطوط راهنمای افقی */}
+              {[5, 10, 15, 20].map((val) => (
+                <View
+                  key={val}
+                  style={{
+                    position: "absolute",
+                    bottom: (val / 20) * chartHeight,
+                    left: 0,
+                    right: 0,
+                    borderTopWidth: 0.5,
+                    borderTopColor: "#e2e8f0",
+                    borderStyle: "dashed",
+                  }}
+                />
+              ))}
+
+              {/* میله‌ها */}
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  width: "100%",
+                  height: "100%",
+                  alignItems: "flex-end",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                }}
+              >
+                {data.lessons.map((l, i) => {
+                  const score = l.score ?? 0;
+                  const barHeight = (score / 20) * chartHeight;
+                  return (
+                    <View
+                      key={i}
+                      style={{
+                        width: barWidth + gap,
+                        height: "100%",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        position: "relative",
+                      }}
+                    >
+                      {/* عدد نمره */}
+                      <Text
+                        style={{
+                          fontSize: 7,
+                          fontWeight: "bold",
+                          color: "#0f172a",
+                          position: "absolute",
+                          bottom: barHeight,
+                          marginBottom: 2,
+                          zIndex: 3,
+                        }}
+                      >
+                        {l.score !== null && l.score !== undefined
+                          ? toPersianNum(l.score)
+                          : "-"}
+                      </Text>
+                      {/* بدنه میله */}
+                      <View
+                        style={{
+                          width: barWidth,
+                          height: barHeight,
+                          backgroundColor: "#3b82f6",
+                          opacity: 0.5, // ⬅️ شفافیت میله
+                          borderTopLeftRadius: 2,
+                          borderTopRightRadius: 2,
+                        }}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* خط و نقاط معدل کلاس */}
+
+              <View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 10,
+                }}
+              >
+                <Svg width="100%" height="100%">
+                  {data.lessons.map((l, i) => {
+                    if (i === data.lessons.length - 1) return null;
+
+                    const step = barWidth + gap;
+                    const plotWidth = chartWidth - 25;
+
+                    // مرکز میله i از سمت راست، سپس تبدیل به مختصات از چپ
+                    const currentXFromRight = step * i + step / 2;
+                    const nextXFromRight = step * (i + 1) + step / 2;
+
+                    const currentX = plotWidth - currentXFromRight;
+                    const nextX = plotWidth - nextXFromRight;
+
+                    const currentY =
+                      chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
+                    const nextY =
+                      chartHeight -
+                      ((data.lessons[i + 1].classAvg ?? 0) / 20) * chartHeight;
+
+                    return (
+                      <Line
+                        key={i}
+                        x1={currentX}
+                        y1={currentY}
+                        x2={nextX}
+                        y2={nextY}
+                        stroke="#f59e0b"
+                        strokeWidth={1.5}
+                      />
+                    );
+                  })}
+
+                  {/* نقاط معدل کلاس */}
+                  {data.lessons.map((l, i) => {
+                    const step = barWidth + gap;
+                    const plotWidth = chartWidth - 25;
+
+                    const xFromRight = step * i + step / 2;
+                    const x = plotWidth - xFromRight;
+
+                    const y =
+                      chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
+
+                    return (
+                      <Circle
+                        key={i}
+                        cx={x}
+                        cy={y}
+                        r={3}
+                        fill="#f59e0b"
+                        stroke="#ffffff"
+                        strokeWidth={1}
+                      />
+                    );
+                  })}
+                </Svg>
+              </View>
+            </View>
+          </View>
+
+          {/* نام دروس زیر نمودار */}
+          <View
+            style={{
+              flexDirection: "row",
+              width: chartWidth,
+              marginTop: 4,
+              alignItems: "flex-start",
+            }}
+          >
+            <View style={{ width: 25 }} />
+            <View style={{ flex: 1, flexDirection: "row-reverse" }}>
+              {data.lessons.map((l, i) => (
+                <View
+                  key={i}
+                  style={{
+                    width: barWidth + gap,
+                    alignItems: "center",
+                    paddingHorizontal: 1,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 6,
+                      textAlign: "center",
+                      color: "#475569",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {l.lessonTitle}
+                  </Text>
+                </View>
               ))}
             </View>
           </View>
         </View>
-        {/* نام دروس زیر نمودار */}
-        <View
-          style={{
-            flexDirection: "row-reverse",
-            width: chartWidth,
-            marginTop: 4,
-            alignItems: "flex-start",
-          }}
-        >
-          <View style={{ flex: 1, flexDirection: "row-reverse" }}>
-            {data.lessons.map((l, i) => (
-              <View
-                key={i}
-                style={{
-                  width: barWidth + gap,
-                  alignItems: "center",
-                  paddingHorizontal: 1,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 6,
-                    textAlign: "center",
-                    color: "#475569",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {l.lessonTitle}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <View style={{ width: 25 }} />
-        </View>
+
         {/* راهنمای نمودار */}
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
