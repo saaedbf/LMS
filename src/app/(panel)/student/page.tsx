@@ -36,7 +36,7 @@ export default async function StudentHomePage() {
   }> = [
     {
       title: "کارنامه‌ها",
-      value: "-",
+      value: String(counts.reportCards || 0), // ⬅️ تغییر کرد
       icon: FileText,
       color: "bg-emerald-50 text-emerald-600",
       href: "/student/grades",

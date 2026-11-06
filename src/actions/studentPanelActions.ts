@@ -34,6 +34,7 @@ export async function getStudentPanelData(): Promise<
     counts: {
       absences: number;
       disciplinaries: number;
+      reportCards: number;
     };
   }>
 > {
@@ -108,7 +109,20 @@ export async function getStudentPanelData(): Promise<
         });
       }
     }
-
+    // ⬅️ اضافه کنید: گرفتن تعداد دوره‌های ثبت نمره برای این دانش‌آموز
+    let reportCardsCount = 0;
+    if (enrollment) {
+      reportCardsCount = await prisma.gradePeriod.count({
+        where: {
+          schoolId: enrollment.schoolId,
+          academicYearId: enrollment.academicYearId,
+          isActive: true,
+          lessonPeriods: {
+            some: { klassId: enrollment.klassId },
+          },
+        },
+      });
+    }
     return {
       status: "success",
       data: {
@@ -134,6 +148,7 @@ export async function getStudentPanelData(): Promise<
         counts: {
           absences: absencesCount,
           disciplinaries: disciplinariesCount,
+          reportCards: reportCardsCount, // ⬅️ اضافه شد
         },
       },
     };
