@@ -105,7 +105,7 @@ export default function LoginPage() {
               {/* کد ملی */}
               <div>
                 <label className="mb-2 block text-xs font-medium text-indigo-200">
-                  کد ملی / کد پرسنلی
+                  کد ملی
                 </label>
                 <div className="relative">
                   <User
@@ -117,7 +117,7 @@ export default function LoginPage() {
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 pr-10 text-sm text-white placeholder:text-indigo-300/60 outline-none transition focus:border-amber-400/60 focus:bg-white/10 focus:ring-2 focus:ring-amber-400/20"
                     dir="ltr"
-                    placeholder="مثلا: master"
+                    placeholder="مثلا: 0934499221"
                     required
                     autoComplete="username"
                   />
