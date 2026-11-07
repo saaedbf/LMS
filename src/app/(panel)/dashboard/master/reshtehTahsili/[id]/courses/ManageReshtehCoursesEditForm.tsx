@@ -26,8 +26,8 @@ export default function EditUnitsForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (units < 1 || units > 10) {
-      toast.error("تعداد واحد باید بین ۱ تا ۱۰ باشد");
+    if (units < 0 || units > 10) {
+      toast.error("تعداد واحد باید بین 0 تا ۱۰ باشد");
       return;
     }
 
@@ -61,7 +61,7 @@ export default function EditUnitsForm({
         </label>
         <input
           type="number"
-          min={1}
+          min={0}
           max={10}
           value={units}
           onChange={(e) => setUnits(Number(e.target.value))}

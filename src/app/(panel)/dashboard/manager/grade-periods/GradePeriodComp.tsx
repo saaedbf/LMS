@@ -4,7 +4,14 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
-import { Trash2, Power, BookOpen, Users, Layers } from "lucide-react";
+import {
+  Trash2,
+  Power,
+  BookOpen,
+  Users,
+  Layers,
+  FileSpreadsheet,
+} from "lucide-react";
 
 import CreateBtn from "@/components/widgets/Elements/CreateBtn";
 import HeadTr from "@/components/widgets/Elements/table/HeaddTr";
@@ -31,6 +38,7 @@ import {
 import { convertGregorianToJalali } from "@/lib/dateUtils";
 import BackButton from "@/components/widgets/Elements/BackButton";
 import ReportButtons from "./ReportButtons";
+import Link from "next/link";
 
 // ==========================================
 // Types
@@ -355,7 +363,14 @@ export default function GradePeriodComp({
                           >
                             <Power size={14} />
                           </button>
-
+                          {/* ⬅️ دکمه مدیریت نمرات */}
+                          <Link
+                            href={`/dashboard/manager/grade-periods/${item.id}`}
+                            title="مدیریت نمرات"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-blue-300 text-blue-700 transition-colors hover:bg-blue-50"
+                          >
+                            <FileSpreadsheet size={16} />
+                          </Link>
                           {/* حذف */}
                           <ConfirmModal
                             title="حذف دوره"

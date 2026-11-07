@@ -17,6 +17,7 @@ import {
 import BackButton from "@/components/widgets/Elements/BackButton";
 import BulkGradesModal from "./BulkGradesModal";
 import { useRouter } from "next/navigation"; // ⬅️ ایمپورت اضافه شد
+import GradeInput from "@/components/widgets/GradeInput";
 type Student = {
   enrollmentId: string;
   studentId: string;
@@ -274,41 +275,13 @@ export default function GradesForm({
 
               {/* ورودی نمره */}
               <div className="relative flex flex-shrink-0 items-center gap-2">
-                {gradingType === "NUMERIC" ? (
-                  <input
-                    type="number"
-                    min={0}
-                    max={20}
-                    step={0.25}
-                    value={value}
-                    onChange={(e) =>
-                      handleChange(student.enrollmentId, e.target.value)
-                    }
-                    className={`h-11 w-20 rounded-lg border-2 px-2 text-center text-base font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      value !== "" && Number(value) >= 10
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                        : value !== "" && Number(value) < 10
-                          ? "border-rose-300 bg-rose-50 text-rose-700"
-                          : "border-zinc-300 bg-white text-zinc-700"
-                    }`}
-                    placeholder="-"
-                  />
-                ) : (
-                  <select
-                    value={value}
-                    onChange={(e) =>
-                      handleChange(student.enrollmentId, e.target.value)
-                    }
-                    className="h-11 rounded-lg border-2 border-zinc-300 bg-white px-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-</option>
-                    {DESCRIPTIVE_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <GradeInput
+                  value={value}
+                  onChange={(val) => handleChange(student.enrollmentId, val)}
+                  gradingType={gradingType}
+                  isSaving={isSaving}
+                  isSaved={isSaved}
+                />
 
                 {/* ⬅️ دکمه حذف نمره */}
                 {value !== "" && value !== null && value !== undefined && (

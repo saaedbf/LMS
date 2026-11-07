@@ -73,7 +73,7 @@ export default function ManageReshtehCoursesForm({
   }, [selectedPaye, reshtehId]);
 
   const handleAdd = async () => {
-    if (!selectedPaye || !selectedDars || units < 1) {
+    if (!selectedPaye || !selectedDars || units < 0) {
       toast.warning("لطفا پایه، درس و تعداد واحد معتبر وارد کنید");
       return;
     }
@@ -145,7 +145,7 @@ export default function ManageReshtehCoursesForm({
             </label>
             <input
               type="number"
-              min={1}
+              min={0}
               value={units}
               onChange={(e) => setUnits(Number(e.target.value))}
               className="w-full p-2 border border-gray-300 rounded-md text-sm"
