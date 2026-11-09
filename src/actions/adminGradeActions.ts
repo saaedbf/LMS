@@ -36,6 +36,10 @@ export async function getStudentsForAdminGrading(
 
     const gradePeriodLesson = await prisma.gradePeriodLesson.findFirst({
       where: { gradePeriodId: periodId, darsPayeReshtehId: lessonId, klassId },
+
+      include: {
+        gradePeriod: true,
+      },
     });
 
     if (!gradePeriodLesson) {
@@ -70,18 +74,28 @@ export async function getStudentsForAdminGrading(
 
     const gradesMap = new Map(grades.map((g) => [g.studentEnrollmentId, g]));
 
-    const students = enrollments.map((e) => ({
-      enrollmentId: e.id,
-      studentId: e.student.id,
-      firstName: e.student.firstName,
-      lastName: e.student.lastName,
-      nationalCode: e.student.nationalCode,
-      fullName: `${e.student.firstName} ${e.student.lastName}`,
-      currentValue:
-        gradingType === "NUMERIC"
-          ? (gradesMap.get(e.id)?.score ?? "")
-          : (gradesMap.get(e.id)?.descriptiveValue ?? ""),
-    }));
+    const students = enrollments.map((e) => {
+      const grade = gradesMap.get(e.id);
+      return {
+        enrollmentId: e.id,
+        studentId: e.student.id,
+        firstName: e.student.firstName,
+        lastName: e.student.lastName,
+        nationalCode: e.student.nationalCode,
+        fullName: `${e.student.firstName} ${e.student.lastName}`,
+
+        // مقدار عادی
+        currentValue:
+          gradingType === "NUMERIC"
+            ? (grade?.score ?? "")
+            : (grade?.descriptiveValue ?? ""),
+
+        // ⬅️ فیلدهای تستی
+        correctCount: grade?.correctCount ?? null,
+        wrongCount: grade?.wrongCount ?? null,
+        blankCount: grade?.blankCount ?? null,
+      };
+    });
 
     return {
       status: "success" as const,
@@ -96,9 +110,14 @@ export async function getStudentsForAdminGrading(
           id: lesson.id,
           title: lesson.reshtehTadris.title,
           units: lesson.units,
+          questionCount: gradePeriodLesson?.questionCount ?? null, // ⬅️ اضافه شد
         },
         students,
         gradingType,
+        // ⬅️ اطلاعات آزمون برای استفاده در فرم
+        isTest: gradePeriodLesson?.gradePeriod?.examType === "TEST",
+        hasNegativeScore:
+          gradePeriodLesson?.gradePeriod?.hasNegativeScore ?? false,
       },
     };
   } catch (error) {
@@ -114,6 +133,9 @@ export async function saveGradeByAdmin(input: {
   periodId: string;
   score: number | null;
   descriptiveValue?: string | null;
+  correctCount?: number | null;
+  wrongCount?: number | null;
+  blankCount?: number | null;
 }) {
   const context = await getCurrentContext();
   if (!context?.user || (context.role !== "MANAGER" && !context.isMaster)) {
@@ -136,21 +158,34 @@ export async function saveGradeByAdmin(input: {
         darsPayeReshtehId: input.darsPayeReshtehId,
         klassId: enrollment.klassId,
       },
+      include: { gradePeriod: true },
     });
     if (!gradePeriodLesson)
       return { status: "error" as const, error: "درس در دوره یافت نشد" };
 
-    const isNumericEmpty =
-      input.score === null ||
-      input.score === undefined ||
-      (typeof input.score === "number" && isNaN(input.score));
-    const isDescriptiveEmpty =
-      input.descriptiveValue === null ||
-      input.descriptiveValue === undefined ||
-      input.descriptiveValue === "";
-    const isEmpty =
-      input.score !== undefined ? isNumericEmpty : isDescriptiveEmpty;
+    const isTest = gradePeriodLesson.gradePeriod.examType === "TEST";
 
+    // ⬅️ منطق خالی بودن بر اساس نوع آزمون
+    let isEmpty = false;
+    if (isTest) {
+      // اگر هر سه فیلد تستی صفر یا خالی بودند
+      isEmpty =
+        (input.correctCount === null || input.correctCount === undefined) &&
+        (input.wrongCount === null || input.wrongCount === undefined) &&
+        (input.blankCount === null || input.blankCount === undefined);
+    } else {
+      const isNumericEmpty =
+        input.score === null ||
+        input.score === undefined ||
+        (typeof input.score === "number" && isNaN(input.score));
+      const isDescriptiveEmpty =
+        input.descriptiveValue === null ||
+        input.descriptiveValue === undefined ||
+        input.descriptiveValue === "";
+      isEmpty = input.score !== undefined ? isNumericEmpty : isDescriptiveEmpty;
+    }
+
+    // حذف نمره در صورت خالی بودن
     if (isEmpty) {
       await prisma.grade.deleteMany({
         where: {
@@ -162,6 +197,27 @@ export async function saveGradeByAdmin(input: {
       return { status: "success" as const, data: { message: "نمره حذف شد" } };
     }
 
+    // ⬅️ محاسبه نمره نهایی برای آزمون تستی
+    let finalScore = input.score;
+
+    if (isTest) {
+      const correct = input.correctCount || 0;
+      const wrong = input.wrongCount || 0;
+      const questionCount = gradePeriodLesson.questionCount || 1;
+      const hasNegative = gradePeriodLesson.gradePeriod.hasNegativeScore;
+
+      let rawScore = correct;
+      if (hasNegative) {
+        rawScore = correct - wrong / 3;
+      }
+
+      // جلوگیری از منفی شدن
+      if (rawScore < 0) rawScore = 0;
+
+      const percentage = (rawScore / questionCount) * 100;
+      finalScore = Math.min((percentage / 100) * 20, 20); // نهایتاً ۲۰
+    }
+
     const grade = await prisma.grade.upsert({
       where: {
         studentEnrollmentId_gradePeriodLessonId: {
@@ -170,15 +226,23 @@ export async function saveGradeByAdmin(input: {
         },
       },
       update: {
-        score: input.score ?? null,
+        score: finalScore ?? null,
         descriptiveValue: input.descriptiveValue || null,
+        // ⬅️ ذخیره فیلدهای تستی
+        correctCount: input.correctCount ?? null,
+        wrongCount: input.wrongCount ?? null,
+        blankCount: input.blankCount ?? null,
         lastEditedByUsername: username,
       },
       create: {
         studentEnrollmentId: input.enrollmentId,
         gradePeriodLessonId: gradePeriodLesson.id,
-        score: input.score ?? null,
+        score: finalScore ?? null,
         descriptiveValue: input.descriptiveValue || null,
+        // ⬅️ ذخیره فیلدهای تستی
+        correctCount: input.correctCount ?? null,
+        wrongCount: input.wrongCount ?? null,
+        blankCount: input.blankCount ?? null,
         lastEditedByUsername: username,
       },
     });
@@ -194,8 +258,16 @@ export async function bulkSaveGradesByAdmin(input: {
   periodId: string;
   lessonId: string;
   klassId: string;
-  grades: { nationalCode: string; value: string | number }[];
+  grades: {
+    nationalCode: string;
+    value?: string | number;
+    correctCount?: number;
+    wrongCount?: number;
+    blankCount?: number;
+  }[];
   gradingType: "NUMERIC" | "DESCRIPTIVE";
+  isTest?: boolean;
+  questionCount?: number;
 }) {
   const context = await getCurrentContext();
   if (!context?.user || (context.role !== "MANAGER" && !context.isMaster)) {
@@ -215,18 +287,22 @@ export async function bulkSaveGradesByAdmin(input: {
         darsPayeReshtehId: input.lessonId,
         klassId: input.klassId,
       },
+      include: { gradePeriod: true },
     });
 
     if (!gradePeriodLesson) {
       return { status: "error" as const, error: "درس در دوره یافت نشد" };
     }
 
+    const isTest = gradePeriodLesson.gradePeriod.examType === "TEST";
+    const hasNegative = gradePeriodLesson.gradePeriod.hasNegativeScore;
+    const qCount = gradePeriodLesson.questionCount || 1;
+
     const enrollments = await prisma.studentEnrollment.findMany({
       where: { klassId: input.klassId },
       include: { student: { select: { nationalCode: true } } },
     });
 
-    // نرمال‌سازی کد ملی به ۱۰ رقم (حذف ۰های اضافه یا اضافه کردن صفر)
     const enrollmentMap = new Map(
       enrollments.map((e) => {
         let code = e.student.nationalCode.replace(/\D/g, "");
@@ -249,31 +325,42 @@ export async function bulkSaveGradesByAdmin(input: {
         continue;
       }
 
-      let score: number | null = null;
+      let finalScore: number | null = null;
       let descriptiveValue: string | null = null;
+      let correctCount: number | null = null;
+      let wrongCount: number | null = null;
+      let blankCount: number | null = null;
 
-      if (input.gradingType === "NUMERIC") {
-        const num = Number(item.value);
-        if (isNaN(num) || num < 0 || num > 20) {
-          skipped++;
-          errors.push(
-            `نمره ${item.value} برای کد ملی ${item.nationalCode} نامعتبر است`,
-          );
-          continue;
-        }
-        score = num;
+      if (isTest) {
+        // ⬅️ محاسبه نمره برای حالت تستی
+        const correct = item.correctCount || 0;
+        const wrong = item.wrongCount || 0;
+        const blank = item.blankCount || 0;
+
+        correctCount = correct;
+        wrongCount = wrong;
+        blankCount = blank;
+
+        let rawScore = correct;
+        if (hasNegative) rawScore = correct - wrong / 3;
+        if (rawScore < 0) rawScore = 0;
+
+        const percentage = (rawScore / qCount) * 100;
+        finalScore = Math.min((percentage / 100) * 20, 20);
       } else {
-        descriptiveValue = String(item.value).trim();
-        if (
-          !["خیلی خوب", "خوب", "قابل قبول", "نیاز به تلاش"].includes(
-            descriptiveValue,
-          )
-        ) {
-          skipped++;
-          errors.push(
-            `مقدار "${descriptiveValue}" برای کد ملی ${item.nationalCode} نامعتبر است`,
-          );
-          continue;
+        // حالت عادی
+        if (input.gradingType === "NUMERIC") {
+          const num = Number(item.value);
+          if (isNaN(num) || num < 0 || num > 20) {
+            skipped++;
+            errors.push(
+              `نمره ${item.value} برای کد ملی ${item.nationalCode} نامعتبر است`,
+            );
+            continue;
+          }
+          finalScore = num;
+        } else {
+          descriptiveValue = String(item.value).trim();
         }
       }
 
@@ -289,7 +376,14 @@ export async function bulkSaveGradesByAdmin(input: {
       if (existing) {
         await prisma.grade.update({
           where: { id: existing.id },
-          data: { score, descriptiveValue, lastEditedByUsername: username },
+          data: {
+            score: finalScore,
+            descriptiveValue,
+            correctCount,
+            wrongCount,
+            blankCount,
+            lastEditedByUsername: username,
+          },
         });
         updated++;
       } else {
@@ -297,8 +391,11 @@ export async function bulkSaveGradesByAdmin(input: {
           data: {
             studentEnrollmentId: enrollmentId,
             gradePeriodLessonId: gradePeriodLesson.id,
-            score,
+            score: finalScore,
             descriptiveValue,
+            correctCount,
+            wrongCount,
+            blankCount,
             lastEditedByUsername: username,
           },
         });

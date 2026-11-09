@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft, FileQuestion } from "lucide-react";
 
 // ⬅️ اضافه کردن DatePicker فارسی
 import DatePicker from "react-multi-date-picker";
@@ -45,17 +45,19 @@ type PayeWithData = {
 };
 
 type Props = {
+  mode: "create" | "edit";
   setOpen: (open: boolean) => void;
-  mode?: "create" | "edit";
   initialData?: {
-    id: string;
-    title: string;
+    id?: string;
+    title?: string;
     description?: string | null;
     startDate?: string | null;
     endDate?: string | null;
-    isActive: boolean;
-    klassIds: string[];
-    lessonsByPaye: { payeId: number; lessonIds: string[] }[];
+    isActive?: boolean;
+    examType?: "NORMAL" | "TEST"; // ⬅️ اضافه شد
+    hasNegativeScore?: boolean; // ⬅️ اضافه شد
+    klassIds?: string[];
+    lessonsByPaye?: { payeId: number; lessonIds: string[] }[];
   };
 };
 
@@ -89,18 +91,32 @@ export default function GradePeriodForm({
     formState: { errors },
   } = useForm<CreateGradePeriodInput>({
     resolver: zodResolver(createGradePeriodSchema),
-    defaultValues: {
-      title: initialData?.title || "",
-      description: initialData?.description || "",
-      // ⬅️ startDate/endDate را از فرم حذف می‌کنیم چون با state مدیریت می‌شوند
-      startDate: initialData?.startDate || "",
-      endDate: initialData?.endDate || "",
-      isActive: initialData?.isActive ?? true,
-      klassIds: initialData?.klassIds || [],
-      lessonsByPaye: initialData?.lessonsByPaye || [],
-    },
+    defaultValues: initialData
+      ? {
+          title: initialData.title || "",
+          description: initialData.description || "",
+          startDate: initialData.startDate || "",
+          endDate: initialData.endDate || "",
+          isActive: initialData.isActive ?? true,
+          // ⬅️ استفاده از ?. برای امنیت
+          examType: initialData.examType ?? "NORMAL",
+          hasNegativeScore: initialData.hasNegativeScore ?? false,
+          klassIds: initialData.klassIds || [],
+          lessonsByPaye: initialData.lessonsByPaye || [],
+        }
+      : {
+          title: "",
+          description: "",
+          startDate: "",
+          endDate: "",
+          isActive: true,
+          examType: "NORMAL", // ⬅️ پیش‌فرض برای ایجاد
+          hasNegativeScore: false, // ⬅️ پیش‌فرض برای ایجاد
+          klassIds: [],
+          lessonsByPaye: [],
+        },
   });
-
+  const examType = watch("examType");
   const selectedKlassIds = watch("klassIds") || [];
   const lessonsByPaye = watch("lessonsByPaye") || [];
 
@@ -385,7 +401,80 @@ export default function GradePeriodForm({
             دوره فعال باشد
           </label>
         </div>
+        {/* ⬅️ بخش تنظیمات نوع آزمون */}
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-zinc-800">
+            <FileQuestion size={18} className="text-blue-600" />
+            نوع آزمون
+          </h3>
 
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* گزینه عادی */}
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
+                examType === "NORMAL"
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-zinc-200 hover:border-zinc-300 bg-white"
+              }`}
+            >
+              <input
+                type="radio"
+                value="NORMAL"
+                {...register("examType")}
+                className="mt-1 h-4 w-4"
+              />
+              <div className="flex flex-col">
+                <span className="font-medium text-zinc-800">آزمون عادی</span>
+                <span className="mt-1 text-xs text-zinc-500">
+                  نمرات به صورت مستقیم (۰ تا ۲۰) ثبت می‌شوند.
+                </span>
+              </div>
+            </label>
+
+            {/* گزینه تستی */}
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border-2 p-4 transition-all ${
+                examType === "TEST"
+                  ? "border-emerald-500 bg-emerald-50"
+                  : "border-zinc-200 hover:border-zinc-300 bg-white"
+              }`}
+            >
+              <input
+                type="radio"
+                value="TEST"
+                {...register("examType")}
+                className="mt-1 h-4 w-4"
+              />
+              <div className="flex flex-col">
+                <span className="font-medium text-zinc-800">آزمون تستی</span>
+                <span className="mt-1 text-xs text-zinc-500">
+                  ثبت نمره بر اساس تعداد صحیح، اشتباه و بدون پاسخ.
+                </span>
+              </div>
+            </label>
+          </div>
+
+          {/* ⬅️ اگر تستی انتخاب شد، چک‌باکس نمره منفی نمایش داده شود */}
+          {examType === "TEST" && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  {...register("hasNegativeScore")}
+                  className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-amber-900">
+                    این آزمون نمره منفی دارد
+                  </span>
+                  <span className="text-xs text-amber-700">
+                    (هر ۳ پاسخ اشتباه، معادل ۱ پاسخ صحیح کسر می‌شود)
+                  </span>
+                </div>
+              </label>
+            </div>
+          )}
+        </div>
         {/* بخش کلاس‌ها */}
         <div className="col-span-full">
           <div className="mb-2 flex items-center justify-between border-b border-zinc-200 pb-2 dark:border-zinc-700">

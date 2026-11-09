@@ -11,6 +11,7 @@ import {
   Users,
   Layers,
   FileSpreadsheet,
+  FileQuestion,
 } from "lucide-react";
 
 import CreateBtn from "@/components/widgets/Elements/CreateBtn";
@@ -51,6 +52,9 @@ type GradePeriodItem = {
   endDate: Date | null;
   isActive: boolean;
   createdAt: Date;
+  // ⬅️ این دو فیلد اضافه شوند
+  examType: "NORMAL" | "TEST";
+  hasNegativeScore: boolean;
   klassPeriods: {
     klass: {
       id: string;
@@ -335,6 +339,8 @@ export default function GradePeriodComp({
                                       .split("T")[0]
                                   : null,
                                 isActive: item.isActive,
+                                examType: item.examType,
+                                hasNegativeScore: item.hasNegativeScore,
                                 klassIds: item.klassPeriods.map(
                                   (kp) => kp.klass.id,
                                 ),
@@ -344,9 +350,6 @@ export default function GradePeriodComp({
                             />
                           </ActionModal>
                           <div className="p-4">
-                            <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
-                              خروجی گزارش ثبت نمرات این دوره را انتخاب کنید:
-                            </p>
                             <ReportButtons gradePeriodId={item.id} />
                           </div>
                           {/* فعال/غیرفعال */}
@@ -371,6 +374,15 @@ export default function GradePeriodComp({
                           >
                             <FileSpreadsheet size={16} />
                           </Link>
+                          {item.examType === "TEST" && (
+                            <Link
+                              href={`/dashboard/manager/grade-periods/${item.id}/exam-settings`}
+                              title="تنظیمات سوالات"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-purple-300 text-purple-700 hover:bg-purple-50"
+                            >
+                              <FileQuestion size={16} />
+                            </Link>
+                          )}
                           {/* حذف */}
                           <ConfirmModal
                             title="حذف دوره"

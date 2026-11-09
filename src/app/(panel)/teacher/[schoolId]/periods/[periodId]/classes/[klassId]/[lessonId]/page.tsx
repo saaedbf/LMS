@@ -43,6 +43,8 @@ export default async function GradesPage({ params }: Props) {
       klass={res.data.klass}
       students={res.data.students}
       gradingType={res.data.gradingType}
+      isTest={res.data.isTest}
+      hasNegativeScore={res.data.hasNegativeScore}
     />
   );
 }

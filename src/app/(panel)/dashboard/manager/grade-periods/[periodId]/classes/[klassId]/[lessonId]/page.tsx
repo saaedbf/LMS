@@ -7,6 +7,12 @@ type Props = {
     periodId: string;
     klassId: string;
     lessonId: string;
+    lesson: {
+      id: string;
+      title: string;
+      units: number;
+      questionCount?: number | null; // ⬅️ این خط را تغییر دهید (اضافه شدن | null)
+    };
   }>;
 };
 
@@ -32,6 +38,9 @@ export default async function AdminGradesPage({ params }: Props) {
       klass={res.data.klass}
       students={res.data.students}
       gradingType={res.data.gradingType}
+      // ⬅️ این دو پراپ باید پاس داده شوند
+      isTest={res.data.isTest}
+      hasNegativeScore={res.data.hasNegativeScore}
     />
   );
 }

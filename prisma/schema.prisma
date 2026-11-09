@@ -481,7 +481,9 @@ model GradePeriod {
   // تاریخ شروع و پایان (اختیاری)
   startDate            DateTime?
   endDate              DateTime?
-
+ // ⬅️ فیلدهای جدید
+  examType             ExamType @default(NORMAL)
+  hasNegativeScore     Boolean  @default(false) // آیا نمره منفی دارد؟
   // فیلدهای سیستمی
   lastEditedByUsername String?
 
@@ -524,7 +526,9 @@ model GradePeriodLesson {
   gradePeriodId       String
   darsPayeReshtehId   String
   klassId             String  // ⬅️ اضافه شد: به کدام کلاس تعلق دارد؟
-
+  // ⬅️ فیلدهای جدید برای تنظیمات آزمون تستی
+  questionCount       Int?    // تعداد سوالات
+  questionRange       String? // محدوده سوال (مثلاً "1-10")
   gradePeriod         GradePeriod     @relation(fields: [gradePeriodId], references: [id], onDelete: Cascade)
   darsPayeReshteh     DarsPayeReshteh @relation(fields: [darsPayeReshtehId], references: [id], onDelete: Cascade)
   klass               Klass           @relation(fields: [klassId], references: [id], onDelete: Cascade)
@@ -586,7 +590,10 @@ model Grade {
   descriptiveValue     String?  // برای توصیفی ("خیلی خوب"، "خوب"، ...)
 
   lastEditedByUsername String?
-
+// ⬅️ فیلدهای جدید برای آزمون تستی
+  correctCount         Int?     // تعداد صحیح
+  wrongCount           Int?     // تعداد اشتباه
+  blankCount           Int?     // تعداد بدون پاسخ
   studentEnrollment    StudentEnrollment  @relation(fields: [studentEnrollmentId], references: [id], onDelete: Cascade)
   gradePeriodLesson    GradePeriodLesson  @relation(fields: [gradePeriodLessonId], references: [id], onDelete: Cascade)
 
@@ -829,4 +836,8 @@ model StudentEncouragement {
   @@index([date])
   @@index([studentEnrollmentId])
   @@map("student_encouragement")
+}
+enum ExamType {
+  NORMAL   // عادی
+  TEST     // تستی
 }

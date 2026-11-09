@@ -165,6 +165,16 @@ export default function StudentReportForm({
                     <th className="p-3">نام درس</th>
                     <th className="p-3">واحد</th>
                     <th className="p-3">دبیر</th>
+                    {/* ⬅️ ستون‌های تستی */}
+                    {reportData.period.examType === "TEST" && (
+                      <>
+                        <th className="p-3">تعداد سوال</th>
+                        <th className="p-3">صحیح</th>
+                        <th className="p-3">اشتباه</th>
+                        <th className="p-3">بی‌پاسخ</th>
+                        <th className="p-3">درصد</th>
+                      </>
+                    )}
                     <th className="p-3">نمره</th>
                     <th className="p-3">رتبه کلاس</th>
                     <th className="p-3">رتبه پایه</th>
@@ -178,6 +188,30 @@ export default function StudentReportForm({
                       </td>
                       <td className="p-3 text-zinc-600">{l.units}</td>
                       <td className="p-3 text-zinc-500">{l.teacherName}</td>
+
+                      {/* ⬅️ مقادیر تستی */}
+                      {reportData.period.examType === "TEST" && (
+                        <>
+                          <td className="p-3 text-zinc-600">
+                            {l.questionCount ?? "-"}
+                          </td>
+                          <td className="p-3 text-emerald-600">
+                            {l.correctCount ?? "-"}
+                          </td>
+                          <td className="p-3 text-rose-600">
+                            {l.wrongCount ?? "-"}
+                          </td>
+                          <td className="p-3 text-zinc-500">
+                            {l.blankCount ?? "-"}
+                          </td>
+                          <td className="p-3 text-blue-600 font-bold">
+                            {l.percentage !== null
+                              ? `${l.percentage.toFixed(1)}%`
+                              : "-"}
+                          </td>
+                        </>
+                      )}
+
                       <td className="p-3">
                         <span
                           className={`font-bold ${

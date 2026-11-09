@@ -13,7 +13,10 @@ export type AcademicReportData = {
   school: { title: string };
   academicYear: { title: string };
   klass: { title: string; paye: string; reshteh: string };
-  period: { title: string };
+  period: {
+    title: string;
+    examType: "NORMAL" | "TEST"; // ⬅️ اضافه شد
+  };
   lessons: Array<{
     lessonTitle: string;
     units: number;
@@ -23,6 +26,12 @@ export type AcademicReportData = {
     classRank: number | null;
     gradeRank: number | null;
     classAvg: number;
+    // ⬅️ فیلدهای تستی اضافه شدند
+    questionCount: number | null;
+    correctCount: number | null;
+    wrongCount: number | null;
+    blankCount: number | null;
+    percentage: number | null;
   }>;
   studentAverage: number;
   classRank: number;
@@ -131,7 +140,7 @@ export async function getAcademicReportData(
       gradeMap.set(`${g.studentEnrollmentId}_${g.gradePeriodLessonId}`, g);
     }
 
-    // ⬅️ تابع محاسبه معدل: حالا کلاس دانش‌آموز را چک می‌کند
+    // ۸. تابع محاسبه معدل
     const calcAvg = (enrId: string, klassId: string) => {
       let totalScore = 0;
       let totalUnits = 0;
@@ -151,7 +160,7 @@ export async function getAcademicReportData(
       return totalUnits > 0 ? totalScore / totalUnits : 0;
     };
 
-    // ۸. محاسبه معدل کلاس
+    // ۹. محاسبه معدل کلاس
     const classAverages = classEnrollments
       .map((e) => ({
         enrollmentId: e.id,
@@ -160,7 +169,7 @@ export async function getAcademicReportData(
       }))
       .sort((a, b) => b.avg - a.avg);
 
-    // ۹. محاسبه معدل پایه (برای هر دانش‌آموز بر اساس کلاس خودش)
+    // ۱۰. محاسبه معدل پایه
     const gradeAverages = gradeEnrollments
       .map((e) => ({
         enrollmentId: e.id,
@@ -170,32 +179,27 @@ export async function getAcademicReportData(
       }))
       .sort((a, b) => b.avg - a.avg);
 
-    // ۱۰. محاسبه رتبه‌های تک‌تک دروس
-
+    // ۱۱. محاسبه رتبه‌های تک‌تک دروس
     const lessonsData = studentClassLessons.map((lesson) => {
       const studentGrade = gradeMap.get(`${enrollmentId}_${lesson.id}`);
 
-      // پیدا کردن معلم این درس در این کلاس
       const classCourse = lesson.darsPayeReshteh.classCourses.find(
         (cc) => cc.klassId === enrollment.klassId,
       );
       const teacher = classCourse?.teacher;
 
-      // نمرات کلاس: فقط دانش‌آموزان همین کلاس که نمره این درس را دارند
       const classLessonScores = classEnrollments
         .map((e) => gradeMap.get(`${e.id}_${lesson.id}`)?.score)
         .filter((s) => s !== undefined && s !== null) as number[];
 
-      // ⬅️ نمرات پایه: باید دانش‌آموزانی را پیدا کنیم که این درس را در کلاس خودشان دارند
       const gradeLessonScores = gradeEnrollments
         .map((e) => {
-          // درس معادل این درس در کلاس دانش‌آموز پایه
           const equivalentLesson = allPeriodLessons.find(
             (pl) =>
               pl.klassId === e.klassId &&
               pl.darsPayeReshtehId === lesson.darsPayeReshtehId,
           );
-          if (!equivalentLesson) return null; // اگر این درس را ندارد
+          if (!equivalentLesson) return null;
           const g = gradeMap.get(`${e.id}_${equivalentLesson.id}`);
           return g?.score ?? null;
         })
@@ -216,6 +220,22 @@ export async function getAcademicReportData(
             classLessonScores.length
           : 0;
 
+      // ⬅️ محاسبه فیلدهای تستی
+      const isTest = period.examType === "TEST";
+      let percentage: number | null = null;
+
+      if (isTest && studentGrade) {
+        const correct = studentGrade.correctCount || 0;
+        const wrong = studentGrade.wrongCount || 0;
+        const qCount = lesson.questionCount || 1;
+
+        let rawScore = correct;
+        if (period.hasNegativeScore) rawScore = correct - wrong / 3;
+        if (rawScore < 0) rawScore = 0;
+
+        percentage = (rawScore / qCount) * 100;
+      }
+
       return {
         lessonTitle: lesson.darsPayeReshteh.reshtehTadris.title,
         units: lesson.darsPayeReshteh.units,
@@ -225,10 +245,16 @@ export async function getAcademicReportData(
         classRank,
         gradeRank,
         classAvg,
+        // ⬅️ مقادیر تستی
+        questionCount: isTest ? (lesson.questionCount ?? null) : null,
+        correctCount: isTest ? (studentGrade?.correctCount ?? null) : null,
+        wrongCount: isTest ? (studentGrade?.wrongCount ?? null) : null,
+        blankCount: isTest ? (studentGrade?.blankCount ?? null) : null,
+        percentage,
       };
     });
 
-    // ۱۱. معدل و رتبه خود دانش‌آموز
+    // ۱۲. معدل و رتبه خود دانش‌آموز
     const studentAvg = calcAvg(enrollmentId, enrollment.klassId);
     const classRank =
       classAverages.findIndex((e) => e.enrollmentId === enrollmentId) + 1;
@@ -251,7 +277,10 @@ export async function getAcademicReportData(
           paye: enrollment.klass.paye.title,
           reshteh: enrollment.klass.reshtehTahsili.title,
         },
-        period: { title: period.title },
+        period: {
+          title: period.title,
+          examType: period.examType, // ⬅️ ارسال نوع آزمون
+        },
         lessons: lessonsData,
         studentAverage: studentAvg,
         classRank: classRank > 0 ? classRank : 0,

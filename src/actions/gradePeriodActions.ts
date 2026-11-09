@@ -249,6 +249,9 @@ export async function createGradePeriod(input: unknown) {
           isActive: parsed.data.isActive,
           schoolId,
           academicYearId,
+          // ⬅️ اضافه شدن فیلدهای جدید
+          examType: parsed.data.examType,
+          hasNegativeScore: parsed.data.hasNegativeScore,
           lastEditedByUsername: username,
         },
       });
@@ -448,6 +451,9 @@ export async function updateGradePeriod(input: unknown) {
             : null,
           endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
           isActive: parsed.data.isActive,
+          // ⬅️ اضافه شدن فیلدهای جدید
+          examType: parsed.data.examType,
+          hasNegativeScore: parsed.data.hasNegativeScore,
           lastEditedByUsername: username,
         },
       });
@@ -606,5 +612,44 @@ export async function toggleGradePeriodActive(id: string) {
   } catch (err) {
     console.error("toggleGradePeriodActive error:", err);
     return error("خطا در تغییر وضعیت");
+  }
+}
+export async function updateLessonExamSettings(
+  gradePeriodId: string,
+  settings: {
+    gradePeriodLessonIds: string[]; // ⬅️ حالا یک لیست از IDها می‌گیریم
+    questionCount: number;
+    questionRange: string;
+  }[],
+) {
+  const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
+  if (isScopeError(scope)) return error(scope.error);
+
+  try {
+    // جمع کردن همه‌ی ID ها برای آپدیت دسته‌جمعی
+    const allIds = settings.flatMap((s) => s.gradePeriodLessonIds);
+
+    // استفاده از Promise.all برای سرعت بیشتر
+    await prisma.$transaction(
+      settings.flatMap((item) =>
+        item.gradePeriodLessonIds.map((id) =>
+          prisma.gradePeriodLesson.update({
+            where: { id },
+            data: {
+              questionCount: item.questionCount,
+              questionRange: item.questionRange,
+            },
+          }),
+        ),
+      ),
+    );
+
+    revalidatePath(GRADE_PERIOD_ROUTE);
+    return success({
+      message: "تنظیمات آزمون با موفقیت برای همه کلاس‌ها ذخیره شد",
+    });
+  } catch (err) {
+    console.error("updateLessonExamSettings error:", err);
+    return error("خطا در ذخیره تنظیمات آزمون");
   }
 }

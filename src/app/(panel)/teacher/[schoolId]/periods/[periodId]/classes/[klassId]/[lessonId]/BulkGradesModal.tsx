@@ -11,6 +11,8 @@ type Props = {
   lessonId: string;
   klassId: string;
   gradingType: "NUMERIC" | "DESCRIPTIVE";
+  isTest?: boolean; // ⬅️ اضافه شد
+  questionCount?: number; // ⬅️ اضافه شد
   onSuccess?: () => void;
 };
 
@@ -19,6 +21,8 @@ export default function BulkGradesModal({
   lessonId,
   klassId,
   gradingType,
+  isTest = false,
+  questionCount = 0,
   onSuccess,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -26,7 +30,6 @@ export default function BulkGradesModal({
   const [isPending, setIsPending] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  // ⬅️ هر بار که مودال باز می‌شود، وضعیت قبلی پاک شود
   useEffect(() => {
     if (open) {
       setText("");
@@ -35,7 +38,6 @@ export default function BulkGradesModal({
     }
   }, [open]);
 
-  // ⬅️ تابع بستن مودال
   const handleClose = () => {
     setOpen(false);
   };
@@ -44,7 +46,15 @@ export default function BulkGradesModal({
     if (!text.trim()) return toast.error("متنی برای پردازش وجود ندارد");
 
     const lines = text.trim().split("\n");
-    const gradesData: { nationalCode: string; value: string }[] = [];
+
+    // ⬅️ تایپ داده‌های ارسالی
+    const gradesData: {
+      nationalCode: string;
+      value?: string;
+      correctCount?: number;
+      wrongCount?: number;
+      blankCount?: number;
+    }[] = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -52,23 +62,33 @@ export default function BulkGradesModal({
 
       const parts = line.split(/\t|,|\|/).map((p) => p.trim());
 
-      if (parts.length >= 2) {
-        // ⬅️ نرمال‌سازی کد ملی: حذف کاراکترهای غیرعددی و پر کردن با صفر تا ۱۰ رقم
-        let cleanCode = String(parts[0]).replace(/\D/g, "");
-        if (cleanCode.length === 8) cleanCode = "00" + cleanCode;
-        else if (cleanCode.length === 9) cleanCode = "0" + cleanCode;
+      let cleanCode = String(parts[0]).replace(/\D/g, "");
+      if (cleanCode.length === 8) cleanCode = "00" + cleanCode;
+      else if (cleanCode.length === 9) cleanCode = "0" + cleanCode;
 
-        gradesData.push({
-          nationalCode: cleanCode,
-          value: parts[1],
-        });
+      if (isTest) {
+        // ⬅️ حالت تستی: کد ملی، صحیح، غلط، بی‌پاسخ
+        if (parts.length >= 4) {
+          gradesData.push({
+            nationalCode: cleanCode,
+            correctCount: Number(parts[1]) || 0,
+            wrongCount: Number(parts[2]) || 0,
+            blankCount: Number(parts[3]) || 0,
+          });
+        }
+      } else {
+        // حالت عادی: کد ملی، نمره
+        if (parts.length >= 2) {
+          gradesData.push({
+            nationalCode: cleanCode,
+            value: parts[1],
+          });
+        }
       }
     }
 
     if (gradesData.length === 0) {
-      return toast.error(
-        "هیچ ردیف معتبری یافت نشد. فرمت باید شامل کد ملی و نمره باشد.",
-      );
+      return toast.error("هیچ ردیف معتبری یافت نشد. فرمت را بررسی کنید.");
     }
 
     setIsPending(true);
@@ -88,8 +108,6 @@ export default function BulkGradesModal({
       } else {
         setResult(res.data);
         toast.success("پردازش به پایان رسید");
-
-        // ⬅️ آپدیت کردن لیست نمرات در فرم اصلی
         if (onSuccess) onSuccess();
       }
     } catch (error) {
@@ -101,8 +119,8 @@ export default function BulkGradesModal({
 
   return (
     <ActionModal
-      title="ثبت گروهی نمرات"
-      desc="کد ملی و نمره را از اکسل کپی کرده و در کادر زیر پیست کنید."
+      title={`ثبت گروهی نمرات ${isTest ? "(تستی)" : ""}`}
+      desc="کد ملی و نمره(ها) را از اکسل کپی کرده و در کادر زیر پیست کنید."
       open={open}
       setOpen={setOpen}
       trigger={
@@ -118,20 +136,38 @@ export default function BulkGradesModal({
           <>
             <div className="rounded-lg bg-blue-50 p-3 text-xs text-blue-800">
               <p className="font-bold mb-1">راهنما:</p>
-              <p>ستون اول: کد ملی (۸ تا ۱۱ رقم)</p>
-              <p>
-                ستون دوم: نمره{" "}
-                {gradingType === "NUMERIC"
-                  ? "(عددی از 0 تا 20)"
-                  : "(خیلی خوب، خوب، قابل قبول، نیاز به تلاش)"}
-              </p>
+              {isTest ? (
+                <>
+                  <p>ستون اول: کد ملی</p>
+                  <p>ستون دوم: تعداد صحیح</p>
+                  <p>ستون سوم: تعداد غلط</p>
+                  <p>ستون چهارم: تعداد بی‌پاسخ</p>
+                  <p className="mt-1 font-bold text-indigo-700">
+                    (تعداد کل سوالات این درس: {questionCount})
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>ستون اول: کد ملی (۸ تا ۱۱ رقم)</p>
+                  <p>
+                    ستون دوم: نمره{" "}
+                    {gradingType === "NUMERIC"
+                      ? "(عددی از 0 تا 20)"
+                      : "(خیلی خوب، خوب، قابل قبول، نیاز به تلاش)"}
+                  </p>
+                </>
+              )}
             </div>
 
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={8}
-              placeholder={`0012345678\t18.5\n0098765432\t15\n...`}
+              placeholder={
+                isTest
+                  ? `0012345678\t18\t2\t0\n0098765432\t15\t5\t0\n...`
+                  : `0012345678\t18.5\n0098765432\t15\n...`
+              }
               className="w-full rounded-lg border border-zinc-300 p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               dir="ltr"
             />

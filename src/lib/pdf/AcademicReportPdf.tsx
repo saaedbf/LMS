@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   thText: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tdText: {
-    fontSize: 8,
+    fontSize: 7.5,
     textAlign: "center",
   },
 
@@ -326,9 +326,34 @@ export function AcademicReportPdf({
             <View style={[styles.th, { flex: 0.6 }]}>
               <Text style={styles.thText}>واحد</Text>
             </View>
-            <View style={[styles.th, { flex: 1.8 }]}>
+            {/* ⬅️ فضای دبیر از 1.8 به 1.2 کاهش یافت */}
+            <View style={[styles.th, { flex: 1.2 }]}>
               <Text style={styles.thText}>دبیر</Text>
             </View>
+
+            {/* ⬅️ ستون‌های تستی */}
+            {data.period.examType === "TEST" && (
+              <>
+                {/* ⬅️ فضای تعداد سوال از 0.6 به 0.9 افزایش یافت */}
+                <View style={[styles.th, { flex: 0.9 }]}>
+                  <Text style={styles.thText}>تعداد سوال</Text>
+                </View>
+                {/* ⬅️ فضای صحیح از 0.6 به 0.9 افزایش یافت */}
+                <View style={[styles.th, { flex: 0.9 }]}>
+                  <Text style={styles.thText}>صحیح</Text>
+                </View>
+                <View style={[styles.th, { flex: 0.6 }]}>
+                  <Text style={styles.thText}>اشتباه</Text>
+                </View>
+                <View style={[styles.th, { flex: 0.6 }]}>
+                  <Text style={styles.thText}>بی‌پاسخ</Text>
+                </View>
+                <View style={[styles.th, { flex: 0.6 }]}>
+                  <Text style={styles.thText}>درصد</Text>
+                </View>
+              </>
+            )}
+
             <View style={[styles.th, { flex: 0.8 }]}>
               <Text style={styles.thText}>نمره</Text>
             </View>
@@ -345,7 +370,7 @@ export function AcademicReportPdf({
             <View key={i} style={styles.tableRow}>
               <View style={[styles.td, { flex: 2.5 }]}>
                 <Text
-                  style={{ fontSize: 8, textAlign: "right", paddingRight: 4 }}
+                  style={{ fontSize: 7.5, textAlign: "right", paddingRight: 4 }}
                 >
                   {l.lessonTitle}
                 </Text>
@@ -353,11 +378,40 @@ export function AcademicReportPdf({
               <View style={[styles.td, { flex: 0.6 }]}>
                 <Text style={styles.tdText}>{l.units}</Text>
               </View>
-              <View style={[styles.td, { flex: 1.8 }]}>
+              {/* ⬅️ فضای دبیر از 1.8 به 1.2 کاهش یافت */}
+              <View style={[styles.td, { flex: 1.2 }]}>
                 <Text style={{ fontSize: 7, textAlign: "center" }}>
                   {l.teacherName}
                 </Text>
               </View>
+
+              {/* ⬅️ مقادیر تستی */}
+              {data.period.examType === "TEST" && (
+                <>
+                  {/* ⬅️ فضای تعداد سوال از 0.6 به 0.9 افزایش یافت */}
+                  <View style={[styles.td, { flex: 0.9 }]}>
+                    <Text style={styles.tdText}>{l.questionCount ?? "-"}</Text>
+                  </View>
+                  {/* ⬅️ فضای صحیح از 0.6 به 0.9 افزایش یافت */}
+                  <View style={[styles.td, { flex: 0.9 }]}>
+                    <Text style={styles.tdText}>{l.correctCount ?? "-"}</Text>
+                  </View>
+                  <View style={[styles.td, { flex: 0.6 }]}>
+                    <Text style={styles.tdText}>{l.wrongCount ?? "-"}</Text>
+                  </View>
+                  <View style={[styles.td, { flex: 0.6 }]}>
+                    <Text style={styles.tdText}>{l.blankCount ?? "-"}</Text>
+                  </View>
+                  <View style={[styles.td, { flex: 0.6 }]}>
+                    <Text style={styles.tdText}>
+                      {l.percentage !== null
+                        ? `${l.percentage.toFixed(1)}%`
+                        : "-"}
+                    </Text>
+                  </View>
+                </>
+              )}
+
               <View style={[styles.td, { flex: 0.8 }]}>
                 <Text
                   style={{
@@ -547,7 +601,6 @@ export function AcademicReportPdf({
               </View>
 
               {/* خط و نقاط معدل کلاس */}
-
               <View
                 style={{
                   position: "absolute",

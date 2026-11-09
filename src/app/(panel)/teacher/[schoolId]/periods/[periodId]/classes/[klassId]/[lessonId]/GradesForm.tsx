@@ -16,8 +16,9 @@ import {
 } from "@/actions/teacherPanelActions";
 import BackButton from "@/components/widgets/Elements/BackButton";
 import BulkGradesModal from "./BulkGradesModal";
-import { useRouter } from "next/navigation"; // ⬅️ ایمپورت اضافه شد
+import { useRouter } from "next/navigation";
 import GradeInput from "@/components/widgets/GradeInput";
+
 type Student = {
   enrollmentId: string;
   studentId: string;
@@ -25,7 +26,11 @@ type Student = {
   lastName: string;
   nationalCode: string;
   fullName: string;
-  currentValue: number | string;
+  currentValue: number | string | null;
+  // ⬅️ فیلدهای تستی
+  correctCount?: number | null;
+  wrongCount?: number | null;
+  blankCount?: number | null;
 };
 
 type Props = {
@@ -37,6 +42,7 @@ type Props = {
     id: string;
     title: string;
     units: number;
+    questionCount?: number | null; // ⬅️ اضافه شد
   };
   klass: {
     id: string;
@@ -46,6 +52,8 @@ type Props = {
   };
   students: Student[];
   gradingType: "DESCRIPTIVE" | "NUMERIC";
+  isTest: boolean; // ⬅️ اضافه شد
+  hasNegativeScore: boolean; // ⬅️ اضافه شد
 };
 
 const DESCRIPTIVE_OPTIONS = ["خیلی خوب", "خوب", "قابل قبول", "نیاز به تلاش"];
@@ -59,28 +67,38 @@ export default function GradesForm({
   klass,
   students,
   gradingType,
+  isTest,
+  hasNegativeScore,
 }: Props) {
-  // ⬅️ استفاده از State محلی برای آپدیت داینامیک لیست
   const [localStudents, setLocalStudents] = useState<Student[]>(students);
 
+  // ⬅️ مقداردهی اولیه State با در نظر گرفتن حالت تستی
   const [values, setValues] = useState<Record<string, any>>(() => {
     const initial: Record<string, any> = {};
     for (const s of students) {
-      initial[s.enrollmentId] = s.currentValue;
+      if (isTest) {
+        initial[s.enrollmentId] = {
+          correctCount: s.correctCount ?? "",
+          wrongCount: s.wrongCount ?? "",
+          blankCount: s.blankCount ?? "",
+        };
+      } else {
+        initial[s.enrollmentId] = s.currentValue;
+      }
     }
     return initial;
   });
 
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
   const [savedCells, setSavedCells] = useState<Set<string>>(new Set());
-  const router = useRouter(); // ⬅️ اضافه شد
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  // ⬅️ تابع بازگشت با رفرش
+
   const handleBack = () => {
     router.push(`/teacher/${schoolId}/periods/${periodId}/classes/${klassId}`);
-    router.refresh(); // صفحه مقصد را مجبور به دریافت دیتای جدید می‌کند
+    router.refresh();
   };
-  // ⬅️ تابع رفرش لیست نمرات بعد از ثبت گروهی
+
   const refreshGrades = async () => {
     const res = await getClassStudentsWithGrades(
       schoolId,
@@ -92,19 +110,35 @@ export default function GradesForm({
       setLocalStudents(res.data.students);
       const newVals: Record<string, any> = {};
       for (const s of res.data.students) {
-        newVals[s.enrollmentId] = s.currentValue;
+        if (isTest) {
+          newVals[s.enrollmentId] = {
+            correctCount: s.correctCount ?? "",
+            wrongCount: s.wrongCount ?? "",
+            blankCount: s.blankCount ?? "",
+          };
+        } else {
+          newVals[s.enrollmentId] = s.currentValue;
+        }
       }
       setValues(newVals);
     }
   };
 
-  // پیشرفت
   const stats = useMemo(() => {
     let filled = 0;
     for (const s of localStudents) {
       const val = values[s.enrollmentId];
-      if (val !== undefined && val !== null && val !== "") {
-        filled++;
+      if (isTest) {
+        if (
+          val &&
+          (val.correctCount !== "" ||
+            val.wrongCount !== "" ||
+            val.blankCount !== "")
+        ) {
+          filled++;
+        }
+      } else {
+        if (val !== undefined && val !== null && val !== "") filled++;
       }
     }
     return {
@@ -115,24 +149,24 @@ export default function GradesForm({
           ? Math.round((filled / localStudents.length) * 100)
           : 0,
     };
-  }, [values, localStudents]);
+  }, [values, localStudents, isTest]);
 
   const handleChange = (enrollmentId: string, value: any) => {
-    if (gradingType === "NUMERIC") {
-      if (value !== "" && value !== null && value !== undefined) {
-        const num = Number(value);
-        if (isNaN(num)) return;
-        if (num < 0 || num > 20) {
-          toast.error("نمره باید بین ۰ تا ۲۰ باشد");
-          return;
-        }
+    if (
+      !isTest &&
+      gradingType === "NUMERIC" &&
+      value !== "" &&
+      value !== null
+    ) {
+      const num = Number(value);
+      if (isNaN(num) || num < 0 || num > 20) {
+        toast.error("نمره باید بین ۰ تا ۲۰ باشد");
+        return;
       }
     }
 
     setValues((prev) => ({ ...prev, [enrollmentId]: value }));
-
-    const cellKey = enrollmentId;
-    setSavingCells((prev) => new Set(prev).add(cellKey));
+    setSavingCells((prev) => new Set(prev).add(enrollmentId));
 
     startTransition(async () => {
       try {
@@ -140,22 +174,41 @@ export default function GradesForm({
           enrollmentId,
           darsPayeReshtehId: lessonId,
           periodId,
-          score:
-            gradingType === "NUMERIC" && value !== "" && value !== null
+          score: isTest
+            ? null
+            : gradingType === "NUMERIC" && value !== "" && value !== null
               ? Number(value)
               : null,
           descriptiveValue:
-            gradingType === "DESCRIPTIVE" && value !== "" ? value : null,
+            !isTest && gradingType === "DESCRIPTIVE" && value !== ""
+              ? value
+              : null,
+          // ⬅️ ارسال فیلدهای تستی
+          correctCount: isTest
+            ? value?.correctCount !== ""
+              ? Number(value?.correctCount)
+              : null
+            : null,
+          wrongCount: isTest
+            ? value?.wrongCount !== ""
+              ? Number(value?.wrongCount)
+              : null
+            : null,
+          blankCount: isTest
+            ? value?.blankCount !== ""
+              ? Number(value?.blankCount)
+              : null
+            : null,
         });
 
         if (res.status === "error") {
           toast.error(res.error);
         } else {
-          setSavedCells((prev) => new Set(prev).add(cellKey));
+          setSavedCells((prev) => new Set(prev).add(enrollmentId));
           setTimeout(() => {
             setSavedCells((prev) => {
               const next = new Set(prev);
-              next.delete(cellKey);
+              next.delete(enrollmentId);
               return next;
             });
           }, 1500);
@@ -166,7 +219,7 @@ export default function GradesForm({
       } finally {
         setSavingCells((prev) => {
           const next = new Set(prev);
-          next.delete(cellKey);
+          next.delete(enrollmentId);
           return next;
         });
       }
@@ -176,7 +229,6 @@ export default function GradesForm({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        {/* ⬅️ دکمه بازگشت اصلاح‌شده */}
         <button
           type="button"
           onClick={handleBack}
@@ -186,17 +238,18 @@ export default function GradesForm({
           بازگشت به لیست دروس
         </button>
 
-        {/* ⬅️ دکمه ثبت گروهی */}
+        {/* ⬅️ مودال ثبت گروهی با پراپ‌های جدید */}
         <BulkGradesModal
           periodId={periodId}
           lessonId={lessonId}
           klassId={klassId}
           gradingType={gradingType}
+          isTest={isTest}
+          questionCount={lesson.questionCount ?? 0}
           onSuccess={refreshGrades}
         />
       </div>
 
-      {/* هدر */}
       <div className="rounded-xl bg-gradient-to-l from-emerald-600 to-emerald-500 p-5 text-white shadow-lg">
         <div className="flex items-start justify-between">
           <div>
@@ -222,12 +275,15 @@ export default function GradesForm({
           <div className="flex items-center gap-1.5">
             <span>نوع:</span>
             <span className="rounded bg-white/20 px-2 py-0.5 text-xs">
-              {gradingType === "NUMERIC" ? "نمره‌ای (0-20)" : "توصیفی"}
+              {isTest
+                ? "آزمون تستی"
+                : gradingType === "NUMERIC"
+                  ? "نمره‌ای"
+                  : "توصیفی"}
             </span>
           </div>
         </div>
 
-        {/* نوار پیشرفت */}
         <div className="mt-4">
           <div className="mb-1 flex items-center justify-between text-xs text-emerald-100">
             <span>پیشرفت ثبت نمرات</span>
@@ -246,10 +302,13 @@ export default function GradesForm({
         </div>
       </div>
 
-      {/* لیست دانش‌آموزان */}
       <div className="space-y-2">
         {localStudents.map((student, idx) => {
-          const value = values[student.enrollmentId] ?? "";
+          const value =
+            values[student.enrollmentId] ??
+            (isTest
+              ? { correctCount: "", wrongCount: "", blankCount: "" }
+              : "");
           const isSaving = savingCells.has(student.enrollmentId);
           const isSaved = savedCells.has(student.enrollmentId);
 
@@ -258,12 +317,10 @@ export default function GradesForm({
               key={student.enrollmentId}
               className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"
             >
-              {/* شماره */}
               <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-600">
                 {idx + 1}
               </div>
 
-              {/* نام */}
               <div className="flex-1 min-w-0">
                 <div className="truncate text-sm font-medium text-zinc-800">
                   {student.fullName}
@@ -273,42 +330,34 @@ export default function GradesForm({
                 </div>
               </div>
 
-              {/* ورودی نمره */}
               <div className="relative flex flex-shrink-0 items-center gap-2">
+                {/* ⬅️ استفاده از GradeInput برای هر سه حالت */}
                 <GradeInput
                   value={value}
                   onChange={(val) => handleChange(student.enrollmentId, val)}
                   gradingType={gradingType}
+                  isTest={isTest}
+                  hasNegativeScore={hasNegativeScore}
+                  questionCount={lesson.questionCount || 0}
                   isSaving={isSaving}
                   isSaved={isSaved}
                 />
 
-                {/* ⬅️ دکمه حذف نمره */}
-                {value !== "" && value !== null && value !== undefined && (
-                  <button
-                    type="button"
-                    onClick={() => handleChange(student.enrollmentId, "")}
-                    disabled={isSaving}
-                    className="flex h-11 w-11 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-50"
-                    title="پاک کردن نمره"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
-
-                {/* نشانگر ذخیره */}
-                {(isSaving || isSaved) && (
-                  <div className="absolute -right-1 -top-1">
-                    {isSaving ? (
-                      <Loader2
-                        size={14}
-                        className="animate-spin text-blue-500"
-                      />
-                    ) : (
-                      <Check size={14} className="text-emerald-500" />
-                    )}
-                  </div>
-                )}
+                {/* دکمه حذف فقط در حالت غیر تستی */}
+                {!isTest &&
+                  value !== "" &&
+                  value !== null &&
+                  value !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() => handleChange(student.enrollmentId, "")}
+                      disabled={isSaving}
+                      className="flex h-11 w-11 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                      title="پاک کردن نمره"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
               </div>
             </div>
           );
@@ -322,7 +371,7 @@ export default function GradesForm({
           </p>
         </div>
       )}
-      {/* ⬅️ دکمه بازگشت اصلاح‌شده */}
+
       <button
         type="button"
         onClick={handleBack}

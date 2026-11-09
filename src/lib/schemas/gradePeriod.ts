@@ -15,7 +15,8 @@ export const createGradePeriodSchema = z.object({
   endDate: z.string().trim().optional(),
 
   isActive: z.boolean().default(true),
-
+  examType: z.enum(["NORMAL", "TEST"]).default("NORMAL"),
+  hasNegativeScore: z.boolean().default(false),
   klassIds: z.array(z.string().min(1)).min(1, "حداقل یک کلاس را انتخاب کنید"),
 
   // ⬅️ تغییر: دروس بر اساس پایه
