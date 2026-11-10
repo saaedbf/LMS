@@ -76,9 +76,7 @@ export default function AnswerKeyModal({ gradePeriodId, trigger }: Props) {
       toast.error(res.error);
       return;
     }
-    toast.success(
-      `کلید برای ${res.data.count} درس/کلاس این پایه ذخیره شد (${res.data.questionCount} سوال)`,
-    );
+    toast.success(`کلید برای پایه ذخیره شد (${res.data.questionCount} سوال)`);
     router.refresh();
     setOpen(false);
   };

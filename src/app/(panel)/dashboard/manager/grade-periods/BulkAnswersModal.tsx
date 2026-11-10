@@ -131,7 +131,13 @@ export default function BulkAnswersModal({ gradePeriodId, trigger }: Props) {
           <select
             className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             value={selectedPayeId ?? ""}
-            onChange={(e) => setSelectedPayeId(Number(e.target.value))}
+            onChange={(e) => {
+              setSelectedPayeId(Number(e.target.value));
+              // ⬅️ ریست فایل و نتیجه وقتی پایه عوض می‌شه
+              setRows([]);
+              setFileName("");
+              setResult(null);
+            }}
           >
             {payes.map((p) => (
               <option key={p.payeId} value={p.payeId}>
