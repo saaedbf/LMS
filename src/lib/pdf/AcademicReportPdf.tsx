@@ -10,6 +10,7 @@ import {
   Rect,
   Line,
   Circle,
+  Path,
 } from "@react-pdf/renderer";
 import type { AcademicReportData } from "@/actions/academicReportActions";
 import { toPersianNum } from "../utils";
@@ -812,31 +813,32 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
                               <View
                                 key={opt}
                                 style={{
-                                  width: 10,
-                                  height: 10,
-                                  borderRadius: 5,
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: 6,
                                   borderWidth: 0.8,
                                   borderColor: "#000",
                                   backgroundColor: isStudentChoice
                                     ? "#000"
                                     : "transparent",
-                                  marginHorizontal: 1,
+                                  marginHorizontal: 1.5,
                                   justifyContent: "center",
                                   alignItems: "center",
                                 }}
                               >
                                 {isKeyChoice && (
-                                  <Text
-                                    style={{
-                                      fontSize: 7,
-                                      color: isStudentChoice
-                                        ? "#fff"
-                                        : "#16a34a",
-                                      fontWeight: "bold",
-                                    }}
-                                  >
-                                    ✓
-                                  </Text>
+                                  <Svg width={8} height={8} viewBox="0 0 24 24">
+                                    <Path
+                                      d="M20 6L9 17l-5-5"
+                                      stroke={
+                                        isStudentChoice ? "#fff" : "#16a34a"
+                                      }
+                                      strokeWidth={3}
+                                      fill="none"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </Svg>
                                 )}
                               </View>
                             );
