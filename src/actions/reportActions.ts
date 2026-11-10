@@ -15,7 +15,7 @@ export async function getReportFilterData() {
 
   const [periods, klasses] = await Promise.all([
     prisma.gradePeriod.findMany({
-      where: { schoolId, academicYearId, isActive: true, isVisible: true },
+      where: { schoolId, academicYearId },
       select: { id: true, title: true, examType: true },
       orderBy: { createdAt: "desc" },
     }),
