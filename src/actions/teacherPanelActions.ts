@@ -105,7 +105,7 @@ export async function getActiveGradePeriodsForTeacher(schoolId: number) {
       where: {
         schoolId,
         academicYearId: assignment.academicYearId,
-        isActive: true,
+        isVisible: true,
       },
       include: {
         _count: {
