@@ -227,7 +227,8 @@ const styles = StyleSheet.create({
 function AcademicReportPage({ data }: { data: AcademicReportData }) {
   const maxScore = 20;
   const chartWidth = 480;
-  const chartHeight = 130;
+  // ⬅️ ارتفاع نمودار کمی کمتر شد تا در صفحه بعد نیفتد
+  const chartHeight = 110;
   const barWidth = 25;
   const gap =
     (chartWidth - 25 - data.lessons.length * barWidth) /
@@ -477,213 +478,218 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
       </View>
 
       {/* نمودار */}
-      <View style={{ width: chartWidth, alignSelf: "flex-start" }}>
-        <View style={{ flexDirection: "row", width: chartWidth }}>
-          <View
-            style={{
-              width: 25,
-              height: chartHeight,
-              justifyContent: "space-between",
-              alignItems: "center",
-              borderLeftWidth: 1,
-              borderLeftColor: "#cbd5e1",
-            }}
-          >
-            {[20, 15, 10, 5, 0].map((val) => (
-              <Text
-                key={val}
-                style={{
-                  fontSize: 6,
-                  color: "#64748b",
-                  height: 10,
-                  textAlign: "center",
-                }}
-              >
-                {toPersianNum(val)}
-              </Text>
-            ))}
-          </View>
-
-          <View style={{ flex: 1, height: chartHeight, position: "relative" }}>
-            {[5, 10, 15, 20].map((val) => (
-              <View
-                key={val}
-                style={{
-                  position: "absolute",
-                  bottom: (val / 20) * chartHeight,
-                  left: 0,
-                  right: 0,
-                  borderTopWidth: 0.5,
-                  borderTopColor: "#e2e8f0",
-                  borderStyle: "dashed",
-                }}
-              />
-            ))}
-
+      {/* ⬅️ کادر دور نمودار برای زیبایی */}
+      <View style={styles.chartBox}>
+        <View style={{ width: chartWidth, alignSelf: "flex-start" }}>
+          <View style={{ flexDirection: "row", width: chartWidth }}>
             <View
               style={{
-                flexDirection: "row-reverse",
-                width: "100%",
-                height: "100%",
-                alignItems: "flex-end",
-                position: "absolute",
-                top: 0,
-                left: 0,
+                width: 25,
+                height: chartHeight,
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderLeftWidth: 1,
+                borderLeftColor: "#cbd5e1",
               }}
             >
-              {data.lessons.map((l, i) => {
-                const score = l.score ?? 0;
-                const barHeight = (score / 20) * chartHeight;
-                return (
-                  <View
-                    key={i}
-                    style={{
-                      width: barWidth + gap,
-                      height: "100%",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      position: "relative",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 7,
-                        fontWeight: "bold",
-                        color: "#0f172a",
-                        position: "absolute",
-                        bottom: barHeight,
-                        marginBottom: 2,
-                        zIndex: 3,
-                      }}
-                    >
-                      {l.score !== null && l.score !== undefined
-                        ? toPersianNum(l.score)
-                        : "-"}
-                    </Text>
-                    <View
-                      style={{
-                        width: barWidth,
-                        height: barHeight,
-                        backgroundColor: "#3b82f6",
-                        opacity: 0.5,
-                        borderTopLeftRadius: 2,
-                        borderTopRightRadius: 2,
-                      }}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-
-            <View
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                zIndex: 10,
-              }}
-            >
-              <Svg width="100%" height="100%">
-                {data.lessons.map((l, i) => {
-                  if (i === data.lessons.length - 1) return null;
-                  const step = barWidth + gap;
-                  const plotWidth = chartWidth - 25;
-                  const currentXFromRight = step * i + step / 2;
-                  const nextXFromRight = step * (i + 1) + step / 2;
-                  const currentX = plotWidth - currentXFromRight;
-                  const nextX = plotWidth - nextXFromRight;
-                  const currentY =
-                    chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
-                  const nextY =
-                    chartHeight -
-                    ((data.lessons[i + 1].classAvg ?? 0) / 20) * chartHeight;
-                  return (
-                    <Line
-                      key={i}
-                      x1={currentX}
-                      y1={currentY}
-                      x2={nextX}
-                      y2={nextY}
-                      stroke="#f59e0b"
-                      strokeWidth={1.5}
-                    />
-                  );
-                })}
-                {data.lessons.map((l, i) => {
-                  const step = barWidth + gap;
-                  const plotWidth = chartWidth - 25;
-                  const xFromRight = step * i + step / 2;
-                  const x = plotWidth - xFromRight;
-                  const y =
-                    chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
-                  return (
-                    <Circle
-                      key={i}
-                      cx={x}
-                      cy={y}
-                      r={3}
-                      fill="#f59e0b"
-                      stroke="#ffffff"
-                      strokeWidth={1}
-                    />
-                  );
-                })}
-              </Svg>
-            </View>
-          </View>
-        </View>
-
-        <View
-          style={{
-            flexDirection: "row",
-            width: chartWidth,
-            marginTop: 4,
-            alignItems: "flex-start",
-          }}
-        >
-          <View style={{ width: 25 }} />
-          <View style={{ flex: 1, flexDirection: "row-reverse" }}>
-            {data.lessons.map((l, i) => (
-              <View
-                key={i}
-                style={{
-                  width: barWidth + gap,
-                  alignItems: "center",
-                  paddingHorizontal: 1,
-                }}
-              >
+              {[20, 15, 10, 5, 0].map((val) => (
                 <Text
+                  key={val}
                   style={{
                     fontSize: 6,
+                    color: "#64748b",
+                    height: 10,
                     textAlign: "center",
-                    color: "#475569",
-                    fontWeight: "bold",
                   }}
                 >
-                  {l.lessonTitle}
+                  {toPersianNum(val)}
                 </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
+              ))}
+            </View>
 
-      <View style={styles.chartLegend}>
-        <View style={styles.legendItem}>
-          <View style={{ ...styles.legendDot, backgroundColor: "#3b82f6" }} />
-          <Text style={styles.legendText}>نمره دانش‌آموز</Text>
-        </View>
-        <View style={styles.legendItem}>
+            <View
+              style={{ flex: 1, height: chartHeight, position: "relative" }}
+            >
+              {[5, 10, 15, 20].map((val) => (
+                <View
+                  key={val}
+                  style={{
+                    position: "absolute",
+                    bottom: (val / 20) * chartHeight,
+                    left: 0,
+                    right: 0,
+                    borderTopWidth: 0.5,
+                    borderTopColor: "#e2e8f0",
+                    borderStyle: "dashed",
+                  }}
+                />
+              ))}
+
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  width: "100%",
+                  height: "100%",
+                  alignItems: "flex-end",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                }}
+              >
+                {data.lessons.map((l, i) => {
+                  const score = l.score ?? 0;
+                  const barHeight = (score / 20) * chartHeight;
+                  return (
+                    <View
+                      key={i}
+                      style={{
+                        width: barWidth + gap,
+                        height: "100%",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        position: "relative",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 7,
+                          fontWeight: "bold",
+                          color: "#0f172a",
+                          position: "absolute",
+                          bottom: barHeight,
+                          marginBottom: 2,
+                          zIndex: 3,
+                        }}
+                      >
+                        {l.score !== null && l.score !== undefined
+                          ? toPersianNum(l.score)
+                          : "-"}
+                      </Text>
+                      <View
+                        style={{
+                          width: barWidth,
+                          height: barHeight,
+                          backgroundColor: "#3b82f6",
+                          opacity: 0.5,
+                          borderTopLeftRadius: 2,
+                          borderTopRightRadius: 2,
+                        }}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+
+              <View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 10,
+                }}
+              >
+                <Svg width="100%" height="100%">
+                  {data.lessons.map((l, i) => {
+                    if (i === data.lessons.length - 1) return null;
+                    const step = barWidth + gap;
+                    const plotWidth = chartWidth - 25;
+                    const currentXFromRight = step * i + step / 2;
+                    const nextXFromRight = step * (i + 1) + step / 2;
+                    const currentX = plotWidth - currentXFromRight;
+                    const nextX = plotWidth - nextXFromRight;
+                    const currentY =
+                      chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
+                    const nextY =
+                      chartHeight -
+                      ((data.lessons[i + 1].classAvg ?? 0) / 20) * chartHeight;
+                    return (
+                      <Line
+                        key={i}
+                        x1={currentX}
+                        y1={currentY}
+                        x2={nextX}
+                        y2={nextY}
+                        stroke="#f59e0b"
+                        strokeWidth={1.5}
+                      />
+                    );
+                  })}
+                  {data.lessons.map((l, i) => {
+                    const step = barWidth + gap;
+                    const plotWidth = chartWidth - 25;
+                    const xFromRight = step * i + step / 2;
+                    const x = plotWidth - xFromRight;
+                    const y =
+                      chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
+                    return (
+                      <Circle
+                        key={i}
+                        cx={x}
+                        cy={y}
+                        r={3}
+                        fill="#f59e0b"
+                        stroke="#ffffff"
+                        strokeWidth={1}
+                      />
+                    );
+                  })}
+                </Svg>
+              </View>
+            </View>
+          </View>
+
           <View
             style={{
-              ...styles.legendDot,
-              backgroundColor: "#f59e0b",
-              borderRadius: 5,
+              flexDirection: "row",
+              width: chartWidth,
+              marginTop: 4,
+              alignItems: "flex-start",
             }}
-          />
-          <Text style={styles.legendText}>معدل کلاس</Text>
+          >
+            <View style={{ width: 25 }} />
+            <View style={{ flex: 1, flexDirection: "row-reverse" }}>
+              {data.lessons.map((l, i) => (
+                <View
+                  key={i}
+                  style={{
+                    width: barWidth + gap,
+                    alignItems: "center",
+                    paddingHorizontal: 1,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 6,
+                      textAlign: "center",
+                      color: "#475569",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {l.lessonTitle}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.chartLegend}>
+          <View style={styles.legendItem}>
+            <View style={{ ...styles.legendDot, backgroundColor: "#3b82f6" }} />
+            <Text style={styles.legendText}>نمره دانش‌آموز</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View
+              style={{
+                ...styles.legendDot,
+                backgroundColor: "#f59e0b",
+                borderRadius: 5,
+              }}
+            />
+            <Text style={styles.legendText}>معدل کلاس</Text>
+          </View>
         </View>
       </View>
 
@@ -705,6 +711,77 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
             >
               پاسخ‌نامه آزمون
             </Text>
+
+            {/* ⬅️ راهنمای علائم */}
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 16,
+                marginBottom: 10,
+                paddingVertical: 4,
+                borderWidth: 0.5,
+                borderColor: "#cbd5e1",
+                backgroundColor: "#f8fafc",
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <View
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    borderWidth: 0.8,
+                    borderColor: "#000",
+                    backgroundColor: "#000",
+                  }}
+                />
+                <Text style={{ fontSize: 8, color: "#333" }}>
+                  گزینه انتخاب‌شده دانش‌آموز
+                </Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <View
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    borderWidth: 0.8,
+                    borderColor: "#000",
+                    backgroundColor: "transparent",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <Svg width={8} height={8} viewBox="0 0 24 24">
+                    <Path
+                      d="M20 6L9 17l-5-5"
+                      stroke="#16a34a"
+                      strokeWidth={3}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </View>
+                <Text style={{ fontSize: 8, color: "#333" }}>
+                  گزینه صحیح (کلید)
+                </Text>
+              </View>
+            </View>
 
             {data.lessons.map((lesson, lessonIdx) => {
               if (!lesson.answerKey) return null;

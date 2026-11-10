@@ -15,6 +15,8 @@ export default function ReportsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("");
   const [selectedPaye, setSelectedPaye] = useState<number>(0);
   const [selectedKlass, setSelectedKlass] = useState("");
+  // ⬅️ حالت نمایش پاسخ‌نامه (برای دوره‌های تستی)
+  const [includeAnswerKey, setIncludeAnswerKey] = useState(true);
 
   const [downloadingAcademic, setDownloadingAcademic] = useState(false);
   const [downloadingDetailed, setDownloadingDetailed] = useState(false);
@@ -33,6 +35,10 @@ export default function ReportsPage() {
     load();
   }, []);
 
+  // ⬅️ بررسی تستی بودن دوره انتخاب‌شده
+  const selectedPeriodData = periods.find((p) => p.id === selectedPeriod);
+  const isTestPeriod = selectedPeriodData?.examType === "TEST";
+
   const handleDownload = async (type: "academic" | "detailed") => {
     if (!selectedPeriod || !selectedKlass) {
       return toast.error("دوره و کلاس را انتخاب کنید");
@@ -43,9 +49,17 @@ export default function ReportsPage() {
     setDownloading(true);
 
     try {
-      const res = await fetch(
-        `/api/manager-report-pdf?type=${type}&periodId=${selectedPeriod}&klassId=${selectedKlass}`,
-      );
+      // ⬅️ پاس دادن includeAnswerKey فقط برای دوره تستی
+      const params = new URLSearchParams({
+        type,
+        periodId: selectedPeriod,
+        klassId: selectedKlass,
+      });
+      if (isTestPeriod) {
+        params.set("includeAnswerKey", includeAnswerKey ? "true" : "false");
+      }
+
+      const res = await fetch(`/api/manager-report-pdf?${params.toString()}`);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -96,13 +110,18 @@ export default function ReportsPage() {
             </label>
             <select
               value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
+              onChange={(e) => {
+                setSelectedPeriod(e.target.value);
+                // ⬅️ با تغییر دوره، حالت پاسخ‌نامه رو ریست کن
+                setIncludeAnswerKey(true);
+              }}
               className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm"
             >
               <option value="">-- انتخاب دوره --</option>
               {periods.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title}
+                  {p.examType === "TEST" ? " (تستی)" : ""}
                 </option>
               ))}
             </select>
@@ -149,6 +168,23 @@ export default function ReportsPage() {
               ))}
             </select>
           </div>
+
+          {/* ⬅️ نمایش فقط برای دوره‌های تستی */}
+          {isTestPeriod && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-700">
+                نمایش پاسخ‌نامه:
+              </label>
+              <select
+                value={includeAnswerKey ? "true" : "false"}
+                onChange={(e) => setIncludeAnswerKey(e.target.value === "true")}
+                className="w-full rounded-lg border border-zinc-300 p-2.5 text-sm"
+              >
+                <option value="true">با پاسخ‌نامه</option>
+                <option value="false">بدون پاسخ‌نامه</option>
+              </select>
+            </div>
+          )}
 
           {/* دکمه‌ها */}
           <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4 sm:flex-row">

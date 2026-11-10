@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get("type"); // "academic" | "detailed"
     const periodId = searchParams.get("periodId");
     const klassId = searchParams.get("klassId");
+    // ⬅️ خواندن includeAnswerKey (پیش‌فرض true)
+    const includeAnswerKey = searchParams.get("includeAnswerKey") !== "false";
 
     if (!type || !periodId || !klassId) {
       return new NextResponse("پارامترها ناقص هستند", { status: 400 });
@@ -43,7 +45,10 @@ export async function GET(req: NextRequest) {
     const boldFont = `data:font/ttf;base64,${boldFontBuffer.toString("base64")}`;
 
     if (type === "academic") {
-      const res = await getBulkAcademicReports(periodId, klassId);
+      // ⬅️ پاس دادن includeAnswerKey به اکشن
+      const res = await getBulkAcademicReports(periodId, klassId, {
+        includeAnswerKey,
+      });
 
       if (res.status === "error") {
         return new NextResponse(res.error, { status: 400 });
