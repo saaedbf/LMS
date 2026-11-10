@@ -116,7 +116,7 @@ export async function getStudentPanelData(): Promise<
         where: {
           schoolId: enrollment.schoolId,
           academicYearId: enrollment.academicYearId,
-          isActive: true,
+          isVisible: true,
           lessonPeriods: {
             some: { klassId: enrollment.klassId },
           },
