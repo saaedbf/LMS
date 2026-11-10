@@ -15,14 +15,15 @@ import {
   CalendarX,
   AlertTriangle,
   Wallet,
+  KeyRound, // ⬅️ اضافه شد
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import ChangePasswordModal from "@/components/widgets/ChangePasswordModal"; // ⬅️ اضافه شد
 
 type Props = {
   schoolName: string;
   year: string;
   userName: string;
-  // ⬅️ تنظیمات نمایش
   showReportCards?: boolean;
   showAbsences?: boolean;
   showDisciplinary?: boolean;
@@ -55,14 +56,8 @@ export default function StudentHeader({
     }
   };
 
-  // ⬅️ منوهای پویا بر اساس تنظیمات
   const allMenuItems = [
-    {
-      href: "/student",
-      label: "صفحه اصلی",
-      icon: Home,
-      show: true,
-    },
+    { href: "/student", label: "صفحه اصلی", icon: Home, show: true },
     {
       href: "/student/grades",
       label: "کارنامه‌ها",
@@ -127,6 +122,20 @@ export default function StudentHeader({
                 {userName}
               </span>
             </div>
+
+            {/* ⬅️ دکمه تغییر کلمه عبور (دسکتاپ) */}
+            <ChangePasswordModal
+              themeColor="emerald"
+              trigger={
+                <button
+                  type="button"
+                  className="rounded-lg p-2 text-amber-600 hover:bg-amber-50"
+                  title="تغییر کلمه عبور"
+                >
+                  <KeyRound size={18} />
+                </button>
+              }
+            />
 
             <button
               type="button"
@@ -244,6 +253,20 @@ export default function StudentHeader({
             </nav>
 
             <div className="absolute bottom-0 left-0 right-0 border-t border-zinc-100 p-4">
+              {/* ⬅️ دکمه تغییر کلمه عبور (موبایل) */}
+              <ChangePasswordModal
+                themeColor="emerald"
+                trigger={
+                  <button
+                    type="button"
+                    className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
+                  >
+                    <KeyRound size={16} />
+                    تغییر کلمه عبور
+                  </button>
+                }
+              />
+
               <button
                 type="button"
                 onClick={handleSignOut}
