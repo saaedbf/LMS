@@ -687,7 +687,6 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
       </View>
 
       {/* ═══════════ پاسخ‌نامه (فقط آزمون تستی) ═══════════ */}
-      {/* ⬅️ صفحه جدید + نمایش هر درس با عنوان و سوالات همون درس */}
       {data.period.examType === "TEST" &&
         data.lessons.some((l) => l.answerKey) && (
           <View style={{ marginTop: 15 }} break>
@@ -709,9 +708,7 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
             {data.lessons.map((lesson, lessonIdx) => {
               if (!lesson.answerKey) return null;
 
-              const lessonRange = expandQuestionRange(
-                (lesson as any).questionRange,
-              );
+              const lessonRange = expandQuestionRange(lesson.questionRange);
               const allKeyNums = Object.keys(lesson.answerKey)
                 .map((k) => parseInt(k, 10))
                 .filter((n) => !isNaN(n))

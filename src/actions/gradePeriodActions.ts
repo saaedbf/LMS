@@ -686,6 +686,9 @@ export async function updateLessonExamSettings(
 // گرفتن لیست پایه‌هایی که در این دوره درس تستی دارن
 // (برای انتخاب پایه در مودال‌ها)
 // ==========================================
+// ==========================================
+// گرفتن لیست پایه‌هایی که در این دوره درس تستی دارن
+// ==========================================
 export async function getPayesForExam(gradePeriodId: string) {
   const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
   if (isScopeError(scope)) return error(scope.error);
@@ -714,7 +717,6 @@ export async function getPayesForExam(gradePeriodId: string) {
         payeMap.set(p.id, { payeId: p.id, payeTitle: p.title });
       }
     }
-
     return success(Array.from(payeMap.values()));
   } catch (err) {
     console.error("getPayesForExam error:", err);
@@ -723,8 +725,7 @@ export async function getPayesForExam(gradePeriodId: string) {
 }
 
 // ==========================================
-// ذخیره کلید برای کل یک پایه (روی همه دروس تستی آن پایه)
-// ⚠️ فقط answerKey و questionCount آپدیت می‌شن. نمرات دست نمی‌خورن.
+// ذخیره کلید برای یک پایه در یک دوره
 // ==========================================
 export async function saveExamKeyForPaye(input: {
   gradePeriodId: string;
@@ -736,13 +737,10 @@ export async function saveExamKeyForPaye(input: {
 
   const parsedKey = parseExamString(input.keyString);
   const questionCount = Object.keys(parsedKey).length;
-  if (questionCount === 0) {
-    return error("فرمت کلید نامعتبر است");
-  }
+  if (questionCount === 0) return error("فرمت کلید نامعتبر است");
 
   try {
-    // همه GradePeriodLessonهای این پایه در این دوره
-    const lessons = await prisma.gradePeriodLesson.findMany({
+    const lessonsCount = await prisma.gradePeriodLesson.count({
       where: {
         gradePeriodId: input.gradePeriodId,
         darsPayeReshteh: { payeId: input.payeId },
@@ -751,30 +749,27 @@ export async function saveExamKeyForPaye(input: {
           academicYearId: scope.academicYearId,
         },
       },
-      select: { id: true },
     });
+    if (lessonsCount === 0) return error("درسی برای این پایه یافت نشد");
 
-    if (lessons.length === 0) {
-      return error("درسی برای این پایه یافت نشد");
-    }
-
-    await prisma.$transaction(
-      lessons.map((l) =>
-        prisma.gradePeriodLesson.update({
-          where: { id: l.id },
-          data: {
-            answerKey: parsedKey,
-            questionCount,
-          },
-        }),
-      ),
-    );
+    await prisma.gradePeriodPayeKey.upsert({
+      where: {
+        gradePeriodId_payeId: {
+          gradePeriodId: input.gradePeriodId,
+          payeId: input.payeId,
+        },
+      },
+      update: { answerKey: parsedKey, questionCount },
+      create: {
+        gradePeriodId: input.gradePeriodId,
+        payeId: input.payeId,
+        answerKey: parsedKey,
+        questionCount,
+      },
+    });
 
     revalidatePath(GRADE_PERIOD_ROUTE);
-    return success({
-      count: lessons.length,
-      questionCount,
-    });
+    return success({ count: lessonsCount, questionCount });
   } catch (err) {
     console.error("saveExamKeyForPaye error:", err);
     return error("خطا در ذخیره کلید");
@@ -782,34 +777,24 @@ export async function saveExamKeyForPaye(input: {
 }
 
 // ==========================================
-// گرفتن کلید فعلی یک پایه (برای پر کردن فرم ویرایش)
+// گرفتن کلید فعلی یک پایه
 // ==========================================
 export async function getExamKeyForPaye(gradePeriodId: string, payeId: number) {
   const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
   if (isScopeError(scope)) return { answerKey: null, questionCount: null };
 
-  const lesson = await prisma.gradePeriodLesson.findFirst({
-    where: {
-      gradePeriodId,
-      darsPayeReshteh: { payeId },
-      gradePeriod: {
-        schoolId: scope.schoolId,
-        academicYearId: scope.academicYearId,
-      },
-    },
-    select: { answerKey: true, questionCount: true },
+  const row = await prisma.gradePeriodPayeKey.findUnique({
+    where: { gradePeriodId_payeId: { gradePeriodId, payeId } },
   });
-
-  if (!lesson) return { answerKey: null, questionCount: null };
+  if (!row) return { answerKey: null, questionCount: null };
   return {
-    answerKey: lesson.answerKey as Record<string, number> | null,
-    questionCount: lesson.questionCount,
+    answerKey: row.answerKey as Record<string, number> | null,
+    questionCount: row.questionCount,
   };
 }
 
 // ==========================================
-// ثبت گروهی پاسخ‌ها برای کل یک پایه
-// ⚠️ فقط studentAnswers آپدیت می‌شه. نمرات دست نمی‌خورن.
+// ثبت گروهی پاسخ‌ها برای یک پایه
 // ==========================================
 export async function bulkSaveStudentAnswersByPaye(input: {
   gradePeriodId: string;
@@ -819,35 +804,11 @@ export async function bulkSaveStudentAnswersByPaye(input: {
   const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
   if (isScopeError(scope)) return error(scope.error);
 
-  const { schoolId, academicYearId } = scope;
+  const { schoolId, academicYearId, username } = scope;
 
   try {
-    // همه GradePeriodLessonهای این پایه در این دوره
-    const lessons = await prisma.gradePeriodLesson.findMany({
-      where: {
-        gradePeriodId: input.gradePeriodId,
-        darsPayeReshteh: { payeId: input.payeId },
-        gradePeriod: { schoolId, academicYearId },
-      },
-      select: { id: true, klassId: true },
-    });
-    if (lessons.length === 0) return error("درسی برای این پایه یافت نشد");
-
-    // Map کلاس → همه GradePeriodLessonهای اون کلاس برای این پایه
-    const lessonsByKlassId = new Map<string, string[]>();
-    for (const l of lessons) {
-      const arr = lessonsByKlassId.get(l.klassId) ?? [];
-      arr.push(l.id);
-      lessonsByKlassId.set(l.klassId, arr);
-    }
-
     const enrollments = await prisma.studentEnrollment.findMany({
-      where: {
-        schoolId,
-        academicYearId,
-        payeId: input.payeId,
-        klassId: { in: lessons.map((l) => l.klassId) },
-      },
+      where: { schoolId, academicYearId, payeId: input.payeId },
       include: { student: { select: { nationalCode: true } } },
     });
 
@@ -869,19 +830,9 @@ export async function bulkSaveStudentAnswersByPaye(input: {
     for (const row of input.rows) {
       const code = normalize(row.nationalCode);
       const enrollment = enrollmentMap.get(code);
-
       if (!enrollment) {
         skipped++;
         errors.push(`کد ملی ${row.nationalCode} در این پایه یافت نشد`);
-        continue;
-      }
-
-      const lessonIds = lessonsByKlassId.get(enrollment.klassId);
-      if (!lessonIds || lessonIds.length === 0) {
-        skipped++;
-        errors.push(
-          `کلاس دانش‌آموز با کد ملی ${row.nationalCode} در این درس‌ها ثبت نشده`,
-        );
         continue;
       }
 
@@ -892,33 +843,27 @@ export async function bulkSaveStudentAnswersByPaye(input: {
         continue;
       }
 
-      // ⬅️ نکته کلیدی: پاسخ روی همه دروس اون کلاس (در این پایه) ذخیره می‌شه
-      const existingGrades = await prisma.grade.findMany({
+      await prisma.studentExamAnswer.upsert({
         where: {
-          studentEnrollmentId: enrollment.id,
-          gradePeriodLessonId: { in: lessonIds },
-        },
-        select: { id: true },
-      });
-
-      if (existingGrades.length > 0) {
-        await prisma.grade.updateMany({
-          where: { id: { in: existingGrades.map((g) => g.id) } },
-          data: { studentAnswers: parsedAnswers },
-        });
-        updated++;
-      } else {
-        // اگه هیچ Grade وجود نداره، برای درس اول ایجاد می‌کنیم
-        // (score و بقیه فیلدها null می‌مونن)
-        await prisma.grade.create({
-          data: {
+          studentEnrollmentId_gradePeriodId_payeId: {
             studentEnrollmentId: enrollment.id,
-            gradePeriodLessonId: lessonIds[0],
-            studentAnswers: parsedAnswers,
+            gradePeriodId: input.gradePeriodId,
+            payeId: input.payeId,
           },
-        });
-        updated++;
-      }
+        },
+        update: {
+          answers: parsedAnswers,
+          lastEditedByUsername: username,
+        },
+        create: {
+          studentEnrollmentId: enrollment.id,
+          gradePeriodId: input.gradePeriodId,
+          payeId: input.payeId,
+          answers: parsedAnswers,
+          lastEditedByUsername: username,
+        },
+      });
+      updated++;
     }
 
     revalidatePath(GRADE_PERIOD_ROUTE);
