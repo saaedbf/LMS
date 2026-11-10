@@ -10,6 +10,7 @@ import {
   updateGradePeriodSchema,
 } from "@/lib/schemas/gradePeriod";
 import { getCurrentContext } from "./authActions";
+import { parseExamString } from "@/lib/utils/examParser";
 
 const GRADE_PERIOD_ROUTE = "/dashboard/manager/grade-periods";
 
@@ -679,5 +680,239 @@ export async function updateLessonExamSettings(
   } catch (err) {
     console.error("updateLessonExamSettings error:", err);
     return error("خطا در ذخیره تنظیمات آزمون");
+  }
+}
+// ==========================================
+// گرفتن لیست پایه‌هایی که در این دوره درس تستی دارن
+// (برای انتخاب پایه در مودال‌ها)
+// ==========================================
+export async function getPayesForExam(gradePeriodId: string) {
+  const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
+  if (isScopeError(scope)) return error(scope.error);
+
+  try {
+    const lessons = await prisma.gradePeriodLesson.findMany({
+      where: {
+        gradePeriodId,
+        gradePeriod: {
+          schoolId: scope.schoolId,
+          academicYearId: scope.academicYearId,
+          examType: "TEST",
+        },
+      },
+      include: {
+        darsPayeReshteh: {
+          include: { paye: { select: { id: true, title: true } } },
+        },
+      },
+    });
+
+    const payeMap = new Map<number, { payeId: number; payeTitle: string }>();
+    for (const l of lessons) {
+      const p = l.darsPayeReshteh.paye;
+      if (!payeMap.has(p.id)) {
+        payeMap.set(p.id, { payeId: p.id, payeTitle: p.title });
+      }
+    }
+
+    return success(Array.from(payeMap.values()));
+  } catch (err) {
+    console.error("getPayesForExam error:", err);
+    return error("خطا در گرفتن پایه‌ها");
+  }
+}
+
+// ==========================================
+// ذخیره کلید برای کل یک پایه (روی همه دروس تستی آن پایه)
+// ⚠️ فقط answerKey و questionCount آپدیت می‌شن. نمرات دست نمی‌خورن.
+// ==========================================
+export async function saveExamKeyForPaye(input: {
+  gradePeriodId: string;
+  payeId: number;
+  keyString: string;
+}) {
+  const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
+  if (isScopeError(scope)) return error(scope.error);
+
+  const parsedKey = parseExamString(input.keyString);
+  const questionCount = Object.keys(parsedKey).length;
+  if (questionCount === 0) {
+    return error("فرمت کلید نامعتبر است");
+  }
+
+  try {
+    // همه GradePeriodLessonهای این پایه در این دوره
+    const lessons = await prisma.gradePeriodLesson.findMany({
+      where: {
+        gradePeriodId: input.gradePeriodId,
+        darsPayeReshteh: { payeId: input.payeId },
+        gradePeriod: {
+          schoolId: scope.schoolId,
+          academicYearId: scope.academicYearId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (lessons.length === 0) {
+      return error("درسی برای این پایه یافت نشد");
+    }
+
+    await prisma.$transaction(
+      lessons.map((l) =>
+        prisma.gradePeriodLesson.update({
+          where: { id: l.id },
+          data: {
+            answerKey: parsedKey,
+            questionCount,
+          },
+        }),
+      ),
+    );
+
+    revalidatePath(GRADE_PERIOD_ROUTE);
+    return success({
+      count: lessons.length,
+      questionCount,
+    });
+  } catch (err) {
+    console.error("saveExamKeyForPaye error:", err);
+    return error("خطا در ذخیره کلید");
+  }
+}
+
+// ==========================================
+// گرفتن کلید فعلی یک پایه (برای پر کردن فرم ویرایش)
+// ==========================================
+export async function getExamKeyForPaye(gradePeriodId: string, payeId: number) {
+  const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
+  if (isScopeError(scope)) return { answerKey: null, questionCount: null };
+
+  const lesson = await prisma.gradePeriodLesson.findFirst({
+    where: {
+      gradePeriodId,
+      darsPayeReshteh: { payeId },
+      gradePeriod: {
+        schoolId: scope.schoolId,
+        academicYearId: scope.academicYearId,
+      },
+    },
+    select: { answerKey: true, questionCount: true },
+  });
+
+  if (!lesson) return { answerKey: null, questionCount: null };
+  return {
+    answerKey: lesson.answerKey as Record<string, number> | null,
+    questionCount: lesson.questionCount,
+  };
+}
+
+// ==========================================
+// ثبت گروهی پاسخ‌ها برای کل یک پایه
+// ⚠️ فقط studentAnswers آپدیت می‌شه. نمرات دست نمی‌خورن.
+// ==========================================
+export async function bulkSaveStudentAnswersByPaye(input: {
+  gradePeriodId: string;
+  payeId: number;
+  rows: { nationalCode: string; answers: string }[];
+}) {
+  const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
+  if (isScopeError(scope)) return error(scope.error);
+
+  const { schoolId, academicYearId } = scope;
+
+  try {
+    // همه GradePeriodLessonهای این پایه در این دوره (برای پیدا کردن کلاس هر دانش‌آموز)
+    const lessons = await prisma.gradePeriodLesson.findMany({
+      where: {
+        gradePeriodId: input.gradePeriodId,
+        darsPayeReshteh: { payeId: input.payeId },
+        gradePeriod: { schoolId, academicYearId },
+      },
+      select: { id: true, klassId: true },
+    });
+    const lessonByKlassId = new Map(lessons.map((l) => [l.klassId, l.id]));
+
+    if (lessons.length === 0) {
+      return error("درسی برای این پایه یافت نشد");
+    }
+
+    // همه دانش‌آموزان این پایه در این مدرسه/سال
+    const enrollments = await prisma.studentEnrollment.findMany({
+      where: {
+        schoolId,
+        academicYearId,
+        payeId: input.payeId,
+        klassId: { in: lessons.map((l) => l.klassId) },
+      },
+      include: { student: { select: { nationalCode: true } } },
+    });
+
+    // نرمال‌سازی کد ملی
+    const normalize = (code: string) => {
+      let c = String(code).replace(/\D/g, "");
+      if (c.length === 8) c = "00" + c;
+      else if (c.length === 9) c = "0" + c;
+      return c;
+    };
+
+    const enrollmentMap = new Map(
+      enrollments.map((e) => [normalize(e.student.nationalCode), e]),
+    );
+
+    let updated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const row of input.rows) {
+      const code = normalize(row.nationalCode);
+      const enrollment = enrollmentMap.get(code);
+
+      if (!enrollment) {
+        skipped++;
+        errors.push(`کد ملی ${row.nationalCode} در این پایه یافت نشد`);
+        continue;
+      }
+
+      const gradePeriodLessonId = lessonByKlassId.get(enrollment.klassId);
+      if (!gradePeriodLessonId) {
+        skipped++;
+        errors.push(
+          `کلاس دانش‌آموز با کد ملی ${row.nationalCode} در این درس‌ها ثبت نشده`,
+        );
+        continue;
+      }
+
+      const parsedAnswers = parseExamString(row.answers);
+      if (Object.keys(parsedAnswers).length === 0) {
+        skipped++;
+        errors.push(`فرمت پاسخ‌های کد ملی ${row.nationalCode} نامعتبر است`);
+        continue;
+      }
+
+      // ⚠️ فقط studentAnswers — بدون دست زدن به score و correctCount
+      const res = await prisma.grade.updateMany({
+        where: {
+          studentEnrollmentId: enrollment.id,
+          gradePeriodLessonId,
+        },
+        data: { studentAnswers: parsedAnswers },
+      });
+
+      if (res.count > 0) {
+        updated++;
+      } else {
+        skipped++;
+        errors.push(
+          `نمره‌ای برای کد ملی ${row.nationalCode} در این درس ثبت نشده است`,
+        );
+      }
+    }
+
+    revalidatePath(GRADE_PERIOD_ROUTE);
+    return success({ updated, skipped, errors });
+  } catch (err) {
+    console.error("bulkSaveStudentAnswersByPaye error:", err);
+    return error("خطا در ثبت گروهی پاسخ‌ها");
   }
 }

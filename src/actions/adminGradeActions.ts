@@ -3,7 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentContext } from "@/actions/authActions";
 import { revalidatePath } from "next/cache";
-
+import { parseExamString } from "@/lib/utils/examParser";
+import { getCurrentUser } from "@/lib/auth-server";
 // ۱. گرفتن لیست دانش‌آموزان برای مدیر
 export async function getStudentsForAdminGrading(
   periodId: string,
@@ -726,4 +727,122 @@ export async function getPayesAndLessonsForAdmin(periodId: string) {
   }
 
   return { status: "success" as const, data: Array.from(payeMap.values()) };
+}
+
+// ۱. ذخیره کلید آزمون (برای هر پایه/درس)
+export async function saveExamKey(
+  gradePeriodLessonId: string,
+  keyString: string,
+) {
+  try {
+    const parsedKey = parseExamString(keyString);
+    if (Object.keys(parsedKey).length === 0) {
+      return { status: "error" as const, error: "فرمت کلید نامعتبر است" };
+    }
+
+    await prisma.gradePeriodLesson.update({
+      where: { id: gradePeriodLessonId },
+      data: { answerKey: parsedKey },
+    });
+
+    revalidatePath("/teacher");
+    return { status: "success" as const, data: true };
+  } catch (err) {
+    console.error(err);
+    return { status: "error" as const, error: "خطا در ذخیره کلید" };
+  }
+}
+
+// ۲. ذخیره پاسخ‌های دانش‌آموز (بدون تغییر در score)
+export async function saveStudentAnswers(
+  enrollmentId: string,
+  gradePeriodLessonId: string,
+  answersString: string,
+) {
+  try {
+    const parsedAnswers = parseExamString(answersString);
+    if (Object.keys(parsedAnswers).length === 0) {
+      return { status: "error" as const, error: "فرمت پاسخ‌ها نامعتبر است" };
+    }
+
+    // فقط studentAnswers را آپدیت می‌کنیم، score و بقیه دست‌نخورده می‌مانند
+    await prisma.grade.updateMany({
+      where: {
+        studentEnrollmentId: enrollmentId,
+        gradePeriodLessonId,
+      },
+      data: {
+        studentAnswers: parsedAnswers,
+      },
+    });
+
+    return { status: "success" as const, data: true };
+  } catch (err) {
+    console.error(err);
+    return { status: "error" as const, error: "خطا در ذخیره پاسخ‌ها" };
+  }
+}
+
+// ۳. ثبت گروهی پاسخ‌ها از اکسل (بدون تغییر در score)
+export async function bulkSaveStudentAnswers(input: {
+  gradePeriodLessonId: string;
+  klassId: string;
+  rows: { nationalCode: string; answers: string }[];
+}) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser)
+    return { status: "error" as const, error: "ابتدا وارد شوید" };
+
+  try {
+    const enrollments = await prisma.studentEnrollment.findMany({
+      where: { klassId: input.klassId },
+      include: { student: true },
+    });
+
+    const enrollmentMap = new Map(
+      enrollments.map((e) => [e.student.nationalCode, e.id]),
+    );
+
+    let updated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const row of input.rows) {
+      const enrollmentId = enrollmentMap.get(row.nationalCode);
+      if (!enrollmentId) {
+        skipped++;
+        errors.push(`کد ملی ${row.nationalCode} یافت نشد`);
+        continue;
+      }
+
+      const parsedAnswers = parseExamString(row.answers);
+      if (Object.keys(parsedAnswers).length === 0) {
+        skipped++;
+        errors.push(`فرمت پاسخ‌های کد ملی ${row.nationalCode} نامعتبر است`);
+        continue;
+      }
+
+      // فقط studentAnswers را آپدیت می‌کنیم
+      const res = await prisma.grade.updateMany({
+        where: {
+          studentEnrollmentId: enrollmentId,
+          gradePeriodLessonId: input.gradePeriodLessonId,
+        },
+        data: { studentAnswers: parsedAnswers },
+      });
+
+      if (res.count > 0) {
+        updated++;
+      } else {
+        skipped++;
+        errors.push(`نمره‌ای برای کد ملی ${row.nationalCode} ثبت نشده است`);
+      }
+    }
+
+    revalidatePath("/teacher");
+    return { status: "success" as const, data: { updated, skipped, errors } };
+  } catch (err) {
+    console.error(err);
+    return { status: "error" as const, error: "خطا در ثبت گروهی پاسخ‌ها" };
+  }
 }

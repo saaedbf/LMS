@@ -43,6 +43,8 @@ import { convertGregorianToJalali } from "@/lib/dateUtils";
 import BackButton from "@/components/widgets/Elements/BackButton";
 import ReportButtons from "./ReportButtons";
 import Link from "next/link";
+import AnswerKeyModal from "./AnswerKeyModal";
+import BulkAnswersModal from "./BulkAnswersModal";
 
 // ==========================================
 // Types
@@ -430,13 +432,17 @@ export default function GradePeriodComp({
                             <FileSpreadsheet size={16} />
                           </Link>
                           {item.examType === "TEST" && (
-                            <Link
-                              href={`/dashboard/manager/grade-periods/${item.id}/exam-settings`}
-                              title="تنظیمات سوالات"
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-purple-300 text-purple-700 hover:bg-purple-50"
-                            >
-                              <FileQuestion size={16} />
-                            </Link>
+                            <>
+                              <AnswerKeyModal gradePeriodId={item.id} />
+                              <BulkAnswersModal gradePeriodId={item.id} />
+                              <Link
+                                href={`/dashboard/manager/grade-periods/${item.id}/exam-settings`}
+                                title="تنظیمات سوالات"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-purple-300 text-purple-700 hover:bg-purple-50"
+                              >
+                                <FileQuestion size={16} />
+                              </Link>
+                            </>
                           )}
                           {/* حذف */}
                           <ConfirmModal

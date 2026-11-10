@@ -62,8 +62,6 @@ const styles = StyleSheet.create({
   bold: {
     fontWeight: "bold",
   },
-
-  // آمار کلی
   statsBox: {
     flexDirection: "row-reverse",
     gap: 10,
@@ -87,8 +85,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#0f172a",
   },
-
-  // جدول دروس
   table: {
     width: "100%",
     borderWidth: 1,
@@ -131,8 +127,6 @@ const styles = StyleSheet.create({
     fontSize: 7.5,
     textAlign: "center",
   },
-
-  // سه نفر اول
   top3Container: {
     flexDirection: "row-reverse",
     gap: 10,
@@ -171,8 +165,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#0f172a",
   },
-
-  // نمودار
   chartBox: {
     borderWidth: 1,
     borderColor: "#000",
@@ -206,27 +198,8 @@ const styles = StyleSheet.create({
   },
 });
 
-export function AcademicReportPdf({
-  data,
-  regularFont,
-  boldFont,
-}: {
-  data: AcademicReportData;
-  regularFont: string;
-  boldFont: string;
-}) {
-  if (!fontsRegistered) {
-    Font.register({
-      family: "IRANSans",
-      fonts: [
-        { src: regularFont, fontWeight: "normal" },
-        { src: boldFont, fontWeight: "bold" },
-      ],
-    });
-    fontsRegistered = true;
-  }
-
-  // تنظیمات نمودار
+// ⬅️ ۱. کامپوننت سازنده یک صفحه (برای جلوگیری از تکرار)
+function AcademicReportPage({ data }: { data: AcademicReportData }) {
   const maxScore = 20;
   const chartWidth = 480;
   const chartHeight = 130;
@@ -236,502 +209,596 @@ export function AcademicReportPdf({
     (data.lessons.length + 1);
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        {/* ═══════════ هدر ═══════════ */}
-        <View style={styles.headerBox}>
-          <View style={styles.headerRow}>
-            <View style={styles.headerCell}>
-              <Text>جمهوری اسلامی ایران</Text>
-              <Text>وزارت آموزش و پرورش</Text>
-              <Text>سال تحصیلی: {data.academicYear.title}</Text>
-              <Text style={styles.bold}>کارنامه تحصیلی</Text>
-            </View>
-            <View style={styles.headerCell}>
-              <Text>مدرسه: {data.school.title}</Text>
-              <Text>کلاس: {data.klass.title}</Text>
-              <Text>پایه: {data.klass.paye}</Text>
-              <Text>رشته: {data.klass.reshteh}</Text>
-            </View>
-            <View style={styles.headerCellLast}>
-              <Text style={styles.bold}>
-                {data.student.firstName} {data.student.lastName}
-              </Text>
-              <Text>نام پدر: {data.student.fatherName || "-"}</Text>
-              <Text>کد ملی: {data.student.nationalCode}</Text>
-            </View>
+    <Page size="A4" style={styles.page}>
+      {/* هدر */}
+      <View style={styles.headerBox}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerCell}>
+            <Text>جمهوری اسلامی ایران</Text>
+            <Text>وزارت آموزش و پرورش</Text>
+            <Text>سال تحصیلی: {data.academicYear.title}</Text>
+            <Text style={styles.bold}>کارنامه تحصیلی</Text>
           </View>
-          <View style={styles.titleBar}>
-            <Text style={styles.titleText}>
-              کارنامه دوره: {data.period.title}
+          <View style={styles.headerCell}>
+            <Text>مدرسه: {data.school.title}</Text>
+            <Text>کلاس: {data.klass.title}</Text>
+            <Text>پایه: {data.klass.paye}</Text>
+            <Text>رشته: {data.klass.reshteh}</Text>
+          </View>
+          <View style={styles.headerCellLast}>
+            <Text style={styles.bold}>
+              {data.student.firstName} {data.student.lastName}
             </Text>
+            <Text>نام پدر: {data.student.fatherName || "-"}</Text>
+            <Text>کد ملی: {data.student.nationalCode}</Text>
+          </View>
+        </View>
+        <View style={styles.titleBar}>
+          <Text style={styles.titleText}>
+            کارنامه دوره: {data.period.title}
+          </Text>
+        </View>
+      </View>
+
+      {/* آمار */}
+      <View style={styles.statsBox}>
+        <View style={styles.statCard}>
+          <Text style={styles.statTitle}>معدل کل</Text>
+          <Text style={styles.statValue}>{data.studentAverage.toFixed(2)}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statTitle}>رتبه در کلاس</Text>
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              marginTop: 2,
+            }}
+          >
+            <Text style={styles.statValue}>{data.classRank}</Text>
+            <Text
+              style={{ fontSize: 9, color: "#475569", marginHorizontal: 3 }}
+            >
+              از
+            </Text>
+            <Text style={styles.statValue}>{data.classSize}</Text>
+          </View>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statTitle}>رتبه در پایه</Text>
+          <View
+            style={{
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              marginTop: 2,
+            }}
+          >
+            <Text style={styles.statValue}>{data.gradeRank}</Text>
+            <Text
+              style={{ fontSize: 9, color: "#475569", marginHorizontal: 3 }}
+            >
+              از
+            </Text>
+            <Text style={styles.statValue}>{data.gradeSize}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* جدول */}
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <View style={[styles.th, { flex: 2.5 }]}>
+            <Text style={styles.thText}>نام درس</Text>
+          </View>
+          <View style={[styles.th, { flex: 0.6 }]}>
+            <Text style={styles.thText}>واحد</Text>
+          </View>
+          <View style={[styles.th, { flex: 1.2 }]}>
+            <Text style={styles.thText}>دبیر</Text>
+          </View>
+
+          {data.period.examType === "TEST" && (
+            <>
+              <View style={[styles.th, { flex: 0.9 }]}>
+                <Text style={styles.thText}>تعداد سوال</Text>
+              </View>
+              <View style={[styles.th, { flex: 0.9 }]}>
+                <Text style={styles.thText}>صحیح</Text>
+              </View>
+              <View style={[styles.th, { flex: 0.6 }]}>
+                <Text style={styles.thText}>اشتباه</Text>
+              </View>
+              <View style={[styles.th, { flex: 0.6 }]}>
+                <Text style={styles.thText}>بی‌پاسخ</Text>
+              </View>
+              <View style={[styles.th, { flex: 0.6 }]}>
+                <Text style={styles.thText}>درصد</Text>
+              </View>
+            </>
+          )}
+
+          <View style={[styles.th, { flex: 0.8 }]}>
+            <Text style={styles.thText}>نمره</Text>
+          </View>
+          <View style={[styles.th, { flex: 0.8 }]}>
+            <Text style={styles.thText}>رتبه کلاس</Text>
+          </View>
+          <View style={[styles.th, { flex: 0.8 }]}>
+            <Text style={styles.thText}>رتبه پایه</Text>
           </View>
         </View>
 
-        {/* ═══════════ آمار کلی ═══════════ */}
-        <View style={styles.statsBox}>
-          <View style={styles.statCard}>
-            <Text style={styles.statTitle}>معدل کل</Text>
-            <Text style={styles.statValue}>
-              {data.studentAverage.toFixed(2)}
-            </Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statTitle}>رتبه در کلاس</Text>
-            <View
-              style={{
-                flexDirection: "row-reverse",
-                alignItems: "center",
-                marginTop: 2,
-              }}
-            >
-              <Text style={styles.statValue}>{data.classRank}</Text>
+        {data.lessons.map((l, i) => (
+          <View key={i} style={styles.tableRow}>
+            <View style={[styles.td, { flex: 2.5 }]}>
               <Text
-                style={{ fontSize: 9, color: "#475569", marginHorizontal: 3 }}
+                style={{ fontSize: 7.5, textAlign: "right", paddingRight: 4 }}
               >
-                از
+                {l.lessonTitle}
               </Text>
-              <Text style={styles.statValue}>{data.classSize}</Text>
             </View>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statTitle}>رتبه در پایه</Text>
-            <View
-              style={{
-                flexDirection: "row-reverse",
-                alignItems: "center",
-                marginTop: 2,
-              }}
-            >
-              <Text style={styles.statValue}>{data.gradeRank}</Text>
-              <Text
-                style={{ fontSize: 9, color: "#475569", marginHorizontal: 3 }}
-              >
-                از
+            <View style={[styles.td, { flex: 0.6 }]}>
+              <Text style={styles.tdText}>{l.units}</Text>
+            </View>
+            <View style={[styles.td, { flex: 1.2 }]}>
+              <Text style={{ fontSize: 7, textAlign: "center" }}>
+                {l.teacherName}
               </Text>
-              <Text style={styles.statValue}>{data.gradeSize}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ═══════════ جدول دروس ═══════════ */}
-        <View style={styles.table}>
-          {/* سرستون‌ها */}
-          <View style={styles.tableHeader}>
-            <View style={[styles.th, { flex: 2.5 }]}>
-              <Text style={styles.thText}>نام درس</Text>
-            </View>
-            <View style={[styles.th, { flex: 0.6 }]}>
-              <Text style={styles.thText}>واحد</Text>
-            </View>
-            {/* ⬅️ فضای دبیر از 1.8 به 1.2 کاهش یافت */}
-            <View style={[styles.th, { flex: 1.2 }]}>
-              <Text style={styles.thText}>دبیر</Text>
             </View>
 
-            {/* ⬅️ ستون‌های تستی */}
             {data.period.examType === "TEST" && (
               <>
-                {/* ⬅️ فضای تعداد سوال از 0.6 به 0.9 افزایش یافت */}
-                <View style={[styles.th, { flex: 0.9 }]}>
-                  <Text style={styles.thText}>تعداد سوال</Text>
+                <View style={[styles.td, { flex: 0.9 }]}>
+                  <Text style={styles.tdText}>{l.questionCount ?? "-"}</Text>
                 </View>
-                {/* ⬅️ فضای صحیح از 0.6 به 0.9 افزایش یافت */}
-                <View style={[styles.th, { flex: 0.9 }]}>
-                  <Text style={styles.thText}>صحیح</Text>
+                <View style={[styles.td, { flex: 0.9 }]}>
+                  <Text style={styles.tdText}>{l.correctCount ?? "-"}</Text>
                 </View>
-                <View style={[styles.th, { flex: 0.6 }]}>
-                  <Text style={styles.thText}>اشتباه</Text>
+                <View style={[styles.td, { flex: 0.6 }]}>
+                  <Text style={styles.tdText}>{l.wrongCount ?? "-"}</Text>
                 </View>
-                <View style={[styles.th, { flex: 0.6 }]}>
-                  <Text style={styles.thText}>بی‌پاسخ</Text>
+                <View style={[styles.td, { flex: 0.6 }]}>
+                  <Text style={styles.tdText}>{l.blankCount ?? "-"}</Text>
                 </View>
-                <View style={[styles.th, { flex: 0.6 }]}>
-                  <Text style={styles.thText}>درصد</Text>
+                <View style={[styles.td, { flex: 0.6 }]}>
+                  <Text style={styles.tdText}>
+                    {l.percentage !== null
+                      ? `${l.percentage.toFixed(1)}%`
+                      : "-"}
+                  </Text>
                 </View>
               </>
             )}
 
-            <View style={[styles.th, { flex: 0.8 }]}>
-              <Text style={styles.thText}>نمره</Text>
+            <View style={[styles.td, { flex: 0.8 }]}>
+              <Text
+                style={{
+                  fontSize: 9,
+                  fontWeight: "bold",
+                  textAlign: "center",
+                  color: l.score && l.score >= 10 ? "#15803d" : "#be123c",
+                }}
+              >
+                {l.score ?? l.descriptiveValue ?? "-"}
+              </Text>
             </View>
-            <View style={[styles.th, { flex: 0.8 }]}>
-              <Text style={styles.thText}>رتبه کلاس</Text>
+            <View style={[styles.td, { flex: 0.8 }]}>
+              <Text style={styles.tdText}>{l.classRank ?? "-"}</Text>
             </View>
-            <View style={[styles.th, { flex: 0.8 }]}>
-              <Text style={styles.thText}>رتبه پایه</Text>
+            <View style={[styles.td, { flex: 0.8 }]}>
+              <Text style={styles.tdText}>{l.gradeRank ?? "-"}</Text>
             </View>
           </View>
+        ))}
+      </View>
 
-          {/* ردیف‌های دروس */}
-          {data.lessons.map((l, i) => (
-            <View key={i} style={styles.tableRow}>
-              <View style={[styles.td, { flex: 2.5 }]}>
+      {/* سه نفر اول */}
+      <View style={styles.top3Container}>
+        <View style={styles.top3Box}>
+          <Text style={styles.top3Title}>برترین‌های کلاس</Text>
+          {data.top3Class.map((s, i) => (
+            <View key={i} style={styles.top3Row}>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  flex: 1,
+                }}
+              >
                 <Text
-                  style={{ fontSize: 7.5, textAlign: "right", paddingRight: 4 }}
+                  style={[
+                    styles.top3Text,
+                    { fontWeight: "bold", marginLeft: 4 },
+                  ]}
+                >
+                  . {toPersianNum(i + 1)}
+                </Text>
+                <Text style={styles.top3Text}>{s.name}</Text>
+              </View>
+              <Text style={styles.top3Avg}>{s.avg}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.top3Box}>
+          <Text style={styles.top3Title}>برترین‌های پایه</Text>
+          {data.top3Grade.map((s, i) => (
+            <View key={i} style={styles.top3Row}>
+              <View
+                style={{
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  flex: 1,
+                }}
+              >
+                <Text
+                  style={[
+                    styles.top3Text,
+                    { fontWeight: "bold", marginLeft: 4 },
+                  ]}
+                >
+                  .{toPersianNum(i + 1)}
+                </Text>
+                <Text style={styles.top3Text}>
+                  {s.name}{" "}
+                  <Text style={{ fontSize: 7, color: "#64748b" }}>
+                    ({s.klass})
+                  </Text>
+                </Text>
+              </View>
+              <Text style={styles.top3Avg}>{s.avg}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* نمودار */}
+      <View style={{ width: chartWidth, alignSelf: "flex-start" }}>
+        <View style={{ flexDirection: "row", width: chartWidth }}>
+          <View
+            style={{
+              width: 25,
+              height: chartHeight,
+              justifyContent: "space-between",
+              alignItems: "center",
+              borderLeftWidth: 1,
+              borderLeftColor: "#cbd5e1",
+            }}
+          >
+            {[20, 15, 10, 5, 0].map((val) => (
+              <Text
+                key={val}
+                style={{
+                  fontSize: 6,
+                  color: "#64748b",
+                  height: 10,
+                  textAlign: "center",
+                }}
+              >
+                {toPersianNum(val)}
+              </Text>
+            ))}
+          </View>
+
+          <View style={{ flex: 1, height: chartHeight, position: "relative" }}>
+            {[5, 10, 15, 20].map((val) => (
+              <View
+                key={val}
+                style={{
+                  position: "absolute",
+                  bottom: (val / 20) * chartHeight,
+                  left: 0,
+                  right: 0,
+                  borderTopWidth: 0.5,
+                  borderTopColor: "#e2e8f0",
+                  borderStyle: "dashed",
+                }}
+              />
+            ))}
+
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                width: "100%",
+                height: "100%",
+                alignItems: "flex-end",
+                position: "absolute",
+                top: 0,
+                left: 0,
+              }}
+            >
+              {data.lessons.map((l, i) => {
+                const score = l.score ?? 0;
+                const barHeight = (score / 20) * chartHeight;
+                return (
+                  <View
+                    key={i}
+                    style={{
+                      width: barWidth + gap,
+                      height: "100%",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      position: "relative",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 7,
+                        fontWeight: "bold",
+                        color: "#0f172a",
+                        position: "absolute",
+                        bottom: barHeight,
+                        marginBottom: 2,
+                        zIndex: 3,
+                      }}
+                    >
+                      {l.score !== null && l.score !== undefined
+                        ? toPersianNum(l.score)
+                        : "-"}
+                    </Text>
+                    <View
+                      style={{
+                        width: barWidth,
+                        height: barHeight,
+                        backgroundColor: "#3b82f6",
+                        opacity: 0.5,
+                        borderTopLeftRadius: 2,
+                        borderTopRightRadius: 2,
+                      }}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+
+            <View
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 10,
+              }}
+            >
+              <Svg width="100%" height="100%">
+                {data.lessons.map((l, i) => {
+                  if (i === data.lessons.length - 1) return null;
+                  const step = barWidth + gap;
+                  const plotWidth = chartWidth - 25;
+                  const currentXFromRight = step * i + step / 2;
+                  const nextXFromRight = step * (i + 1) + step / 2;
+                  const currentX = plotWidth - currentXFromRight;
+                  const nextX = plotWidth - nextXFromRight;
+                  const currentY =
+                    chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
+                  const nextY =
+                    chartHeight -
+                    ((data.lessons[i + 1].classAvg ?? 0) / 20) * chartHeight;
+                  return (
+                    <Line
+                      key={i}
+                      x1={currentX}
+                      y1={currentY}
+                      x2={nextX}
+                      y2={nextY}
+                      stroke="#f59e0b"
+                      strokeWidth={1.5}
+                    />
+                  );
+                })}
+                {data.lessons.map((l, i) => {
+                  const step = barWidth + gap;
+                  const plotWidth = chartWidth - 25;
+                  const xFromRight = step * i + step / 2;
+                  const x = plotWidth - xFromRight;
+                  const y =
+                    chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
+                  return (
+                    <Circle
+                      key={i}
+                      cx={x}
+                      cy={y}
+                      r={3}
+                      fill="#f59e0b"
+                      stroke="#ffffff"
+                      strokeWidth={1}
+                    />
+                  );
+                })}
+              </Svg>
+            </View>
+          </View>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            width: chartWidth,
+            marginTop: 4,
+            alignItems: "flex-start",
+          }}
+        >
+          <View style={{ width: 25 }} />
+          <View style={{ flex: 1, flexDirection: "row-reverse" }}>
+            {data.lessons.map((l, i) => (
+              <View
+                key={i}
+                style={{
+                  width: barWidth + gap,
+                  alignItems: "center",
+                  paddingHorizontal: 1,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 6,
+                    textAlign: "center",
+                    color: "#475569",
+                    fontWeight: "bold",
+                  }}
                 >
                   {l.lessonTitle}
                 </Text>
               </View>
-              <View style={[styles.td, { flex: 0.6 }]}>
-                <Text style={styles.tdText}>{l.units}</Text>
-              </View>
-              {/* ⬅️ فضای دبیر از 1.8 به 1.2 کاهش یافت */}
-              <View style={[styles.td, { flex: 1.2 }]}>
-                <Text style={{ fontSize: 7, textAlign: "center" }}>
-                  {l.teacherName}
-                </Text>
-              </View>
-
-              {/* ⬅️ مقادیر تستی */}
-              {data.period.examType === "TEST" && (
-                <>
-                  {/* ⬅️ فضای تعداد سوال از 0.6 به 0.9 افزایش یافت */}
-                  <View style={[styles.td, { flex: 0.9 }]}>
-                    <Text style={styles.tdText}>{l.questionCount ?? "-"}</Text>
-                  </View>
-                  {/* ⬅️ فضای صحیح از 0.6 به 0.9 افزایش یافت */}
-                  <View style={[styles.td, { flex: 0.9 }]}>
-                    <Text style={styles.tdText}>{l.correctCount ?? "-"}</Text>
-                  </View>
-                  <View style={[styles.td, { flex: 0.6 }]}>
-                    <Text style={styles.tdText}>{l.wrongCount ?? "-"}</Text>
-                  </View>
-                  <View style={[styles.td, { flex: 0.6 }]}>
-                    <Text style={styles.tdText}>{l.blankCount ?? "-"}</Text>
-                  </View>
-                  <View style={[styles.td, { flex: 0.6 }]}>
-                    <Text style={styles.tdText}>
-                      {l.percentage !== null
-                        ? `${l.percentage.toFixed(1)}%`
-                        : "-"}
-                    </Text>
-                  </View>
-                </>
-              )}
-
-              <View style={[styles.td, { flex: 0.8 }]}>
-                <Text
-                  style={{
-                    fontSize: 9,
-                    fontWeight: "bold",
-                    textAlign: "center",
-                    color: l.score && l.score >= 10 ? "#15803d" : "#be123c",
-                  }}
-                >
-                  {l.score ?? l.descriptiveValue ?? "-"}
-                </Text>
-              </View>
-              <View style={[styles.td, { flex: 0.8 }]}>
-                <Text style={styles.tdText}>{l.classRank ?? "-"}</Text>
-              </View>
-              <View style={[styles.td, { flex: 0.8 }]}>
-                <Text style={styles.tdText}>{l.gradeRank ?? "-"}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {/* ═══════════ سه نفر اول ═══════════ */}
-        <View style={styles.top3Container}>
-          <View style={styles.top3Box}>
-            <Text style={styles.top3Title}> برترین‌های کلاس</Text>
-            {data.top3Class.map((s, i) => (
-              <View key={i} style={styles.top3Row}>
-                <View
-                  style={{
-                    flexDirection: "row-reverse",
-                    alignItems: "center",
-                    flex: 1,
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.top3Text,
-                      { fontWeight: "bold", marginLeft: 4 },
-                    ]}
-                  >
-                    . {toPersianNum(i + 1)}
-                  </Text>
-                  <Text style={styles.top3Text}>{s.name}</Text>
-                </View>
-                <Text style={styles.top3Avg}>{s.avg}</Text>
-              </View>
-            ))}
-          </View>
-          <View style={styles.top3Box}>
-            <Text style={styles.top3Title}> برترین‌های پایه</Text>
-            {data.top3Grade.map((s, i) => (
-              <View key={i} style={styles.top3Row}>
-                <View
-                  style={{
-                    flexDirection: "row-reverse",
-                    alignItems: "center",
-                    flex: 1,
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.top3Text,
-                      { fontWeight: "bold", marginLeft: 4 },
-                    ]}
-                  >
-                    .{toPersianNum(i + 1)}
-                  </Text>
-                  <Text style={styles.top3Text}>
-                    {s.name}{" "}
-                    <Text style={{ fontSize: 7, color: "#64748b" }}>
-                      ({s.klass})
-                    </Text>
-                  </Text>
-                </View>
-                <Text style={styles.top3Avg}>{s.avg}</Text>
-              </View>
             ))}
           </View>
         </View>
+      </View>
 
-        {/* ═══════════ نمودار میله‌ای ═══════════ */}
-        <View style={{ width: chartWidth, alignSelf: "flex-start" }}>
-          <View style={{ flexDirection: "row", width: chartWidth }}>
-            {/* محور Y — سمت راست */}
-            <View
-              style={{
-                width: 25,
-                height: chartHeight,
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderLeftWidth: 1,
-                borderLeftColor: "#cbd5e1",
-              }}
-            >
-              {[20, 15, 10, 5, 0].map((val) => (
-                <Text
-                  key={val}
-                  style={{
-                    fontSize: 6,
-                    color: "#64748b",
-                    height: 10,
-                    textAlign: "center",
-                  }}
-                >
-                  {toPersianNum(val)}
-                </Text>
-              ))}
-            </View>
-
-            {/* محوطه اصلی نمودار */}
-            <View
-              style={{ flex: 1, height: chartHeight, position: "relative" }}
-            >
-              {/* خطوط راهنمای افقی */}
-              {[5, 10, 15, 20].map((val) => (
-                <View
-                  key={val}
-                  style={{
-                    position: "absolute",
-                    bottom: (val / 20) * chartHeight,
-                    left: 0,
-                    right: 0,
-                    borderTopWidth: 0.5,
-                    borderTopColor: "#e2e8f0",
-                    borderStyle: "dashed",
-                  }}
-                />
-              ))}
-
-              {/* میله‌ها */}
-              <View
-                style={{
-                  flexDirection: "row-reverse",
-                  width: "100%",
-                  height: "100%",
-                  alignItems: "flex-end",
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                }}
-              >
-                {data.lessons.map((l, i) => {
-                  const score = l.score ?? 0;
-                  const barHeight = (score / 20) * chartHeight;
-                  return (
-                    <View
-                      key={i}
-                      style={{
-                        width: barWidth + gap,
-                        height: "100%",
-                        alignItems: "center",
-                        justifyContent: "flex-end",
-                        position: "relative",
-                      }}
-                    >
-                      {/* عدد نمره */}
-                      <Text
-                        style={{
-                          fontSize: 7,
-                          fontWeight: "bold",
-                          color: "#0f172a",
-                          position: "absolute",
-                          bottom: barHeight,
-                          marginBottom: 2,
-                          zIndex: 3,
-                        }}
-                      >
-                        {l.score !== null && l.score !== undefined
-                          ? toPersianNum(l.score)
-                          : "-"}
-                      </Text>
-                      {/* بدنه میله */}
-                      <View
-                        style={{
-                          width: barWidth,
-                          height: barHeight,
-                          backgroundColor: "#3b82f6",
-                          opacity: 0.5, // ⬅️ شفافیت میله
-                          borderTopLeftRadius: 2,
-                          borderTopRightRadius: 2,
-                        }}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-
-              {/* خط و نقاط معدل کلاس */}
-              <View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  zIndex: 10,
-                }}
-              >
-                <Svg width="100%" height="100%">
-                  {data.lessons.map((l, i) => {
-                    if (i === data.lessons.length - 1) return null;
-
-                    const step = barWidth + gap;
-                    const plotWidth = chartWidth - 25;
-
-                    // مرکز میله i از سمت راست، سپس تبدیل به مختصات از چپ
-                    const currentXFromRight = step * i + step / 2;
-                    const nextXFromRight = step * (i + 1) + step / 2;
-
-                    const currentX = plotWidth - currentXFromRight;
-                    const nextX = plotWidth - nextXFromRight;
-
-                    const currentY =
-                      chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
-                    const nextY =
-                      chartHeight -
-                      ((data.lessons[i + 1].classAvg ?? 0) / 20) * chartHeight;
-
-                    return (
-                      <Line
-                        key={i}
-                        x1={currentX}
-                        y1={currentY}
-                        x2={nextX}
-                        y2={nextY}
-                        stroke="#f59e0b"
-                        strokeWidth={1.5}
-                      />
-                    );
-                  })}
-
-                  {/* نقاط معدل کلاس */}
-                  {data.lessons.map((l, i) => {
-                    const step = barWidth + gap;
-                    const plotWidth = chartWidth - 25;
-
-                    const xFromRight = step * i + step / 2;
-                    const x = plotWidth - xFromRight;
-
-                    const y =
-                      chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
-
-                    return (
-                      <Circle
-                        key={i}
-                        cx={x}
-                        cy={y}
-                        r={3}
-                        fill="#f59e0b"
-                        stroke="#ffffff"
-                        strokeWidth={1}
-                      />
-                    );
-                  })}
-                </Svg>
-              </View>
-            </View>
-          </View>
-
-          {/* نام دروس زیر نمودار */}
+      <View style={styles.chartLegend}>
+        <View style={styles.legendItem}>
+          <View style={{ ...styles.legendDot, backgroundColor: "#3b82f6" }} />
+          <Text style={styles.legendText}>نمره دانش‌آموز</Text>
+        </View>
+        <View style={styles.legendItem}>
           <View
             style={{
-              flexDirection: "row",
-              width: chartWidth,
-              marginTop: 4,
-              alignItems: "flex-start",
+              ...styles.legendDot,
+              backgroundColor: "#f59e0b",
+              borderRadius: 5,
+            }}
+          />
+          <Text style={styles.legendText}>معدل کلاس</Text>
+        </View>
+      </View>
+      {/* ═══════════ پاسخ‌نامه (فقط آزمون تستی) ═══════════ */}
+      {data.period.examType === "TEST" && data.lessons[0]?.answerKey && (
+        <View style={{ marginTop: 15 }}>
+          <Text
+            style={{
+              fontSize: 10,
+              fontWeight: "bold",
+              marginBottom: 6,
+              textAlign: "center",
             }}
           >
-            <View style={{ width: 25 }} />
-            <View style={{ flex: 1, flexDirection: "row-reverse" }}>
-              {data.lessons.map((l, i) => (
+            پاسخ‌نامه
+          </Text>
+
+          <View
+            style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 6 }}
+          >
+            {Object.keys(data.lessons[0].answerKey).map((qStr) => {
+              const qNum = parseInt(qStr, 10);
+              const keyAns = (data.lessons[0].answerKey as any)?.[qNum];
+              const studentAns = (data.lessons[0].studentAnswers as any)?.[
+                qNum
+              ];
+
+              const isCorrect = studentAns === keyAns;
+              const isBlank = !studentAns;
+
+              return (
                 <View
-                  key={i}
+                  key={qNum}
                   style={{
-                    width: barWidth + gap,
+                    width: "48%",
+                    flexDirection: "row-reverse",
                     alignItems: "center",
-                    paddingHorizontal: 1,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: "#ddd",
+                    paddingVertical: 3,
                   }}
                 >
+                  <Text style={{ width: 20, fontSize: 8, fontWeight: "bold" }}>
+                    {qNum}.
+                  </Text>
+
+                  {/* ۴ بیضی */}
+                  {[1, 2, 3, 4].map((opt) => {
+                    const isStudentChoice = studentAns === opt;
+                    const isKeyChoice = keyAns === opt;
+
+                    return (
+                      <View
+                        key={opt}
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: "#000",
+                          backgroundColor: isStudentChoice
+                            ? "#000"
+                            : "transparent",
+                          marginHorizontal: 2,
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}
+                      >
+                        {isKeyChoice && (
+                          <Text
+                            style={{
+                              fontSize: 8,
+                              color: isStudentChoice ? "#fff" : "#16a34a",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            ✓
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+
                   <Text
                     style={{
-                      fontSize: 6,
-                      textAlign: "center",
-                      color: "#475569",
+                      fontSize: 7,
+                      marginRight: 6,
                       fontWeight: "bold",
+                      color: isBlank
+                        ? "#888"
+                        : isCorrect
+                          ? "#16a34a"
+                          : "#dc2626",
                     }}
                   >
-                    {l.lessonTitle}
+                    {isBlank ? "سفید" : isCorrect ? "صحیح" : "اشتباه"}
                   </Text>
                 </View>
-              ))}
-            </View>
+              );
+            })}
           </View>
         </View>
+      )}
+    </Page>
+  );
+}
 
-        {/* راهنمای نمودار */}
-        <View style={styles.chartLegend}>
-          <View style={styles.legendItem}>
-            <View
-              style={{
-                ...styles.legendDot,
-                backgroundColor: "#3b82f6",
-              }}
-            />
-            <Text style={styles.legendText}>نمره دانش‌آموز</Text>
-          </View>
+// ⬅️ ۲. کامپوننت تکی (برای کارنامه یک نفر)
+export function AcademicReportPdf({ data, regularFont, boldFont }: any) {
+  if (!fontsRegistered) {
+    Font.register({
+      family: "IRANSans",
+      fonts: [{ src: regularFont }, { src: boldFont, fontWeight: "bold" }],
+    });
+    fontsRegistered = true;
+  }
+  return (
+    <Document>
+      <AcademicReportPage data={data} />
+    </Document>
+  );
+}
 
-          <View style={styles.legendItem}>
-            <View
-              style={{
-                ...styles.legendDot,
-                backgroundColor: "#f59e0b",
-                borderRadius: 5,
-              }}
-            />
-            <Text style={styles.legendText}>معدل کلاس</Text>
-          </View>
-        </View>
-      </Page>
+// ⬅️ ۳. کامپوننت چندتایی (برای کارنامه کل کلاس)
+export function MultiAcademicReportPdf({
+  dataList,
+  regularFont,
+  boldFont,
+}: any) {
+  if (!fontsRegistered) {
+    Font.register({
+      family: "IRANSans",
+      fonts: [{ src: regularFont }, { src: boldFont, fontWeight: "bold" }],
+    });
+    fontsRegistered = true;
+  }
+  return (
+    <Document>
+      {dataList.map((data: any, idx: number) => (
+        <AcademicReportPage key={idx} data={data} />
+      ))}
     </Document>
   );
 }

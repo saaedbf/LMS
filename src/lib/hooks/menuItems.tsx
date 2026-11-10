@@ -17,7 +17,7 @@ import {
   MdAttachMoney,
 } from "react-icons/md";
 import { FaAward, FaUserPlus } from "react-icons/fa";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, FileText } from "lucide-react";
 
 export type MenuItem = {
   title: string;
@@ -171,6 +171,16 @@ export const managerMenuItems: MenuItem[] = [
     subMenu: false,
     subMenuItems: [],
     icon: <ClipboardCheck />, // یا هر آیکن مناسب
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-100",
+  },
+  {
+    title: " گزارش نمرات ",
+    href: "/dashboard/manager/reports",
+    spacing: false,
+    subMenu: false,
+    subMenuItems: [],
+    icon: <FileText />, // یا هر آیکن مناسب
     color: "text-emerald-600",
     bgColor: "bg-emerald-100",
   },

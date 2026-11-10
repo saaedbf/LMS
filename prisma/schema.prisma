@@ -533,6 +533,7 @@ model GradePeriodLesson {
   darsPayeReshteh     DarsPayeReshteh @relation(fields: [darsPayeReshtehId], references: [id], onDelete: Cascade)
   klass               Klass           @relation(fields: [klassId], references: [id], onDelete: Cascade)
 grades  Grade[]
+answerKey            Json?    // ⬅️ کلید آزمون
   createdAt           DateTime @default(now())
 
   @@unique([gradePeriodId, darsPayeReshtehId, klassId])
@@ -596,7 +597,7 @@ model Grade {
   blankCount           Int?     // تعداد بدون پاسخ
   studentEnrollment    StudentEnrollment  @relation(fields: [studentEnrollmentId], references: [id], onDelete: Cascade)
   gradePeriodLesson    GradePeriodLesson  @relation(fields: [gradePeriodLessonId], references: [id], onDelete: Cascade)
-
+studentAnswers       Json?    // ⬅️ پاسخ‌های دانش‌آموز
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
