@@ -822,7 +822,7 @@ export async function bulkSaveStudentAnswersByPaye(input: {
   const { schoolId, academicYearId } = scope;
 
   try {
-    // همه GradePeriodLessonهای این پایه در این دوره (برای پیدا کردن کلاس هر دانش‌آموز)
+    // همه GradePeriodLessonهای این پایه در این دوره
     const lessons = await prisma.gradePeriodLesson.findMany({
       where: {
         gradePeriodId: input.gradePeriodId,
@@ -831,13 +831,16 @@ export async function bulkSaveStudentAnswersByPaye(input: {
       },
       select: { id: true, klassId: true },
     });
-    const lessonByKlassId = new Map(lessons.map((l) => [l.klassId, l.id]));
+    if (lessons.length === 0) return error("درسی برای این پایه یافت نشد");
 
-    if (lessons.length === 0) {
-      return error("درسی برای این پایه یافت نشد");
+    // Map کلاس → همه GradePeriodLessonهای اون کلاس برای این پایه
+    const lessonsByKlassId = new Map<string, string[]>();
+    for (const l of lessons) {
+      const arr = lessonsByKlassId.get(l.klassId) ?? [];
+      arr.push(l.id);
+      lessonsByKlassId.set(l.klassId, arr);
     }
 
-    // همه دانش‌آموزان این پایه در این مدرسه/سال
     const enrollments = await prisma.studentEnrollment.findMany({
       where: {
         schoolId,
@@ -848,7 +851,6 @@ export async function bulkSaveStudentAnswersByPaye(input: {
       include: { student: { select: { nationalCode: true } } },
     });
 
-    // نرمال‌سازی کد ملی
     const normalize = (code: string) => {
       let c = String(code).replace(/\D/g, "");
       if (c.length === 8) c = "00" + c;
@@ -874,8 +876,8 @@ export async function bulkSaveStudentAnswersByPaye(input: {
         continue;
       }
 
-      const gradePeriodLessonId = lessonByKlassId.get(enrollment.klassId);
-      if (!gradePeriodLessonId) {
+      const lessonIds = lessonsByKlassId.get(enrollment.klassId);
+      if (!lessonIds || lessonIds.length === 0) {
         skipped++;
         errors.push(
           `کلاس دانش‌آموز با کد ملی ${row.nationalCode} در این درس‌ها ثبت نشده`,
@@ -890,22 +892,32 @@ export async function bulkSaveStudentAnswersByPaye(input: {
         continue;
       }
 
-      // ⚠️ فقط studentAnswers — بدون دست زدن به score و correctCount
-      const res = await prisma.grade.updateMany({
+      // ⬅️ نکته کلیدی: پاسخ روی همه دروس اون کلاس (در این پایه) ذخیره می‌شه
+      const existingGrades = await prisma.grade.findMany({
         where: {
           studentEnrollmentId: enrollment.id,
-          gradePeriodLessonId,
+          gradePeriodLessonId: { in: lessonIds },
         },
-        data: { studentAnswers: parsedAnswers },
+        select: { id: true },
       });
 
-      if (res.count > 0) {
+      if (existingGrades.length > 0) {
+        await prisma.grade.updateMany({
+          where: { id: { in: existingGrades.map((g) => g.id) } },
+          data: { studentAnswers: parsedAnswers },
+        });
         updated++;
       } else {
-        skipped++;
-        errors.push(
-          `نمره‌ای برای کد ملی ${row.nationalCode} در این درس ثبت نشده است`,
-        );
+        // اگه هیچ Grade وجود نداره، برای درس اول ایجاد می‌کنیم
+        // (score و بقیه فیلدها null می‌مونن)
+        await prisma.grade.create({
+          data: {
+            studentEnrollmentId: enrollment.id,
+            gradePeriodLessonId: lessonIds[0],
+            studentAnswers: parsedAnswers,
+          },
+        });
+        updated++;
       }
     }
 

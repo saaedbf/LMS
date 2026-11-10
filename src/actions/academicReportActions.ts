@@ -16,7 +16,7 @@ export type AcademicReportData = {
   klass: { title: string; paye: string; reshteh: string };
   period: {
     title: string;
-    examType: "NORMAL" | "TEST"; // ⬅️ اضافه شد
+    examType: "NORMAL" | "TEST";
   };
   lessons: Array<{
     lessonTitle: string;
@@ -27,14 +27,15 @@ export type AcademicReportData = {
     classRank: number | null;
     gradeRank: number | null;
     classAvg: number;
-    answerKey: Prisma.JsonValue | null; // ⬅️ تغییر
-    studentAnswers: Prisma.JsonValue | null; // ⬅️ تغییر
-    // ⬅️ فیلدهای تستی اضافه شدند
+    answerKey: Prisma.JsonValue | null;
+    studentAnswers: Prisma.JsonValue | null;
+    // ⬅️ فیلدهای تستی
     questionCount: number | null;
     correctCount: number | null;
     wrongCount: number | null;
     blankCount: number | null;
     percentage: number | null;
+    questionRange: string | null; // ⬅️ اضافه شد
   }>;
   studentAverage: number;
   classRank: number;
@@ -79,7 +80,6 @@ export async function getAcademicReportData(
     });
     if (!period) return { status: "error", error: "دوره یافت نشد" };
     if (!context.isMaster && context.role !== "MANAGER") {
-      // بررسی isVisible برای معلم و دانش‌آموز
       if (!period.isVisible) {
         return {
           status: "error",
@@ -87,7 +87,8 @@ export async function getAcademicReportData(
         };
       }
     }
-    // ۳. تمام درس‌های این دوره برای تمام کلاس‌ها (با واحدها)
+
+    // ۳. تمام درس‌های این دوره
     const allPeriodLessons = await prisma.gradePeriodLesson.findMany({
       where: { gradePeriodId: periodId },
       include: {
@@ -131,7 +132,7 @@ export async function getAcademicReportData(
       include: { student: true, klass: true },
     });
 
-    // ۷. گرفتن تمام نمرات مربوط به این دوره برای تمام دانش‌آموزان درگیر
+    // ۷. تمام نمرات
     const allGrades = await prisma.grade.findMany({
       where: {
         gradePeriodLessonId: { in: allPeriodLessons.map((l) => l.id) },
@@ -151,15 +152,40 @@ export async function getAcademicReportData(
       gradeMap.set(`${g.studentEnrollmentId}_${g.gradePeriodLessonId}`, g);
     }
 
+    // ⬅️ Map کلید بر اساس darsPayeReshtehId
+    const answerKeyByDarsId = new Map<string, Record<string, number>>();
+    for (const pl of allPeriodLessons) {
+      if (pl.answerKey) {
+        const key = pl.darsPayeReshtehId;
+        if (!answerKeyByDarsId.has(key)) {
+          answerKeyByDarsId.set(key, pl.answerKey as Record<string, number>);
+        }
+      }
+    }
+
+    // ⬅️ Map پاسخ دانش‌آموز بر اساس darsPayeReshtehId
+    const studentAnswersByDarsId = new Map<string, Record<string, number>>();
+    for (const g of allGrades) {
+      if (g.studentEnrollmentId !== enrollmentId) continue;
+      if (!g.studentAnswers) continue;
+      const pl = allPeriodLessons.find((l) => l.id === g.gradePeriodLessonId);
+      if (!pl) continue;
+      const key = pl.darsPayeReshtehId;
+      if (!studentAnswersByDarsId.has(key)) {
+        studentAnswersByDarsId.set(
+          key,
+          g.studentAnswers as Record<string, number>,
+        );
+      }
+    }
+
     // ۸. تابع محاسبه معدل
     const calcAvg = (enrId: string, klassId: string) => {
       let totalScore = 0;
       let totalUnits = 0;
-
       const lessonsForThisClass = allPeriodLessons.filter(
         (pl) => pl.klassId === klassId,
       );
-
       for (const lesson of lessonsForThisClass) {
         const g = gradeMap.get(`${enrId}_${lesson.id}`);
         if (g && g.score !== null) {
@@ -171,7 +197,7 @@ export async function getAcademicReportData(
       return totalUnits > 0 ? totalScore / totalUnits : 0;
     };
 
-    // ۹. محاسبه معدل کلاس
+    // ۹. معدل کلاس
     const classAverages = classEnrollments
       .map((e) => ({
         enrollmentId: e.id,
@@ -180,7 +206,7 @@ export async function getAcademicReportData(
       }))
       .sort((a, b) => b.avg - a.avg);
 
-    // ۱۰. محاسبه معدل پایه
+    // ۱۰. معدل پایه
     const gradeAverages = gradeEnrollments
       .map((e) => ({
         enrollmentId: e.id,
@@ -190,7 +216,7 @@ export async function getAcademicReportData(
       }))
       .sort((a, b) => b.avg - a.avg);
 
-    // ۱۱. محاسبه رتبه‌های تک‌تک دروس
+    // ۱۱. رتبه‌های تک‌تک دروس
     const lessonsData = studentClassLessons.map((lesson) => {
       const studentGrade = gradeMap.get(`${enrollmentId}_${lesson.id}`);
 
@@ -231,7 +257,6 @@ export async function getAcademicReportData(
             classLessonScores.length
           : 0;
 
-      // ⬅️ محاسبه فیلدهای تستی
       const isTest = period.examType === "TEST";
       let percentage: number | null = null;
 
@@ -256,14 +281,15 @@ export async function getAcademicReportData(
         classRank,
         gradeRank,
         classAvg,
-        // ⬅️ مقادیر تستی
         questionCount: isTest ? (lesson.questionCount ?? null) : null,
         correctCount: isTest ? (studentGrade?.correctCount ?? null) : null,
         wrongCount: isTest ? (studentGrade?.wrongCount ?? null) : null,
         blankCount: isTest ? (studentGrade?.blankCount ?? null) : null,
         percentage,
-        answerKey: lesson.answerKey ?? null,
-        studentAnswers: studentGrade?.studentAnswers ?? null,
+        answerKey: answerKeyByDarsId.get(lesson.darsPayeReshtehId) ?? null,
+        studentAnswers:
+          studentAnswersByDarsId.get(lesson.darsPayeReshtehId) ?? null,
+        questionRange: lesson.questionRange ?? null, // ⬅️ اضافه شد
       };
     });
 
@@ -292,7 +318,7 @@ export async function getAcademicReportData(
         },
         period: {
           title: period.title,
-          examType: period.examType, // ⬅️ ارسال نوع آزمون
+          examType: period.examType,
         },
         lessons: lessonsData,
         studentAverage: studentAvg,
@@ -326,12 +352,13 @@ export async function getPeriodsForReport() {
     where: {
       schoolId: context.schoolId,
       academicYearId: context.academicYearId,
-      isVisible: true, // ⬅️ فقط دوره‌هایی که قابل نمایش هستند
+      isVisible: true,
     },
     select: { id: true, title: true },
     orderBy: { createdAt: "desc" },
   });
 }
+
 export async function getBulkAcademicReports(
   periodId: string,
   klassId: string,
@@ -364,7 +391,7 @@ export async function getBulkAcademicReports(
     if (!period || !klassInfo)
       return { status: "error", error: "اطلاعات یافت نشد" };
 
-    // ۲. همه درس‌های این دوره برای این کلاس
+    // ۲. همه درس‌های این دوره
     const allPeriodLessons = await prisma.gradePeriodLesson.findMany({
       where: { gradePeriodId: periodId },
       include: {
@@ -389,7 +416,7 @@ export async function getBulkAcademicReports(
       include: { student: true },
     });
 
-    // ۴. همه دانش‌آموزان پایه (برای محاسبه رتبه پایه و برترین‌ها)
+    // ۴. همه دانش‌آموزان پایه
     const gradeEnrollments = await prisma.studentEnrollment.findMany({
       where: {
         schoolId,
@@ -400,7 +427,7 @@ export async function getBulkAcademicReports(
       include: { student: true, klass: true },
     });
 
-    // ۵. گرفتن تمام نمرات در یک کوئری (بهینه)
+    // ۵. تمام نمرات
     const allGrades = await prisma.grade.findMany({
       where: {
         gradePeriodLessonId: { in: allPeriodLessons.map((l) => l.id) },
@@ -420,7 +447,36 @@ export async function getBulkAcademicReports(
       gradeMap.set(`${g.studentEnrollmentId}_${g.gradePeriodLessonId}`, g);
     }
 
-    // ۶. تابع محاسبه معدل (کش‌شده)
+    // ⬅️ Map کلید بر اساس darsPayeReshtehId
+    const answerKeyByDarsId = new Map<string, Record<string, number>>();
+    for (const pl of allPeriodLessons) {
+      if (pl.answerKey) {
+        const key = pl.darsPayeReshtehId;
+        if (!answerKeyByDarsId.has(key)) {
+          answerKeyByDarsId.set(key, pl.answerKey as Record<string, number>);
+        }
+      }
+    }
+
+    // ⬅️ Map پاسخ‌ها: key = `${enrollmentId}_${darsPayeReshtehId}`
+    const studentAnswersByEnrAndDars = new Map<
+      string,
+      Record<string, number>
+    >();
+    for (const g of allGrades) {
+      if (!g.studentAnswers) continue;
+      const pl = allPeriodLessons.find((l) => l.id === g.gradePeriodLessonId);
+      if (!pl) continue;
+      const key = `${g.studentEnrollmentId}_${pl.darsPayeReshtehId}`;
+      if (!studentAnswersByEnrAndDars.has(key)) {
+        studentAnswersByEnrAndDars.set(
+          key,
+          g.studentAnswers as Record<string, number>,
+        );
+      }
+    }
+
+    // ۶. تابع محاسبه معدل
     const calcAvg = (enrId: string, enrKlassId: string) => {
       let totalScore = 0;
       let totalUnits = 0;
@@ -437,7 +493,7 @@ export async function getBulkAcademicReports(
       return totalUnits > 0 ? totalScore / totalUnits : 0;
     };
 
-    // ۷. محاسبه معدل‌ها و رتبه‌ها (فقط یک بار)
+    // ۷. معدل‌ها و رتبه‌ها
     const classAverages = classEnrollments
       .map((e) => ({
         enrollmentId: e.id,
@@ -467,7 +523,7 @@ export async function getBulkAcademicReports(
       avg: Number(e.avg.toFixed(2)),
     }));
 
-    // ۸. ساخت داده‌های تک‌تک کارنامه‌ها
+    // ۸. ساخت داده‌های کارنامه‌ها
     const reportsData: AcademicReportData[] = classEnrollments.map(
       (enrollment) => {
         const enrollmentId = enrollment.id;
@@ -496,6 +552,20 @@ export async function getBulkAcademicReports(
                 classLessonScores.length
               : 0;
 
+          const isTest = period.examType === "TEST";
+          let percentage: number | null = null;
+          if (isTest && studentGrade) {
+            const correct = studentGrade.correctCount || 0;
+            const wrong = studentGrade.wrongCount || 0;
+            const qCount = lesson.questionCount || 1;
+
+            let rawScore = correct;
+            if (period.hasNegativeScore) rawScore = correct - wrong / 3;
+            if (rawScore < 0) rawScore = 0;
+
+            percentage = (rawScore / qCount) * 100;
+          }
+
           return {
             lessonTitle: lesson.darsPayeReshteh.reshtehTadris.title,
             units: lesson.darsPayeReshteh.units,
@@ -506,14 +576,18 @@ export async function getBulkAcademicReports(
             descriptiveValue: studentGrade?.descriptiveValue ?? null,
             classRank,
             classAvg,
-            gradeRank: null, // (برای سادگی در Bulk، رتبه پایه را در اینجا محاسبه نمی‌کنیم یا با کوئری جدا)
-            questionCount: null,
-            correctCount: null,
-            wrongCount: null,
-            blankCount: null,
-            percentage: null,
-            answerKey: lesson.answerKey ?? null, // ⬅️ اضافه شود
-            studentAnswers: studentGrade?.studentAnswers ?? null, // ⬅️ اضافه شود
+            gradeRank: null,
+            questionCount: isTest ? (lesson.questionCount ?? null) : null,
+            correctCount: isTest ? (studentGrade?.correctCount ?? null) : null,
+            wrongCount: isTest ? (studentGrade?.wrongCount ?? null) : null,
+            blankCount: isTest ? (studentGrade?.blankCount ?? null) : null,
+            percentage,
+            answerKey: answerKeyByDarsId.get(lesson.darsPayeReshtehId) ?? null,
+            studentAnswers:
+              studentAnswersByEnrAndDars.get(
+                `${enrollmentId}_${lesson.darsPayeReshtehId}`,
+              ) ?? null,
+            questionRange: lesson.questionRange ?? null, // ⬅️ اضافه شد
           };
         });
 

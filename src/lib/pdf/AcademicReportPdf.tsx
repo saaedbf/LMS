@@ -16,6 +16,30 @@ import { toPersianNum } from "../utils";
 
 let fontsRegistered = false;
 
+/**
+ * تبدیل questionRange مثل "1-10" یا "1-10,15-20" یا "1 تا 10" به آرایه شماره سوال
+ */
+function expandQuestionRange(range: string | null | undefined): number[] {
+  if (!range) return [];
+  const nums: number[] = [];
+  const parts = range.split(/[,،\s]+/).filter(Boolean);
+  for (const part of parts) {
+    const m = part.match(/^(\d+)\s*[-–—تا]+\s*(\d+)$/);
+    if (m) {
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      if (!isNaN(a) && !isNaN(b)) {
+        const [from, to] = a <= b ? [a, b] : [b, a];
+        for (let i = from; i <= to; i++) nums.push(i);
+      }
+      continue;
+    }
+    const single = part.match(/^(\d+)$/);
+    if (single) nums.push(parseInt(single[1], 10));
+  }
+  return Array.from(new Set(nums)).sort((a, b) => a - b);
+}
+
 const styles = StyleSheet.create({
   page: {
     paddingVertical: 15,
@@ -198,7 +222,7 @@ const styles = StyleSheet.create({
   },
 });
 
-// ⬅️ ۱. کامپوننت سازنده یک صفحه (برای جلوگیری از تکرار)
+// ⬅️ ۱. کامپوننت سازنده یک صفحه
 function AcademicReportPage({ data }: { data: AcademicReportData }) {
   const maxScore = 20;
   const chartWidth = 480;
@@ -661,111 +685,194 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
           <Text style={styles.legendText}>معدل کلاس</Text>
         </View>
       </View>
+
       {/* ═══════════ پاسخ‌نامه (فقط آزمون تستی) ═══════════ */}
-      {data.period.examType === "TEST" && data.lessons[0]?.answerKey && (
-        <View style={{ marginTop: 15 }}>
-          <Text
-            style={{
-              fontSize: 10,
-              fontWeight: "bold",
-              marginBottom: 6,
-              textAlign: "center",
-            }}
-          >
-            پاسخ‌نامه
-          </Text>
+      {/* ⬅️ صفحه جدید + نمایش هر درس با عنوان و سوالات همون درس */}
+      {data.period.examType === "TEST" &&
+        data.lessons.some((l) => l.answerKey) && (
+          <View style={{ marginTop: 15 }} break>
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: "bold",
+                marginBottom: 8,
+                textAlign: "center",
+                backgroundColor: "#e2e8f0",
+                paddingVertical: 4,
+                borderWidth: 1,
+                borderColor: "#000",
+              }}
+            >
+              پاسخ‌نامه آزمون
+            </Text>
 
-          <View
-            style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 6 }}
-          >
-            {Object.keys(data.lessons[0].answerKey).map((qStr) => {
-              const qNum = parseInt(qStr, 10);
-              const keyAns = (data.lessons[0].answerKey as any)?.[qNum];
-              const studentAns = (data.lessons[0].studentAnswers as any)?.[
-                qNum
-              ];
+            {data.lessons.map((lesson, lessonIdx) => {
+              if (!lesson.answerKey) return null;
 
-              const isCorrect = studentAns === keyAns;
-              const isBlank = !studentAns;
+              const lessonRange = expandQuestionRange(
+                (lesson as any).questionRange,
+              );
+              const allKeyNums = Object.keys(lesson.answerKey)
+                .map((k) => parseInt(k, 10))
+                .filter((n) => !isNaN(n))
+                .sort((a, b) => a - b);
+
+              const qNums =
+                lessonRange.length > 0
+                  ? allKeyNums.filter((n) => lessonRange.includes(n))
+                  : allKeyNums;
+
+              if (qNums.length === 0) return null;
 
               return (
-                <View
-                  key={qNum}
-                  style={{
-                    width: "48%",
-                    flexDirection: "row-reverse",
-                    alignItems: "center",
-                    borderBottomWidth: 0.5,
-                    borderBottomColor: "#ddd",
-                    paddingVertical: 3,
-                  }}
-                >
-                  <Text style={{ width: 20, fontSize: 8, fontWeight: "bold" }}>
-                    {qNum}.
-                  </Text>
-
-                  {/* ۴ بیضی */}
-                  {[1, 2, 3, 4].map((opt) => {
-                    const isStudentChoice = studentAns === opt;
-                    const isKeyChoice = keyAns === opt;
-
-                    return (
-                      <View
-                        key={opt}
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: 6,
-                          borderWidth: 1,
-                          borderColor: "#000",
-                          backgroundColor: isStudentChoice
-                            ? "#000"
-                            : "transparent",
-                          marginHorizontal: 2,
-                          justifyContent: "center",
-                          alignItems: "center",
-                        }}
-                      >
-                        {isKeyChoice && (
-                          <Text
-                            style={{
-                              fontSize: 8,
-                              color: isStudentChoice ? "#fff" : "#16a34a",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            ✓
-                          </Text>
-                        )}
-                      </View>
-                    );
-                  })}
-
-                  <Text
+                <View key={lessonIdx} style={{ marginBottom: 10 }} wrap={false}>
+                  {/* عنوان درس */}
+                  <View
                     style={{
-                      fontSize: 7,
-                      marginRight: 6,
-                      fontWeight: "bold",
-                      color: isBlank
-                        ? "#888"
-                        : isCorrect
-                          ? "#16a34a"
-                          : "#dc2626",
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      backgroundColor: "#f1f5f9",
+                      borderWidth: 1,
+                      borderColor: "#000",
+                      paddingHorizontal: 6,
+                      paddingVertical: 3,
+                      marginBottom: 4,
                     }}
                   >
-                    {isBlank ? "سفید" : isCorrect ? "صحیح" : "اشتباه"}
-                  </Text>
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: "bold",
+                        color: "#1e3a8a",
+                      }}
+                    >
+                      {lesson.lessonTitle}
+                    </Text>
+                    {lessonRange.length > 0 && (
+                      <Text
+                        style={{
+                          fontSize: 7,
+                          color: "#64748b",
+                          marginRight: 6,
+                        }}
+                      >
+                        (سوالات {toPersianNum(lessonRange[0])} تا{" "}
+                        {toPersianNum(lessonRange[lessonRange.length - 1])})
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* گرید ۴ ستونی سوالات */}
+                  <View
+                    style={{
+                      flexDirection: "row-reverse",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {qNums.map((qNum) => {
+                      const keyAns = Number(
+                        (lesson.answerKey as Record<string, number>)[qNum],
+                      );
+                      const rawStudent = (
+                        lesson.studentAnswers as Record<string, number> | null
+                      )?.[qNum];
+                      const studentAns =
+                        rawStudent === undefined || rawStudent === null
+                          ? 0
+                          : Number(rawStudent);
+
+                      const isBlank = !studentAns || studentAns === 0;
+                      const isCorrect = !isBlank && studentAns === keyAns;
+
+                      return (
+                        <View
+                          key={qNum}
+                          style={{
+                            width: "25%",
+                            flexDirection: "row-reverse",
+                            alignItems: "center",
+                            borderBottomWidth: 0.5,
+                            borderBottomColor: "#e2e8f0",
+                            paddingVertical: 2,
+                            paddingHorizontal: 2,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              width: 16,
+                              fontSize: 7,
+                              fontWeight: "bold",
+                              textAlign: "center",
+                            }}
+                          >
+                            {toPersianNum(qNum)}
+                          </Text>
+
+                          {[1, 2, 3, 4].map((opt) => {
+                            const isStudentChoice = studentAns === opt;
+                            const isKeyChoice = keyAns === opt;
+                            return (
+                              <View
+                                key={opt}
+                                style={{
+                                  width: 10,
+                                  height: 10,
+                                  borderRadius: 5,
+                                  borderWidth: 0.8,
+                                  borderColor: "#000",
+                                  backgroundColor: isStudentChoice
+                                    ? "#000"
+                                    : "transparent",
+                                  marginHorizontal: 1,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                }}
+                              >
+                                {isKeyChoice && (
+                                  <Text
+                                    style={{
+                                      fontSize: 7,
+                                      color: isStudentChoice
+                                        ? "#fff"
+                                        : "#16a34a",
+                                      fontWeight: "bold",
+                                    }}
+                                  >
+                                    ✓
+                                  </Text>
+                                )}
+                              </View>
+                            );
+                          })}
+
+                          <Text
+                            style={{
+                              fontSize: 6,
+                              marginRight: 2,
+                              fontWeight: "bold",
+                              color: isBlank
+                                ? "#888"
+                                : isCorrect
+                                  ? "#16a34a"
+                                  : "#dc2626",
+                            }}
+                          >
+                            {isBlank ? "سفید" : isCorrect ? "صحیح" : "اشتباه"}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
                 </View>
               );
             })}
           </View>
-        </View>
-      )}
+        )}
     </Page>
   );
 }
 
-// ⬅️ ۲. کامپوننت تکی (برای کارنامه یک نفر)
+// ⬅️ ۲. کامپوننت تکی
 export function AcademicReportPdf({ data, regularFont, boldFont }: any) {
   if (!fontsRegistered) {
     Font.register({
@@ -781,7 +888,7 @@ export function AcademicReportPdf({ data, regularFont, boldFont }: any) {
   );
 }
 
-// ⬅️ ۳. کامپوننت چندتایی (برای کارنامه کل کلاس)
+// ⬅️ ۳. کامپوننت چندتایی
 export function MultiAcademicReportPdf({
   dataList,
   regularFont,
