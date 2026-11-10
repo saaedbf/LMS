@@ -71,7 +71,7 @@ export default function StudentReportForm({
             value={selectedPeriod}
             onChange={(e) => {
               setSelectedPeriod(e.target.value);
-              setReportData(null); // پاک کردن کارنامه قبلی
+              setReportData(null);
             }}
             className="flex-1 rounded-lg border border-zinc-300 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
@@ -162,49 +162,60 @@ export default function StudentReportForm({
               <table className="w-full text-right text-sm">
                 <thead className="bg-zinc-50 text-xs text-zinc-500">
                   <tr>
-                    <th className="p-3">نام درس</th>
-                    <th className="p-3">واحد</th>
-                    <th className="p-3">دبیر</th>
-                    {/* ⬅️ ستون‌های تستی */}
+                    <th className="p-2 md:p-3">نام درس</th>
+
+                    {/* ⬅️ ستون واحد فقط در دسکتاپ نمایش داده می‌شود */}
+                    <th className="hidden p-2 md:table-cell md:p-3">واحد</th>
+
+                    {/* ⬅️ ستون دبیر فقط در دسکتاپ نمایش داده می‌شود */}
+                    <th className="hidden p-2 md:table-cell md:p-3">دبیر</th>
+
                     {reportData.period.examType === "TEST" && (
                       <>
-                        <th className="p-3">تعداد سوال</th>
-                        <th className="p-3">صحیح</th>
-                        <th className="p-3">اشتباه</th>
-                        <th className="p-3">بی‌پاسخ</th>
-                        <th className="p-3">درصد</th>
+                        <th className="p-2 md:p-3">سوال</th>
+                        <th className="p-2 md:p-3">صحیح</th>
+                        <th className="p-2 md:p-3">غلط</th>
+                        <th className="p-2 md:p-3">بی‌پاسخ</th>
+                        <th className="p-2 md:p-3">درصد</th>
                       </>
                     )}
-                    <th className="p-3">نمره</th>
-                    <th className="p-3">رتبه کلاس</th>
-                    <th className="p-3">رتبه پایه</th>
+                    <th className="p-2 md:p-3">نمره</th>
+                    <th className="p-2 md:p-3">رتبه کلاس</th>
+                    <th className="p-2 md:p-3">رتبه پایه</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {reportData.lessons.map((l, i) => (
                     <tr key={i} className="transition-colors hover:bg-zinc-50">
-                      <td className="p-3 font-medium text-zinc-800">
+                      <td className="p-2 font-medium text-zinc-800 md:p-3">
                         {l.lessonTitle}
                       </td>
-                      <td className="p-3 text-zinc-600">{l.units}</td>
-                      <td className="p-3 text-zinc-500">{l.teacherName}</td>
 
-                      {/* ⬅️ مقادیر تستی */}
+                      {/* ⬅️ ستون واحد فقط در دسکتاپ */}
+                      <td className="hidden p-2 text-zinc-600 md:table-cell md:p-3">
+                        {l.units}
+                      </td>
+
+                      {/* ⬅️ ستون دبیر فقط در دسکتاپ */}
+                      <td className="hidden p-2 text-zinc-500 md:table-cell md:p-3">
+                        {l.teacherName}
+                      </td>
+
                       {reportData.period.examType === "TEST" && (
                         <>
-                          <td className="p-3 text-zinc-600">
+                          <td className="p-2 text-zinc-600 md:p-3">
                             {l.questionCount ?? "-"}
                           </td>
-                          <td className="p-3 text-emerald-600">
+                          <td className="p-2 text-emerald-600 md:p-3">
                             {l.correctCount ?? "-"}
                           </td>
-                          <td className="p-3 text-rose-600">
+                          <td className="p-2 text-rose-600 md:p-3">
                             {l.wrongCount ?? "-"}
                           </td>
-                          <td className="p-3 text-zinc-500">
+                          <td className="p-2 text-zinc-500 md:p-3">
                             {l.blankCount ?? "-"}
                           </td>
-                          <td className="p-3 text-blue-600 font-bold">
+                          <td className="p-2 font-bold text-blue-600 md:p-3">
                             {l.percentage !== null
                               ? `${l.percentage.toFixed(1)}%`
                               : "-"}
@@ -212,7 +223,7 @@ export default function StudentReportForm({
                         </>
                       )}
 
-                      <td className="p-3">
+                      <td className="p-2 md:p-3">
                         <span
                           className={`font-bold ${
                             l.score && l.score >= 10
@@ -223,10 +234,10 @@ export default function StudentReportForm({
                           {l.score ?? l.descriptiveValue ?? "-"}
                         </span>
                       </td>
-                      <td className="p-3 text-zinc-600">
+                      <td className="p-2 text-zinc-600 md:p-3">
                         {l.classRank ?? "-"}
                       </td>
-                      <td className="p-3 text-zinc-600">
+                      <td className="p-2 text-zinc-600 md:p-3">
                         {l.gradeRank ?? "-"}
                       </td>
                     </tr>

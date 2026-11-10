@@ -54,6 +54,7 @@ type Props = {
   gradingType: "DESCRIPTIVE" | "NUMERIC";
   isTest: boolean; // ⬅️ اضافه شد
   hasNegativeScore: boolean; // ⬅️ اضافه شد
+  isPeriodActive: boolean; // ⬅️ اضافه شد
 };
 
 const DESCRIPTIVE_OPTIONS = ["خیلی خوب", "خوب", "قابل قبول", "نیاز به تلاش"];
@@ -69,6 +70,7 @@ export default function GradesForm({
   gradingType,
   isTest,
   hasNegativeScore,
+  isPeriodActive,
 }: Props) {
   const [localStudents, setLocalStudents] = useState<Student[]>(students);
 
@@ -341,6 +343,7 @@ export default function GradesForm({
                   questionCount={lesson.questionCount || 0}
                   isSaving={isSaving}
                   isSaved={isSaved}
+                  isPeriodActive={isPeriodActive} // ⬅️ به جای disabled
                 />
 
                 {/* دکمه حذف فقط در حالت غیر تستی */}

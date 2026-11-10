@@ -5,7 +5,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft, FileQuestion } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  FileQuestion,
+  Eye,
+  Power,
+} from "lucide-react";
 
 // ⬅️ اضافه کردن DatePicker فارسی
 import DatePicker from "react-multi-date-picker";
@@ -54,8 +60,9 @@ type Props = {
     startDate?: string | null;
     endDate?: string | null;
     isActive?: boolean;
-    examType?: "NORMAL" | "TEST"; // ⬅️ اضافه شد
-    hasNegativeScore?: boolean; // ⬅️ اضافه شد
+    isVisible?: boolean; // ⬅️ اضافه شد
+    examType?: "NORMAL" | "TEST";
+    hasNegativeScore?: boolean;
     klassIds?: string[];
     lessonsByPaye?: { payeId: number; lessonIds: string[] }[];
   };
@@ -98,7 +105,7 @@ export default function GradePeriodForm({
           startDate: initialData.startDate || "",
           endDate: initialData.endDate || "",
           isActive: initialData.isActive ?? true,
-          // ⬅️ استفاده از ?. برای امنیت
+          isVisible: initialData.isVisible ?? true, // ⬅️ اضافه شد
           examType: initialData.examType ?? "NORMAL",
           hasNegativeScore: initialData.hasNegativeScore ?? false,
           klassIds: initialData.klassIds || [],
@@ -110,8 +117,9 @@ export default function GradePeriodForm({
           startDate: "",
           endDate: "",
           isActive: true,
-          examType: "NORMAL", // ⬅️ پیش‌فرض برای ایجاد
-          hasNegativeScore: false, // ⬅️ پیش‌فرض برای ایجاد
+          isVisible: true, // ⬅️ پیش‌فرض
+          examType: "NORMAL",
+          hasNegativeScore: false,
           klassIds: [],
           lessonsByPaye: [],
         },
@@ -259,7 +267,6 @@ export default function GradePeriodForm({
     }
 
     startTransition(async () => {
-      // ⬅️ ارسال تاریخ‌ها به صورت ISO
       const payload = {
         ...data,
         startDate: startDate ? startDate.toISOString() : "",
@@ -329,7 +336,7 @@ export default function GradePeriodForm({
           error={errors.description?.message as string}
         />
 
-        {/* ⬅️ تاریخ شروع با DatePicker فارسی */}
+        {/* ⬅️ تاریخ‌ها */}
         <div className="col-span-full md:col-span-1">
           <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
             تاریخ شروع (اختیاری)
@@ -338,11 +345,8 @@ export default function GradePeriodForm({
             value={startDate}
             onChange={(selectedDate: any) => {
               if (selectedDate) {
-                if (selectedDate.toDate) {
-                  setStartDate(selectedDate.toDate());
-                } else {
-                  setStartDate(new Date(selectedDate));
-                }
+                if (selectedDate.toDate) setStartDate(selectedDate.toDate());
+                else setStartDate(new Date(selectedDate));
               } else {
                 setStartDate(null);
               }
@@ -358,7 +362,6 @@ export default function GradePeriodForm({
           />
         </div>
 
-        {/* ⬅️ تاریخ پایان با DatePicker فارسی */}
         <div className="col-span-full md:col-span-1">
           <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
             تاریخ پایان (اختیاری)
@@ -367,11 +370,8 @@ export default function GradePeriodForm({
             value={endDate}
             onChange={(selectedDate: any) => {
               if (selectedDate) {
-                if (selectedDate.toDate) {
-                  setEndDate(selectedDate.toDate());
-                } else {
-                  setEndDate(new Date(selectedDate));
-                }
+                if (selectedDate.toDate) setEndDate(selectedDate.toDate());
+                else setEndDate(new Date(selectedDate));
               } else {
                 setEndDate(null);
               }
@@ -387,22 +387,49 @@ export default function GradePeriodForm({
           />
         </div>
 
-        <div className="col-span-full flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="isActive"
-            {...register("isActive")}
-            className="h-4 w-4 rounded border-zinc-300"
-          />
-          <label
-            htmlFor="isActive"
-            className="text-sm text-zinc-700 dark:text-zinc-300"
-          >
-            دوره فعال باشد
-          </label>
+        {/* ⬅️ بخش وضعیت */}
+        <div className="col-span-full rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-zinc-800 dark:text-zinc-100">
+            <Power size={16} className="text-blue-600" />
+            وضعیت دوره
+          </h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border-2 border-zinc-200 bg-white p-3 transition-all hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800">
+              <input
+                type="checkbox"
+                {...register("isActive")}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-blue-600"
+              />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                  دوره فعال باشد
+                </span>
+                <span className="mt-0.5 text-xs text-zinc-500">
+                  معلم بتواند نمره ثبت و ویرایش کند.
+                </span>
+              </div>
+            </label>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border-2 border-zinc-200 bg-white p-3 transition-all hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800">
+              <input
+                type="checkbox"
+                {...register("isVisible")}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-emerald-600"
+              />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                  قابل نمایش باشد
+                </span>
+                <span className="mt-0.5 text-xs text-zinc-500">
+                  کارنامه و نمرات برای معلم و دانش‌آموز قابل مشاهده باشد.
+                </span>
+              </div>
+            </label>
+          </div>
         </div>
+
         {/* ⬅️ بخش تنظیمات نوع آزمون */}
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+        <div className="col-span-full rounded-xl border border-zinc-200 bg-zinc-50 p-4">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-zinc-800">
             <FileQuestion size={18} className="text-blue-600" />
             نوع آزمون
@@ -475,6 +502,7 @@ export default function GradePeriodForm({
             </div>
           )}
         </div>
+
         {/* بخش کلاس‌ها */}
         <div className="col-span-full">
           <div className="mb-2 flex items-center justify-between border-b border-zinc-200 pb-2 dark:border-zinc-700">

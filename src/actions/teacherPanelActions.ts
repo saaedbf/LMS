@@ -467,6 +467,7 @@ export async function getClassStudentsWithGrades(
       // ⬅️ اطلاعات آزمون
       isTest: gradePeriodLesson.gradePeriod.examType === "TEST",
       hasNegativeScore: gradePeriodLesson.gradePeriod.hasNegativeScore,
+      isPeriodActive: gradePeriodLesson.gradePeriod.isActive, // ⬅️ اضافه شد
     });
   } catch (err) {
     console.error("getClassStudentsWithGrades error:", err);
@@ -526,7 +527,10 @@ export async function saveGrade(input: {
     });
 
     if (!gradePeriodLesson) return error("درس در این دوره یافت نشد");
-
+    // ⬅️ بررسی فعال بودن دوره
+    if (!gradePeriodLesson.gradePeriod.isActive) {
+      return error("این دوره غیرفعال است. شما امکان ویرایش نمرات را ندارید.");
+    }
     const isTest = gradePeriodLesson.gradePeriod.examType === "TEST";
 
     // ۴. منطق خالی بودن بر اساس نوع آزمون
@@ -849,7 +853,10 @@ export async function bulkSaveGrades(input: {
     if (!gradePeriodLesson) {
       return { status: "error" as const, error: "درس در این دوره یافت نشد" };
     }
-
+    // ⬅️ بررسی فعال بودن دوره
+    if (!gradePeriodLesson.gradePeriod.isActive) {
+      return error("این دوره غیرفعال است. شما امکان ویرایش نمرات را ندارید.");
+    }
     const isTest = gradePeriodLesson.gradePeriod.examType === "TEST";
     const hasNegative = gradePeriodLesson.gradePeriod.hasNegativeScore;
     const qCount = gradePeriodLesson.questionCount || 1;

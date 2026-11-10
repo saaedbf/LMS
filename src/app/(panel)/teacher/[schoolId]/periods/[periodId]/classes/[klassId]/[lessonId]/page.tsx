@@ -45,6 +45,7 @@ export default async function GradesPage({ params }: Props) {
       gradingType={res.data.gradingType}
       isTest={res.data.isTest}
       hasNegativeScore={res.data.hasNegativeScore}
+      isPeriodActive={res.data.isPeriodActive} // ⬅️ اضافه شد
     />
   );
 }

@@ -247,6 +247,7 @@ export async function createGradePeriod(input: unknown) {
             : null,
           endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
           isActive: parsed.data.isActive,
+          isVisible: parsed.data.isVisible, // ⬅️ اضافه شد
           schoolId,
           academicYearId,
           // ⬅️ اضافه شدن فیلدهای جدید
@@ -451,6 +452,7 @@ export async function updateGradePeriod(input: unknown) {
             : null,
           endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : null,
           isActive: parsed.data.isActive,
+          isVisible: parsed.data.isVisible, // ⬅️ اضافه شد
           // ⬅️ اضافه شدن فیلدهای جدید
           examType: parsed.data.examType,
           hasNegativeScore: parsed.data.hasNegativeScore,
@@ -514,7 +516,33 @@ export async function updateGradePeriod(input: unknown) {
     return error("خطا در ویرایش دوره");
   }
 }
+export async function toggleGradePeriodVisibility(id: string) {
+  const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
+  if (isScopeError(scope)) return error(scope.error);
 
+  try {
+    const existing = await prisma.gradePeriod.findFirst({
+      where: {
+        id,
+        schoolId: scope.schoolId,
+        academicYearId: scope.academicYearId,
+      },
+    });
+
+    if (!existing) return error("دوره یافت نشد");
+
+    const updated = await prisma.gradePeriod.update({
+      where: { id },
+      data: { isVisible: !existing.isVisible },
+    });
+
+    revalidatePath(GRADE_PERIOD_ROUTE);
+    return success(updated);
+  } catch (err) {
+    console.error("toggleGradePeriodVisibility error:", err);
+    return error("خطا در تغییر وضعیت نمایش");
+  }
+}
 export async function deleteGradePeriod(id: string) {
   const scope = await getScope(PERMISSIONS.MANAGE_GRADE_PERIODS);
   if (isScopeError(scope)) return error(scope.error);

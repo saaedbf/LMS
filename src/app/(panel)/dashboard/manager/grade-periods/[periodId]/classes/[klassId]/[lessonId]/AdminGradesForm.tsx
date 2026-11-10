@@ -295,6 +295,7 @@ export default function AdminGradesForm({
                   questionCount={lesson.questionCount || 0}
                   isSaving={isSaving}
                   isSaved={isSaved}
+                  isPeriodActive={true}
                 />
                 {/* دکمه حذف برای حالت عادی (در حالت تستی داخل کامپوننت GradeInput مدیریت می‌شود) */}
                 {!isTest &&

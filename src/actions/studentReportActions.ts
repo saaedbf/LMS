@@ -40,7 +40,8 @@ export async function getStudentGradePeriods() {
     where: {
       schoolId: enrollment.schoolId,
       academicYearId: enrollment.academicYearId,
-      isActive: true,
+
+      isVisible: true,
       // فقط دوره‌هایی که برای کلاس این دانش‌آموز درس دارند
       lessonPeriods: {
         some: { klassId: enrollment.klassId },

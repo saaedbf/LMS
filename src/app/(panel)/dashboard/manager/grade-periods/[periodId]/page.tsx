@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Users, ChevronLeft } from "lucide-react";
 import BackButton from "@/components/widgets/Elements/BackButton";
+import { getPayesAndLessonsForAdmin } from "@/actions/adminGradeActions";
+import AdminBulkGradesByPayeModal from "./AdminBulkGradesByPayeModal";
 
 export default async function ManagerPeriodClassesPage({
   params,
@@ -11,24 +13,41 @@ export default async function ManagerPeriodClassesPage({
 }) {
   const { periodId } = await params;
 
-  const period = await prisma.gradePeriod.findUnique({
-    where: { id: periodId },
-    include: {
-      klassPeriods: {
-        include: {
-          klass: {
-            include: {
-              paye: true,
-              reshtehTahsili: true,
-              _count: { select: { studentEnrollments: true } },
+  // گرفتن اطلاعات دوره و کلاس‌ها + گرفتن لیست پایه‌ها و دروس
+  const [period, payesRes, settings] = await Promise.all([
+    prisma.gradePeriod.findUnique({
+      where: { id: periodId },
+      include: {
+        klassPeriods: {
+          include: {
+            klass: {
+              include: {
+                paye: true,
+                reshtehTahsili: true,
+                _count: { select: { studentEnrollments: true } },
+              },
             },
           },
         },
       },
-    },
-  });
+    }),
+    getPayesAndLessonsForAdmin(periodId),
+    prisma.schoolSettings.findFirst({
+      where: {
+        school: {
+          gradePeriods: {
+            some: { id: periodId },
+          },
+        },
+      },
+      select: { gradingType: true },
+    }),
+  ]);
 
   if (!period) notFound();
+
+  const payes = payesRes.status === "success" ? payesRes.data : [];
+  const gradingType = settings?.gradingType || "NUMERIC";
 
   return (
     <div className="space-y-4 p-2">
@@ -37,11 +56,20 @@ export default async function ManagerPeriodClassesPage({
         label="بازگشت به لیست دوره‌ها"
       />
 
-      <div className="rounded-xl bg-gradient-to-l from-blue-600 to-blue-500 p-5 text-white shadow-lg">
-        <h1 className="text-lg font-bold">{period.title}</h1>
-        <p className="mt-1 text-sm text-blue-100">
-          مدیریت نمرات کلاس‌های این دوره
-        </p>
+      <div className="flex flex-col items-start justify-between gap-4 rounded-xl bg-gradient-to-l from-blue-600 to-blue-500 p-5 text-white shadow-lg sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-lg font-bold">{period.title}</h1>
+          <p className="mt-1 text-sm text-blue-100">
+            مدیریت نمرات کلاس‌های این دوره
+          </p>
+        </div>
+
+        {/* ⬅️ دکمه ثبت گروهی برای کل پایه */}
+        <AdminBulkGradesByPayeModal
+          periodId={periodId}
+          payes={payes}
+          gradingType={gradingType}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

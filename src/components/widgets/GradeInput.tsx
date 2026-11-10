@@ -11,6 +11,7 @@ type Props = {
   questionCount?: number;
   isSaving?: boolean;
   isSaved?: boolean;
+  isPeriodActive: boolean; // ⬅️ اضافه شد
   inputRef?: React.RefObject<HTMLInputElement | null>;
 };
 
@@ -23,6 +24,7 @@ export default function GradeInput({
   questionCount = 1,
   isSaving,
   isSaved,
+  isPeriodActive,
   inputRef,
 }: Props) {
   const localRef = useRef<HTMLInputElement>(null);
@@ -39,6 +41,9 @@ export default function GradeInput({
   }, [ref]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    // ⬅️ اگر دوره غیرفعال است، کلیدهای میانبر کار نکنند
+    if (!isPeriodActive) return;
+
     const target = e.target as HTMLElement;
     const allInputs = Array.from(
       document.querySelectorAll("[data-grade-input]"),
@@ -86,6 +91,7 @@ export default function GradeInput({
     const score20 = (percentage / 100) * 20;
 
     const update = (field: string, val: number) => {
+      if (!isPeriodActive) return;
       onChange({ ...value, [field]: val });
     };
 
@@ -105,7 +111,12 @@ export default function GradeInput({
               onChange={(e) => update("correctCount", Number(e.target.value))}
               onKeyDown={handleKeyDown}
               onWheel={(e) => (e.target as HTMLInputElement).blur()}
-              className="h-10 w-12 rounded-lg border-2 border-emerald-200 bg-emerald-50 text-center font-bold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              disabled={!isPeriodActive}
+              className={`h-10 w-12 rounded-lg border-2 text-center font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                isPeriodActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-zinc-200 bg-zinc-100 text-zinc-500 cursor-not-allowed"
+              }`}
             />
           </div>
           <div className="flex flex-col items-center">
@@ -119,7 +130,12 @@ export default function GradeInput({
               onChange={(e) => update("wrongCount", Number(e.target.value))}
               onKeyDown={handleKeyDown}
               onWheel={(e) => (e.target as HTMLInputElement).blur()}
-              className="h-10 w-12 rounded-lg border-2 border-rose-200 bg-rose-50 text-center font-bold text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500"
+              disabled={!isPeriodActive}
+              className={`h-10 w-12 rounded-lg border-2 text-center font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 ${
+                isPeriodActive
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-zinc-200 bg-zinc-100 text-zinc-500 cursor-not-allowed"
+              }`}
             />
           </div>
           <div className="flex flex-col items-center">
@@ -133,7 +149,12 @@ export default function GradeInput({
               onChange={(e) => update("blankCount", Number(e.target.value))}
               onKeyDown={handleKeyDown}
               onWheel={(e) => (e.target as HTMLInputElement).blur()}
-              className="h-10 w-12 rounded-lg border-2 border-zinc-200 bg-zinc-50 text-center font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+              disabled={!isPeriodActive}
+              className={`h-10 w-12 rounded-lg border-2 text-center font-bold focus:outline-none focus:ring-2 focus:ring-zinc-500 ${
+                isPeriodActive
+                  ? "border-zinc-200 bg-zinc-50 text-zinc-700"
+                  : "border-zinc-200 bg-zinc-100 text-zinc-500 cursor-not-allowed"
+              }`}
             />
           </div>
         </div>
@@ -142,20 +163,32 @@ export default function GradeInput({
         <div className="flex gap-1 border-r border-zinc-200 pr-2 ml-2">
           <div className="flex flex-col items-center">
             <span className="text-[10px] text-blue-600 mb-1">درصد</span>
-            <div className="flex h-10 w-16 items-center justify-center rounded-lg border-2 border-blue-200 bg-blue-50 font-bold text-blue-700">
+            <div
+              className={`flex h-10 w-16 items-center justify-center rounded-lg border-2 font-bold ${
+                isPeriodActive
+                  ? "border-blue-200 bg-blue-50 text-blue-700"
+                  : "border-zinc-200 bg-zinc-100 text-zinc-500"
+              }`}
+            >
               {percentage.toFixed(1)}%
             </div>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-[10px] text-indigo-600 mb-1">نمره (20)</span>
-            <div className="flex h-10 w-16 items-center justify-center rounded-lg border-2 border-indigo-200 bg-indigo-50 font-bold text-indigo-700">
+            <div
+              className={`flex h-10 w-16 items-center justify-center rounded-lg border-2 font-bold ${
+                isPeriodActive
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                  : "border-zinc-200 bg-zinc-100 text-zinc-500"
+              }`}
+            >
               {score20.toFixed(2)}
             </div>
           </div>
         </div>
 
         {/* نشانگر ذخیره */}
-        {(isSaving || isSaved) && (
+        {isPeriodActive && (isSaving || isSaved) && (
           <div className="absolute -right-1 -top-1">
             {isSaving ? (
               <span className="block h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
@@ -177,7 +210,12 @@ export default function GradeInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="h-11 rounded-lg border-2 border-zinc-300 bg-white px-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+        disabled={!isPeriodActive}
+        className={`h-11 rounded-lg border-2 px-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          isPeriodActive
+            ? "border-zinc-300 bg-white"
+            : "border-zinc-200 bg-zinc-100 text-zinc-500 cursor-not-allowed"
+        }`}
       >
         <option value="">-</option>
         <option value="خیلی خوب">خیلی خوب</option>
@@ -202,16 +240,19 @@ export default function GradeInput({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onWheel={(e) => (e.target as HTMLInputElement).blur()}
+        disabled={!isPeriodActive}
         className={`h-11 w-20 rounded-lg border-2 px-2 text-center text-base font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          value !== "" && Number(value) >= 10
-            ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-            : value !== "" && Number(value) < 10
-              ? "border-rose-300 bg-rose-50 text-rose-700"
-              : "border-zinc-300 bg-white text-zinc-700"
+          !isPeriodActive
+            ? "border-zinc-200 bg-zinc-100 text-zinc-500 cursor-not-allowed"
+            : value !== "" && Number(value) >= 10
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+              : value !== "" && Number(value) < 10
+                ? "border-rose-300 bg-rose-50 text-rose-700"
+                : "border-zinc-300 bg-white text-zinc-700"
         }`}
         placeholder="-"
       />
-      {(isSaving || isSaved) && (
+      {isPeriodActive && (isSaving || isSaved) && (
         <div className="absolute -right-1 -top-1">
           {isSaving ? (
             <span className="block h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />

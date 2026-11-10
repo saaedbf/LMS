@@ -75,7 +75,15 @@ export async function getAcademicReportData(
       where: { id: periodId },
     });
     if (!period) return { status: "error", error: "دوره یافت نشد" };
-
+    if (!context.isMaster && context.role !== "MANAGER") {
+      // بررسی isVisible برای معلم و دانش‌آموز
+      if (!period.isVisible) {
+        return {
+          status: "error",
+          error: "این کارنامه برای نمایش در دسترس نیست.",
+        };
+      }
+    }
     // ۳. تمام درس‌های این دوره برای تمام کلاس‌ها (با واحدها)
     const allPeriodLessons = await prisma.gradePeriodLesson.findMany({
       where: { gradePeriodId: periodId },
@@ -313,7 +321,7 @@ export async function getPeriodsForReport() {
     where: {
       schoolId: context.schoolId,
       academicYearId: context.academicYearId,
-      isActive: true,
+      isVisible: true, // ⬅️ فقط دوره‌هایی که قابل نمایش هستند
     },
     select: { id: true, title: true },
     orderBy: { createdAt: "desc" },

@@ -12,6 +12,8 @@ import {
   Layers,
   FileSpreadsheet,
   FileQuestion,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 import CreateBtn from "@/components/widgets/Elements/CreateBtn";
@@ -35,6 +37,7 @@ import GradePeriodForm from "./GradePeriodForm";
 import {
   deleteGradePeriod,
   toggleGradePeriodActive,
+  toggleGradePeriodVisibility,
 } from "@/actions/gradePeriodActions";
 import { convertGregorianToJalali } from "@/lib/dateUtils";
 import BackButton from "@/components/widgets/Elements/BackButton";
@@ -51,6 +54,7 @@ type GradePeriodItem = {
   startDate: Date | null;
   endDate: Date | null;
   isActive: boolean;
+  isVisible: boolean;
   createdAt: Date;
   // ⬅️ این دو فیلد اضافه شوند
   examType: "NORMAL" | "TEST";
@@ -198,6 +202,9 @@ export default function GradePeriodComp({
                 <SortableTh field="status" title="وضعیت">
                   <span className="text-xs text-gray-400">فعال/غیرفعال</span>
                 </SortableTh>
+                <SortableTh field="status" title="نمایش">
+                  <span className="text-xs text-gray-400">نمایش</span>
+                </SortableTh>
 
                 <ThActions>عملیات</ThActions>
               </HeadTr>
@@ -300,7 +307,17 @@ export default function GradePeriodComp({
                           {item.isActive ? "فعال" : "غیرفعال"}
                         </span>
                       </Td>
-
+                      <Td>
+                        <span
+                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                            item.isVisible
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-zinc-100 text-zinc-500"
+                          }`}
+                        >
+                          {item.isVisible ? "قابل نمایش" : "مخفی"}
+                        </span>
+                      </Td>
                       <TdActions>
                         <div className="flex items-center justify-center gap-1">
                           {/* ویرایش */}
@@ -339,6 +356,7 @@ export default function GradePeriodComp({
                                       .split("T")[0]
                                   : null,
                                 isActive: item.isActive,
+                                isVisible: item.isVisible, // ⬅️ این خط را اضافه کنید
                                 examType: item.examType,
                                 hasNegativeScore: item.hasNegativeScore,
                                 klassIds: item.klassPeriods.map(
@@ -365,6 +383,43 @@ export default function GradePeriodComp({
                             } disabled:opacity-50`}
                           >
                             <Power size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setTogglingId(item.id);
+                              const res = await toggleGradePeriodVisibility(
+                                item.id,
+                              );
+                              if (res.status === "error")
+                                toast.error(res.error);
+                              else {
+                                toast.success(
+                                  item.isVisible
+                                    ? "نمایش غیرفعال شد"
+                                    : "نمایش فعال شد",
+                                );
+                                router.refresh();
+                              }
+                              setTogglingId(null);
+                            }}
+                            disabled={togglingId === item.id}
+                            title={
+                              item.isVisible
+                                ? "غیرفعال کردن نمایش"
+                                : "فعال کردن نمایش"
+                            }
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
+                              item.isVisible
+                                ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                : "border-zinc-300 text-zinc-500 hover:bg-zinc-50"
+                            } disabled:opacity-50`}
+                          >
+                            {item.isVisible ? (
+                              <Eye size={14} />
+                            ) : (
+                              <EyeOff size={14} />
+                            )}
                           </button>
                           {/* ⬅️ دکمه مدیریت نمرات */}
                           <Link

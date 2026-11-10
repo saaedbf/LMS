@@ -509,3 +509,221 @@ export async function bulkSaveSameGradeByAdmin(input: {
     return { status: "error" as const, error: "خطا در ثبت گروهی نمره" };
   }
 }
+export async function bulkSaveGradesByPayeByAdmin(input: {
+  periodId: string;
+  payeId: number;
+  darsPayeReshtehId: string;
+  grades: {
+    nationalCode: string;
+    value?: string | number;
+    correctCount?: number;
+    wrongCount?: number;
+    blankCount?: number;
+  }[];
+  gradingType: "NUMERIC" | "DESCRIPTIVE";
+}) {
+  const context = await getCurrentContext();
+  if (!context?.user || (context.role !== "MANAGER" && !context.isMaster)) {
+    return { status: "error" as const, error: "دسترسی غیرمجاز" };
+  }
+
+  const username = context.user.email || context.user.name || "manager";
+
+  try {
+    // پیدا کردن تمام کلاس‌های این پایه که درس مورد نظر را در این دوره دارند
+    const gradePeriodLessons = await prisma.gradePeriodLesson.findMany({
+      where: {
+        gradePeriodId: input.periodId,
+        darsPayeReshtehId: input.darsPayeReshtehId,
+        darsPayeReshteh: { payeId: input.payeId },
+      },
+      include: { gradePeriod: true },
+    });
+
+    if (gradePeriodLessons.length === 0) {
+      return {
+        status: "error" as const,
+        error: "این درس در این دوره برای این پایه یافت نشد",
+      };
+    }
+
+    const isTest = gradePeriodLessons[0].gradePeriod.examType === "TEST";
+    const hasNegative = gradePeriodLessons[0].gradePeriod.hasNegativeScore;
+    const qCount = gradePeriodLessons[0].questionCount || 1;
+
+    // گرفتن تمام دانش‌آموزان این پایه
+    const enrollments = await prisma.studentEnrollment.findMany({
+      where: {
+        payeId: input.payeId,
+        schoolId: gradePeriodLessons[0].gradePeriod.schoolId,
+        academicYearId: gradePeriodLessons[0].gradePeriod.academicYearId,
+        klassId: { in: gradePeriodLessons.map((gpl) => gpl.klassId) },
+      },
+      include: { student: { select: { nationalCode: true } } },
+    });
+
+    // نگاشت کد ملی به enrollmentId
+    const enrollmentMap = new Map(
+      enrollments.map((e) => {
+        let code = e.student.nationalCode.replace(/\D/g, "");
+        if (code.length === 8) code = "00" + code;
+        else if (code.length === 9) code = "0" + code;
+        return [code, e.id];
+      }),
+    );
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const item of input.grades) {
+      let cleanCode = String(item.nationalCode).replace(/\D/g, "");
+      if (cleanCode.length === 8) cleanCode = "00" + cleanCode;
+      else if (cleanCode.length === 9) cleanCode = "0" + cleanCode;
+
+      const enrollmentId = enrollmentMap.get(cleanCode);
+
+      if (!enrollmentId) {
+        skipped++;
+        errors.push(`کد ملی ${item.nationalCode} در این پایه یافت نشد`);
+        continue;
+      }
+
+      const enrollment = enrollments.find((e) => e.id === enrollmentId);
+      if (!enrollment) continue;
+
+      // پیدا کردن رکورد درس مربوط به کلاس این دانش‌آموز
+      const gradePeriodLesson = gradePeriodLessons.find(
+        (gpl) => gpl.klassId === enrollment.klassId,
+      );
+      if (!gradePeriodLesson) {
+        skipped++;
+        errors.push(
+          `درس برای کلاس دانش‌آموز با کد ملی ${item.nationalCode} تعریف نشده است`,
+        );
+        continue;
+      }
+
+      let finalScore: number | null = null;
+      let descriptiveValue: string | null = null;
+      let correctCount: number | null = null;
+      let wrongCount: number | null = null;
+      let blankCount: number | null = null;
+
+      if (isTest) {
+        const correct = item.correctCount || 0;
+        const wrong = item.wrongCount || 0;
+        const blank = item.blankCount || 0;
+
+        correctCount = correct;
+        wrongCount = wrong;
+        blankCount = blank;
+
+        let rawScore = correct;
+        if (hasNegative) rawScore = correct - wrong / 3;
+        if (rawScore < 0) rawScore = 0;
+
+        const percentage = (rawScore / qCount) * 100;
+        finalScore = Math.min((percentage / 100) * 20, 20);
+      } else {
+        if (input.gradingType === "NUMERIC") {
+          const num = Number(item.value);
+          if (isNaN(num) || num < 0 || num > 20) {
+            skipped++;
+            errors.push(
+              `نمره ${item.value} برای کد ملی ${item.nationalCode} نامعتبر است`,
+            );
+            continue;
+          }
+          finalScore = num;
+        } else {
+          descriptiveValue = String(item.value).trim();
+        }
+      }
+
+      const existing = await prisma.grade.findUnique({
+        where: {
+          studentEnrollmentId_gradePeriodLessonId: {
+            studentEnrollmentId: enrollmentId,
+            gradePeriodLessonId: gradePeriodLesson.id,
+          },
+        },
+      });
+
+      if (existing) {
+        await prisma.grade.update({
+          where: { id: existing.id },
+          data: {
+            score: finalScore,
+            descriptiveValue,
+            correctCount,
+            wrongCount,
+            blankCount,
+            lastEditedByUsername: username,
+          },
+        });
+        updated++;
+      } else {
+        await prisma.grade.create({
+          data: {
+            studentEnrollmentId: enrollmentId,
+            gradePeriodLessonId: gradePeriodLesson.id,
+            score: finalScore,
+            descriptiveValue,
+            correctCount,
+            wrongCount,
+            blankCount,
+            lastEditedByUsername: username,
+          },
+        });
+        created++;
+      }
+    }
+
+    revalidatePath("/dashboard/manager/grade-periods");
+    return {
+      status: "success" as const,
+      data: { created, updated, skipped, errors },
+    };
+  } catch (err) {
+    console.error("bulkSaveGradesByPayeByAdmin error:", err);
+    return { status: "error" as const, error: "خطا در ثبت گروهی نمرات" };
+  }
+}
+export async function getPayesAndLessonsForAdmin(periodId: string) {
+  const context = await getCurrentContext();
+  if (!context?.user || (context.role !== "MANAGER" && !context.isMaster)) {
+    return { status: "error" as const, error: "دسترسی غیرمجاز" };
+  }
+
+  const lessons = await prisma.gradePeriodLesson.findMany({
+    where: { gradePeriodId: periodId },
+    include: {
+      darsPayeReshteh: {
+        include: { paye: true, reshtehTadris: true },
+      },
+    },
+  });
+
+  const payeMap = new Map<number, any>();
+  for (const l of lessons) {
+    const payeId = l.darsPayeReshteh.payeId;
+    if (!payeMap.has(payeId)) {
+      payeMap.set(payeId, {
+        payeId,
+        payeTitle: l.darsPayeReshteh.paye.title,
+        lessons: [],
+      });
+    }
+    const entry = payeMap.get(payeId)!;
+    if (!entry.lessons.find((x: any) => x.id === l.darsPayeReshtehId)) {
+      entry.lessons.push({
+        id: l.darsPayeReshtehId,
+        title: l.darsPayeReshteh.reshtehTadris.title,
+      });
+    }
+  }
+
+  return { status: "success" as const, data: Array.from(payeMap.values()) };
+}
