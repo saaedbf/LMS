@@ -10,6 +10,7 @@ import {
   Users,
   FileDown,
   FileText,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import {
@@ -43,7 +44,40 @@ export default function AttendancePrintComp({
   const [teacherSearch, setTeacherSearch] = useState("");
   const [downloadingCovers, setDownloadingCovers] = useState(false);
   const [downloadingNotes, setDownloadingNotes] = useState(false);
+  const [downloadingWeekly, setDownloadingWeekly] = useState(false);
 
+  const handleDownloadWeekly = async () => {
+    setDownloadingWeekly(true);
+    try {
+      const res = await fetch("/api/weekly-teacher-attendance-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}), // weekStart اختیاری
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "خطا در ساخت دفتر هفتگی");
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `دفتر-حضور-هفتگی-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("دفتر هفتگی دانلود شد");
+    } catch (e) {
+      console.error(e);
+      toast.error("خطا در دریافت PDF");
+    } finally {
+      setDownloadingWeekly(false);
+    }
+  };
   const handleDownloadNotes = async () => {
     setDownloadingNotes(true);
     try {
@@ -432,6 +466,24 @@ export default function AttendancePrintComp({
                 <>
                   <FileDown size={16} />
                   دانلود PDF ({totalSelected} برگه)
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadWeekly}
+              disabled={downloadingWeekly}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {downloadingWeekly ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  در حال ساخت دفتر هفتگی...
+                </>
+              ) : (
+                <>
+                  <CalendarDays size={16} />
+                  دفتر حضور هفتگی دبیران
                 </>
               )}
             </button>

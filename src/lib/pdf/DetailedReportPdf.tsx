@@ -20,7 +20,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, fontWeight: "bold" },
   table: { width: "100%", borderWidth: 1, borderColor: "#000" },
 
-  // ⬅️ استایل مشترک برای سلول‌ها
   cell: {
     padding: 4,
     borderLeftWidth: 1,
@@ -31,7 +30,6 @@ const styles = StyleSheet.create({
   headerCell: {
     backgroundColor: "#f0f0f0",
   },
-  // ⬅️ تراز افقی
   textCenter: { textAlign: "center", fontSize: 8 },
   textRight: { textAlign: "right", fontSize: 8 },
   textBold: { fontWeight: "bold", fontSize: 8 },
@@ -48,9 +46,6 @@ export function DetailedReportPdf({ data, regularFont, boldFont }: any) {
     fontsRegistered = true;
   }
 
-  // ⬅️ محاسبه عرض ستون‌ها به صورت درصدی
-  // فرض: ۱۵٪ نام، ۱۰٪ کد ملی، ۱۰٪ معدل → ۳۵٪ اشغال شده
-  // ۶۵٪ باقی‌مانده بین دروس تقسیم می‌شود.
   const fixedWidths = { name: 15, code: 10, avg: 10 };
   const remaining = 100 - fixedWidths.name - fixedWidths.code - fixedWidths.avg;
   const lessonWidth =
@@ -58,8 +53,9 @@ export function DetailedReportPdf({ data, regularFont, boldFont }: any) {
 
   return (
     <Document>
-      <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={styles.header}>
+      <Page size="A4" orientation="landscape" style={styles.page} wrap>
+        {/* ⬅️ هدر — در هر صفحه تکرار می‌شود */}
+        <View style={styles.header} fixed>
           <Text style={styles.title}>گزارش تفضیلی نمرات</Text>
           <Text style={{ fontSize: 10, marginTop: 4 }}>
             کلاس: {data.klassTitle} | دوره: {data.periodTitle}
@@ -67,8 +63,8 @@ export function DetailedReportPdf({ data, regularFont, boldFont }: any) {
         </View>
 
         <View style={styles.table}>
-          {/* ⬅️ سرستون‌ها */}
-          <View style={{ flexDirection: "row-reverse" }}>
+          {/* ⬅️ سرستون‌ها — در هر صفحه تکرار می‌شوند */}
+          <View style={{ flexDirection: "row-reverse" }} fixed>
             <View style={[styles.cell, styles.headerCell, { width: "4%" }]}>
               <Text style={[styles.textCenter, styles.textBold]}>#</Text>
             </View>

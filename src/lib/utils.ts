@@ -70,3 +70,14 @@ export const toPersianNum = (num: number | string) => {
   const farsiDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
   return num.toString().replace(/\d/g, (x) => farsiDigits[parseInt(x)]);
 };
+export function toEnglishDigits(str: string): string {
+  const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
+  const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
+  return str.replace(/[۰-۹٠-٩]/g, (ch) => {
+    const pIdx = persianDigits.indexOf(ch);
+    if (pIdx !== -1) return String(pIdx);
+    const aIdx = arabicDigits.indexOf(ch);
+    if (aIdx !== -1) return String(aIdx);
+    return ch;
+  });
+}

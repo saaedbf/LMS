@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Home,
 } from "lucide-react";
+import { toEnglishDigits } from "@/lib/utils";
 
 const DOMAIN = "@lms.local";
 
@@ -32,8 +33,9 @@ export default function LoginPage() {
 
     setLoading(true);
     setError("");
-
-    const email = `${username}${DOMAIN}`;
+    // ⬅️ تبدیل اعداد فارسی به انگلیسی
+    const normalizedUsername = toEnglishDigits(username.trim());
+    const email = `${normalizedUsername}${DOMAIN}`;
 
     try {
       const result = await authClient.signIn.email({
@@ -114,7 +116,9 @@ export default function LoginPage() {
                   />
                   <input
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e) =>
+                      setUsername(toEnglishDigits(e.target.value))
+                    }
                     className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 pr-10 text-sm text-white placeholder:text-indigo-300/60 outline-none transition focus:border-amber-400/60 focus:bg-white/10 focus:ring-2 focus:ring-amber-400/20"
                     dir="ltr"
                     placeholder="مثلا: 0934499221"
