@@ -153,3 +153,71 @@ export async function getWeeklyTeacherAttendance(params?: {
     },
   };
 }
+// src/actions/weeklyTeacherAttendanceActions.ts
+// ⬇️ به انتهای همان فایل اضافه کنید (فقط تابع async)
+
+export async function getSchoolCoverInfo(): Promise<
+  | {
+      status: "success";
+      data: {
+        schoolTitle: string;
+        schoolSubTitle: string | null;
+        schoolId: number;
+        academicYearTitle: string;
+        managerName: string | null;
+        deputyName: string | null;
+        address: string | null; // ⬅️ دیگر استفاده نمی‌شود
+        phone: string | null; // ⬅️ دیگر استفاده نمی‌شود
+        doreTitle: string | null;
+        teachersCount: number;
+      };
+    }
+  | { status: "error"; error: string }
+> {
+  const context = await getCurrentContext();
+  if (!context?.schoolId || !context.academicYearId) {
+    return { status: "error", error: "کانتکست فعال یافت نشد" };
+  }
+
+  const { schoolId, academicYearId } = context;
+
+  const [school, academicYear, teachersCount] = await Promise.all([
+    prisma.school.findUnique({
+      where: { id: schoolId },
+      select: {
+        id: true,
+        title: true,
+        subTitle: true, // ⬅️ جایگزین address
+        modirName: true, // ⬅️ نام مدیر
+        doreTahsili: { select: { title: true } },
+      },
+    }),
+    prisma.academicYear.findUnique({
+      where: { id: academicYearId },
+      select: { title: true },
+    }),
+    prisma.teacherAssignment.count({
+      where: { schoolId, academicYearId, isActive: true },
+    }),
+  ]);
+
+  if (!school || !academicYear) {
+    return { status: "error", error: "مدرسه یا سال تحصیلی یافت نشد" };
+  }
+
+  return {
+    status: "success",
+    data: {
+      schoolTitle: school.title,
+      schoolSubTitle: school.subTitle ?? null,
+      schoolId: school.id,
+      academicYearTitle: academicYear.title,
+      managerName: school.modirName ?? null, // ⬅️ از modirName
+      deputyName: null,
+      address: null,
+      phone: null,
+      doreTitle: school.doreTahsili?.title ?? null,
+      teachersCount,
+    },
+  };
+}

@@ -45,7 +45,36 @@ export default function AttendancePrintComp({
   const [downloadingCovers, setDownloadingCovers] = useState(false);
   const [downloadingNotes, setDownloadingNotes] = useState(false);
   const [downloadingWeekly, setDownloadingWeekly] = useState(false);
+  const [downloadingCover, setDownloadingCover] = useState(false);
 
+  const handleDownloadWeeklyCover = async () => {
+    setDownloadingCover(true);
+    try {
+      const res = await fetch("/api/weekly-attendance-cover-pdf", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "خطا در ساخت روکش");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `روکش-دفتر-حضور-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("روکش دانلود شد");
+    } catch (e) {
+      console.error(e);
+      toast.error("خطا در دریافت PDF");
+    } finally {
+      setDownloadingCover(false);
+    }
+  };
   const handleDownloadWeekly = async () => {
     setDownloadingWeekly(true);
     try {
@@ -468,6 +497,19 @@ export default function AttendancePrintComp({
                   دانلود PDF ({totalSelected} برگه)
                 </>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadWeeklyCover}
+              disabled={downloadingCover}
+              className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+            >
+              {downloadingCover ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <BookOpen size={16} />
+              )}
+              روکش دفتر حضور و غیاب دبیران
             </button>
             <button
               type="button"

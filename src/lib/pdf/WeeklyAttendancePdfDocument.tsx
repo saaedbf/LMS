@@ -16,27 +16,27 @@ import {
 
 let fontsRegistered = false;
 
-const PAGE1_IDX = [0, 1, 2];
-const PAGE2_IDX = [3, 4, 5];
+/* ═══════════ فقط ۵ روز: شنبه تا چهارشنبه ═══════════ */
+const DAY_IDX = [0, 1, 2, 3, 4];
 
-/* ═══════════ عرض ستون‌ها ═══════════ */
-const ROWNO_W = "6%";
-const NAME_W = "20%";
-const DAY_W = "24.66%";
-const IN_W = "22%";
-const OUT_W = "22%";
-const SIGN_W = "56%";
+/* ═══════════ عرض ستون‌ها — پهن‌تر ═══════════ */
+const ROWNO_W = "4%";
+const NAME_W = "17%";
+const DAY_W = "15.8%"; // (100 - 4 - 17) / 5
+const IN_W = "18%";
+const OUT_W = "18%";
+const SIGN_W = "64%";
 
 /* ═══════════ تعداد ردیف در هر صفحه ═══════════ */
-const ROWS_PER_PAGE = 20;
+const ROWS_PER_PAGE = 12;
 
 /* ═══════════ استایل‌ها ═══════════ */
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingLeft: 25,
-    paddingRight: 25,
+    paddingTop: 14,
+    paddingBottom: 14,
+    paddingLeft: 20,
+    paddingRight: 20,
     fontFamily: "IRANSans",
     fontSize: 8,
     direction: "rtl",
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     width: DAY_W,
     borderLeftWidth: 0.5,
     borderLeftColor: "#000",
-    paddingVertical: 3,
+    paddingVertical: 4,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -136,23 +136,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   thText: { fontSize: 7, fontWeight: "bold", textAlign: "center" },
-  thTextSm: { fontSize: 6, fontWeight: "bold", textAlign: "center" },
+  thTextSm: { fontSize: 6.5, fontWeight: "bold", textAlign: "center" },
   dateText: {
-    fontSize: 5.5,
+    fontSize: 6,
     color: "#374151",
     textAlign: "center",
     marginTop: 1,
   },
 
+  /* ارتفاع ردیف — بیشتر برای ۱۲ ردیف */
   row: {
     flexDirection: "row-reverse",
     borderBottomWidth: 0.5,
     borderBottomColor: "#000",
-    minHeight: 30,
+    minHeight: 34,
   },
   rowLast: {
     flexDirection: "row-reverse",
-    minHeight: 30,
+    minHeight: 34,
   },
   tdRowNo: {
     width: ROWNO_W,
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  tdRowNoText: { fontSize: 7.5, textAlign: "center" },
+  tdRowNoText: { fontSize: 8, textAlign: "center" },
   tdName: {
     width: NAME_W,
     borderLeftWidth: 0.5,
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 2,
   },
-  tdNameText: { fontSize: 7.5, textAlign: "right", fontWeight: "bold" },
+  tdNameText: { fontSize: 8.5, textAlign: "right", fontWeight: "bold" },
   tdDayWrap: {
     width: DAY_W,
     borderLeftWidth: 0.5,
@@ -221,82 +222,55 @@ export function WeeklyAttendancePdfDocument({
     fontsRegistered = true;
   }
 
-  return (
-    <Document>
-      <WeeklyPages data={data} dayIdx={PAGE1_IDX} pageTitle="سه روز اول" />
-      <WeeklyPages data={data} dayIdx={PAGE2_IDX} pageTitle="سه روز دوم" />
-    </Document>
-  );
-}
-
-/* ═══════════ چند صفحه برای یک گروه از روزها ═══════════ */
-function WeeklyPages({
-  data,
-  dayIdx,
-  pageTitle,
-}: {
-  data: WeeklyAttendanceData;
-  dayIdx: number[];
-  pageTitle: string;
-}) {
-  // فقط دبیرانی که در حداقل یکی از این ۳ روز درس دارند
+  // فقط دبیرانی که در حداقل یکی از این ۵ روز درس دارند
   const rows: WeeklyTeacherRow[] = data.rows.filter((r) =>
-    dayIdx.some((i) => r.days[i] !== null),
+    DAY_IDX.some((i) => r.days[i] !== null),
   );
 
-  // تقسیم به صفحات با تعداد ثابت ROWS_PER_PAGE
+  // تقسیم به صفحات ۱۲ ردیفی
   const chunks: WeeklyTeacherRow[][] = [];
   for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
     chunks.push(rows.slice(i, i + ROWS_PER_PAGE));
   }
-  if (chunks.length === 0) {
-    chunks.push([]);
-  }
+  if (chunks.length === 0) chunks.push([]);
 
   return (
-    <>
+    <Document>
       {chunks.map((chunk, pageIdx) => (
         <WeeklyPage
           key={pageIdx}
           data={data}
-          dayIdx={dayIdx}
-          pageTitle={pageTitle}
           chunk={chunk}
           pageIdx={pageIdx}
           totalPages={chunks.length}
           globalStartIndex={pageIdx * ROWS_PER_PAGE}
-          totalRowsInDayGroup={rows.length}
+          totalRows={rows.length}
         />
       ))}
-    </>
+    </Document>
   );
 }
 
 /* ═══════════ یک صفحه ═══════════ */
 function WeeklyPage({
   data,
-  dayIdx,
-  pageTitle,
   chunk,
   pageIdx,
   totalPages,
   globalStartIndex,
-  totalRowsInDayGroup,
+  totalRows,
 }: {
   data: WeeklyAttendanceData;
-  dayIdx: number[];
-  pageTitle: string;
   chunk: WeeklyTeacherRow[];
   pageIdx: number;
   totalPages: number;
   globalStartIndex: number;
-  totalRowsInDayGroup: number;
+  totalRows: number;
 }) {
-  // ردیف‌های خالی تا پر شدن ROWS_PER_PAGE
   const empty = Math.max(0, ROWS_PER_PAGE - chunk.length);
 
   return (
-    <Page size="A4" style={styles.page} wrap={false}>
+    <Page size="A4" orientation="landscape" style={styles.page} wrap={false}>
       {/* ═══ هدر ═══ */}
       <View style={styles.headerBox}>
         <View style={styles.headerRow}>
@@ -309,22 +283,39 @@ function WeeklyPage({
           <View style={styles.headerCell}>
             <Text>مدرسه: {data.schoolTitle}</Text>
             <Text>کد مدرسه: {data.schoolId}</Text>
-            <Text>تعداد دبیران: {totalRowsInDayGroup}</Text>
+            <Text>تعداد دبیران: {totalRows}</Text>
           </View>
           <View style={styles.headerCellLast}>
-            <Text>
-              {pageTitle}
-              {totalPages > 1 ? ` — صفحه ${pageIdx + 1} از ${totalPages}` : ""}
-            </Text>
-            <Text style={styles.bold}>
-              {dayIdx.map((i) => WEEK_DAYS_FA[WEEK_DAYS[i]]).join(" — ")}
-            </Text>
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                justifyContent: "flex-end",
+                gap: 10,
+                marginTop: 4,
+              }}
+            >
+              <Text style={{ fontSize: 9 }}>
+                از تاریخ: .........................
+              </Text>
+            </View>
+            <View
+              style={{
+                flexDirection: "row-reverse",
+                justifyContent: "flex-end",
+                gap: 10,
+                marginTop: 8,
+              }}
+            >
+              <Text style={{ fontSize: 9 }}>
+                تا تاریخ: .........................
+              </Text>
+            </View>
           </View>
         </View>
         <View style={styles.titleBar}>
           <Text style={styles.titleText}>
             حضور و غیاب هفتگی دبیران —{" "}
-            {dayIdx.map((i) => WEEK_DAYS_FA[WEEK_DAYS[i]]).join("، ")}
+            {DAY_IDX.map((i) => WEEK_DAYS_FA[WEEK_DAYS[i]]).join("، ")}
           </Text>
         </View>
       </View>
@@ -339,7 +330,7 @@ function WeeklyPage({
           <View style={styles.thName}>
             <Text style={styles.thText}>نام و نام خانوادگی</Text>
           </View>
-          {dayIdx.map((i) => (
+          {DAY_IDX.map((i) => (
             <View key={i} style={styles.thDay}>
               <Text style={styles.thText}>{WEEK_DAYS_FA[WEEK_DAYS[i]]}</Text>
               <Text style={styles.dateText}>
@@ -353,7 +344,7 @@ function WeeklyPage({
         <View style={styles.headerRow2}>
           <View style={styles.thRowNo} />
           <View style={styles.thName} />
-          {dayIdx.map((i) => (
+          {DAY_IDX.map((i) => (
             <View
               key={i}
               style={{ width: DAY_W, flexDirection: "row-reverse" }}
@@ -371,7 +362,7 @@ function WeeklyPage({
           ))}
         </View>
 
-        {/* ردیف‌های دبیران — شماره پیوسته بین صفحات */}
+        {/* ردیف‌های دبیران */}
         {chunk.map((r, i) => {
           const rowNumber = globalStartIndex + i + 1;
           return (
@@ -384,7 +375,7 @@ function WeeklyPage({
                   {r.lastName} {r.firstName}
                 </Text>
               </View>
-              {dayIdx.map((d) => {
+              {DAY_IDX.map((d) => {
                 const hasClass = r.days[d] !== null;
                 return (
                   <View key={d} style={styles.tdDayWrap}>
@@ -408,7 +399,7 @@ function WeeklyPage({
           );
         })}
 
-        {/* ردیف‌های خالی — شماره ادامه دارد */}
+        {/* ردیف‌های خالی */}
         {Array.from({ length: empty }).map((_, i) => {
           const rowNumber = globalStartIndex + chunk.length + i + 1;
           return (
@@ -422,7 +413,7 @@ function WeeklyPage({
               <View style={styles.tdName}>
                 <Text style={styles.tdNameText}> </Text>
               </View>
-              {dayIdx.map((d) => (
+              {DAY_IDX.map((d) => (
                 <View key={d} style={styles.tdDayWrap}>
                   <View style={styles.tdIn} />
                   <View style={styles.tdOut} />
