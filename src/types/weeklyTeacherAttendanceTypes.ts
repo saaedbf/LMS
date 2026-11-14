@@ -32,6 +32,7 @@ export type WeeklyTeacherRow = {
   firstName: string;
   lastName: string;
   days: (WeeklyTeacherDayInfo | null)[];
+  position: string; // ⬅️ این خط اضافه شود
 };
 
 export type WeeklyAttendanceData = {

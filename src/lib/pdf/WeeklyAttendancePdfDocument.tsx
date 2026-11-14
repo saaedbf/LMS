@@ -16,21 +16,18 @@ import {
 
 let fontsRegistered = false;
 
-/* ═══════════ فقط ۵ روز: شنبه تا چهارشنبه ═══════════ */
 const DAY_IDX = [0, 1, 2, 3, 4];
 
-/* ═══════════ عرض ستون‌ها — پهن‌تر ═══════════ */
-const ROWNO_W = "4%";
-const NAME_W = "17%";
-const DAY_W = "15.8%"; // (100 - 4 - 17) / 5
+const ROWNO_W = "3%";
+const NAME_W = "12%";
+const POS_W = "6%";
+const DAY_W = "15.8%";
 const IN_W = "18%";
 const OUT_W = "18%";
 const SIGN_W = "64%";
 
-/* ═══════════ تعداد ردیف در هر صفحه ═══════════ */
 const ROWS_PER_PAGE = 12;
 
-/* ═══════════ استایل‌ها ═══════════ */
 const styles = StyleSheet.create({
   page: {
     paddingTop: 14,
@@ -59,7 +56,7 @@ const styles = StyleSheet.create({
   headerCellLast: {
     flex: 1,
     padding: 4,
-    textAlign: "center",
+    alignItems: "flex-end",
     fontSize: 7,
     lineHeight: 1.4,
   },
@@ -96,6 +93,15 @@ const styles = StyleSheet.create({
   },
   thName: {
     width: NAME_W,
+    borderLeftWidth: 0.5,
+    borderLeftColor: "#000",
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  thPos: {
+    width: POS_W,
     borderLeftWidth: 0.5,
     borderLeftColor: "#000",
     paddingVertical: 4,
@@ -144,7 +150,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  /* ارتفاع ردیف — بیشتر برای ۱۲ ردیف */
   row: {
     flexDirection: "row-reverse",
     borderBottomWidth: 0.5,
@@ -168,10 +173,28 @@ const styles = StyleSheet.create({
     borderLeftWidth: 0.5,
     borderLeftColor: "#000",
     justifyContent: "center",
-    paddingHorizontal: 4,
+    alignItems: "flex-end",
+    paddingHorizontal: 3,
+    paddingVertical: 0,
+    overflow: "hidden",
+  },
+  tdNameText: {
+    fontSize: 8.5,
+    textAlign: "right",
+    fontWeight: "bold",
+    lineHeight: 1,
+    width: "100%",
+  },
+  tdPos: {
+    width: POS_W,
+    borderLeftWidth: 0.5,
+    borderLeftColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 2,
     paddingVertical: 2,
   },
-  tdNameText: { fontSize: 8.5, textAlign: "right", fontWeight: "bold" },
+  tdPosText: { fontSize: 7, textAlign: "center", color: "#374151" },
   tdDayWrap: {
     width: DAY_W,
     borderLeftWidth: 0.5,
@@ -197,9 +220,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
+  approvalRow: {
+    flexDirection: "row-reverse",
+    marginTop: 12,
+    gap: 12,
+  },
+  approvalBox: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#000",
+    padding: 8,
+    minHeight: 60,
+  },
+  approvalTitle: {
+    fontSize: 9,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  approvalHint: {
+    fontSize: 7,
+    color: "#6b7280",
+    textAlign: "center",
+    marginTop: 8,
+  },
 });
 
-/* ═══════════ کامپوننت اصلی ═══════════ */
 type Props = {
   data: WeeklyAttendanceData;
   regularFont: string;
@@ -222,12 +269,8 @@ export function WeeklyAttendancePdfDocument({
     fontsRegistered = true;
   }
 
-  // فقط دبیرانی که در حداقل یکی از این ۵ روز درس دارند
-  const rows: WeeklyTeacherRow[] = data.rows.filter((r) =>
-    DAY_IDX.some((i) => r.days[i] !== null),
-  );
+  const rows = data.rows.filter((r) => DAY_IDX.some((i) => r.days[i] !== null));
 
-  // تقسیم به صفحات ۱۲ ردیفی
   const chunks: WeeklyTeacherRow[][] = [];
   for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
     chunks.push(rows.slice(i, i + ROWS_PER_PAGE));
@@ -236,22 +279,25 @@ export function WeeklyAttendancePdfDocument({
 
   return (
     <Document>
-      {chunks.map((chunk, pageIdx) => (
-        <WeeklyPage
-          key={pageIdx}
-          data={data}
-          chunk={chunk}
-          pageIdx={pageIdx}
-          totalPages={chunks.length}
-          globalStartIndex={pageIdx * ROWS_PER_PAGE}
-          totalRows={rows.length}
-        />
-      ))}
+      {chunks.map((chunk, pageIdx) => {
+        const isLastPage = pageIdx === chunks.length - 1;
+        return (
+          <WeeklyPage
+            key={pageIdx}
+            data={data}
+            chunk={chunk}
+            pageIdx={pageIdx}
+            totalPages={chunks.length}
+            globalStartIndex={pageIdx * ROWS_PER_PAGE}
+            totalRows={rows.length}
+            showApproval={isLastPage}
+          />
+        );
+      })}
     </Document>
   );
 }
 
-/* ═══════════ یک صفحه ═══════════ */
 function WeeklyPage({
   data,
   chunk,
@@ -259,6 +305,7 @@ function WeeklyPage({
   totalPages,
   globalStartIndex,
   totalRows,
+  showApproval,
 }: {
   data: WeeklyAttendanceData;
   chunk: WeeklyTeacherRow[];
@@ -266,12 +313,12 @@ function WeeklyPage({
   totalPages: number;
   globalStartIndex: number;
   totalRows: number;
+  showApproval: boolean;
 }) {
   const empty = Math.max(0, ROWS_PER_PAGE - chunk.length);
 
   return (
     <Page size="A4" orientation="landscape" style={styles.page} wrap={false}>
-      {/* ═══ هدر ═══ */}
       <View style={styles.headerBox}>
         <View style={styles.headerRow}>
           <View style={styles.headerCell}>
@@ -283,33 +330,24 @@ function WeeklyPage({
           <View style={styles.headerCell}>
             <Text>مدرسه: {data.schoolTitle}</Text>
             <Text>کد مدرسه: {data.schoolId}</Text>
-            <Text>تعداد دبیران: {totalRows}</Text>
+            <Text>تعداد افراد: {totalRows}</Text>
           </View>
           <View style={styles.headerCellLast}>
-            <View
+            <Text
+              style={{ textAlign: "left", width: "100%", fontWeight: "bold" }}
+            >
+              از تاریخ : ............................................
+            </Text>
+            <Text
               style={{
-                flexDirection: "row-reverse",
-                justifyContent: "flex-end",
-                gap: 10,
-                marginTop: 4,
+                textAlign: "left",
+                width: "100%",
+                marginTop: 10,
+                fontWeight: "bold",
               }}
             >
-              <Text style={{ fontSize: 9 }}>
-                از تاریخ: .........................
-              </Text>
-            </View>
-            <View
-              style={{
-                flexDirection: "row-reverse",
-                justifyContent: "flex-end",
-                gap: 10,
-                marginTop: 8,
-              }}
-            >
-              <Text style={{ fontSize: 9 }}>
-                تا تاریخ: .........................
-              </Text>
-            </View>
+              تا تاریخ : ..........................................
+            </Text>
           </View>
         </View>
         <View style={styles.titleBar}>
@@ -320,15 +358,16 @@ function WeeklyPage({
         </View>
       </View>
 
-      {/* ═══ جدول ═══ */}
       <View style={styles.table}>
-        {/* سرستون سطح ۱ */}
         <View style={styles.headerRow1}>
           <View style={styles.thRowNo}>
             <Text style={styles.thText}>#</Text>
           </View>
           <View style={styles.thName}>
             <Text style={styles.thText}>نام و نام خانوادگی</Text>
+          </View>
+          <View style={styles.thPos}>
+            <Text style={styles.thText}>سمت</Text>
           </View>
           {DAY_IDX.map((i) => (
             <View key={i} style={styles.thDay}>
@@ -340,10 +379,10 @@ function WeeklyPage({
           ))}
         </View>
 
-        {/* سرستون سطح ۲ */}
         <View style={styles.headerRow2}>
           <View style={styles.thRowNo} />
           <View style={styles.thName} />
+          <View style={styles.thPos} />
           {DAY_IDX.map((i) => (
             <View
               key={i}
@@ -362,7 +401,6 @@ function WeeklyPage({
           ))}
         </View>
 
-        {/* ردیف‌های دبیران */}
         {chunk.map((r, i) => {
           const rowNumber = globalStartIndex + i + 1;
           return (
@@ -374,6 +412,9 @@ function WeeklyPage({
                 <Text style={styles.tdNameText}>
                   {r.lastName} {r.firstName}
                 </Text>
+              </View>
+              <View style={styles.tdPos}>
+                <Text style={styles.tdPosText}>{r.position}</Text>
               </View>
               {DAY_IDX.map((d) => {
                 const hasClass = r.days[d] !== null;
@@ -399,7 +440,6 @@ function WeeklyPage({
           );
         })}
 
-        {/* ردیف‌های خالی */}
         {Array.from({ length: empty }).map((_, i) => {
           const rowNumber = globalStartIndex + chunk.length + i + 1;
           return (
@@ -413,6 +453,9 @@ function WeeklyPage({
               <View style={styles.tdName}>
                 <Text style={styles.tdNameText}> </Text>
               </View>
+              <View style={styles.tdPos}>
+                <Text style={styles.tdPosText}> </Text>
+              </View>
               {DAY_IDX.map((d) => (
                 <View key={d} style={styles.tdDayWrap}>
                   <View style={styles.tdIn} />
@@ -424,6 +467,19 @@ function WeeklyPage({
           );
         })}
       </View>
+
+      {showApproval && (
+        <View style={styles.approvalRow} wrap={false}>
+          <View style={styles.approvalBox}>
+            <Text style={styles.approvalTitle}>تایید معاون</Text>
+            <Text style={styles.approvalHint}>محل امضا و مهر</Text>
+          </View>
+          <View style={styles.approvalBox}>
+            <Text style={styles.approvalTitle}>تایید مدیر</Text>
+            <Text style={styles.approvalHint}>محل امضا و مهر</Text>
+          </View>
+        </View>
+      )}
     </Page>
   );
 }
@@ -433,7 +489,8 @@ function HatchedCell({ type }: { type: "in" | "out" | "sign" }) {
   const width = type === "in" ? IN_W : type === "out" ? OUT_W : SIGN_W;
   const hasLeftBorder = type !== "sign";
 
-  const diagLines = Array.from({ length: 6 });
+  const diagLines = Array.from({ length: 40 });
+
   return (
     <View
       style={{
@@ -442,7 +499,7 @@ function HatchedCell({ type }: { type: "in" | "out" | "sign" }) {
         borderLeftColor: "#000",
         position: "relative",
         overflow: "hidden",
-        backgroundColor: "#e5e7eb",
+        backgroundColor: "#ffffff",
         justifyContent: "center",
         alignItems: "center",
       }}
@@ -452,11 +509,11 @@ function HatchedCell({ type }: { type: "in" | "out" | "sign" }) {
           key={i}
           style={{
             position: "absolute",
-            top: -8,
-            left: i * 8 - 8,
-            width: 0.5,
-            height: "160%",
-            backgroundColor: "#9ca3af",
+            top: -30,
+            left: i * 3 - 30,
+            width: 0.7,
+            height: "250%",
+            backgroundColor: "#000000",
             transform: "rotate(45deg)",
           }}
         />

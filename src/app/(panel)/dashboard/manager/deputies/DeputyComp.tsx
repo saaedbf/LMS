@@ -13,7 +13,6 @@ import ThActions from "@/components/widgets/Elements/table/ThActions";
 import SortableTh from "@/components/widgets/Elements/table/SortableTh";
 import TextSearch from "@/components/widgets/Elements/table/TextSearch";
 import DataTableLayout from "@/components/widgets/DataTableLayout";
-import Pagination from "@/components/widgets/Pagination";
 import TitlePage from "@/components/widgets/TitlePage";
 import ActionModal from "@/components/widgets/ActionModal";
 import EditBtn from "@/components/widgets/Elements/EditBtn";
@@ -22,6 +21,15 @@ import BackButton from "@/components/widgets/Elements/BackButton";
 import { Trash2, Shield } from "lucide-react";
 import DeputyForm from "./DeputyForm";
 import { deleteDeputy } from "@/actions/deputyActions";
+import { AttendanceDay } from "@/lib/schemas/deputy";
+
+const DAYS_FA: Record<string, string> = {
+  SATURDAY: "شنبه",
+  SUNDAY: "یکشنبه",
+  MONDAY: "دوشنبه",
+  TUESDAY: "سه‌شنبه",
+  WEDNESDAY: "چهارشنبه",
+};
 
 type DeputyItem = {
   id: string;
@@ -30,6 +38,9 @@ type DeputyItem = {
   nationalCode: string;
   phone: string;
   address: string | null;
+  position: string | null;
+  attendanceOrder: number;
+  attendanceDays: string[];
   permissions: string[];
   assignmentId: string;
 };
@@ -47,18 +58,16 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
 
   const handleDelete = async (id: string) => {
     const res = await deleteDeputy(id);
-
     if (res.status === "error") {
       toast.error(res.error, { autoClose: 8000 });
       throw new Error(res.error);
     }
-
-    toast.success("معاون با موفقیت حذف شد");
+    toast.success("کادر اجرایی با موفقیت حذف شد");
   };
 
   return (
     <div className="p-2">
-      <TitlePage>معاونین مدرسه</TitlePage>
+      <TitlePage>کادر اجرایی مدرسه</TitlePage>
       <BackButton
         href="/dashboard/manager"
         label="بازگشت به پنل مدیریت"
@@ -71,11 +80,11 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
           pageSize={pageSize}
           action={
             <ActionModal
-              title="تعریف معاون جدید"
-              desc="اطلاعات معاون و دسترسی‌های او را وارد کنید"
+              title="تعریف کادر اجرایی جدید"
+              desc="اطلاعات و دسترسی‌های کادر اجرایی را وارد کنید"
               open={openCreate}
               setOpen={setOpenCreate}
-              trigger={<CreateBtn>تعریف معاون جدید</CreateBtn>}
+              trigger={<CreateBtn>تعریف کادر اجرایی جدید</CreateBtn>}
               contentClassName="w-[95vw] max-w-4xl"
             >
               <DeputyForm setOpen={setOpenCreate} mode="create" />
@@ -85,17 +94,26 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
           <Table>
             <thead>
               <HeadTr>
+                <SortableTh field="attendanceOrder" sortable title="ترتیب">
+                  <span className="text-xs text-gray-400">عدد</span>
+                </SortableTh>
                 <SortableTh field="firstName" sortable title="نام">
                   <TextSearch field="firstName" placeholder="جستجوی نام..." />
                 </SortableTh>
                 <SortableTh field="lastName" sortable title="نام خانوادگی">
                   <TextSearch field="lastName" placeholder="جستجو..." />
                 </SortableTh>
-                <SortableTh field="nationalCode" sortable title="کد ملی">
+                <SortableTh field="position" sortable title="سمت">
+                  <TextSearch field="position" placeholder="جستجوی سمت..." />
+                </SortableTh>
+                <SortableTh field="nationalCode" sortable title="نام کاربری">
                   <TextSearch field="nationalCode" placeholder="جستجو..." />
                 </SortableTh>
                 <SortableTh field="phone" sortable title="شماره تماس">
                   <TextSearch field="phone" placeholder="جستجو..." />
+                </SortableTh>
+                <SortableTh field="attendanceDays" title="روزهای حضور">
+                  <span className="text-xs text-gray-400">تعداد</span>
                 </SortableTh>
                 <SortableTh field="permissions" title="دسترسی‌ها">
                   <span className="text-xs text-gray-400">تعداد</span>
@@ -108,20 +126,41 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
                 <Tr>
                   <Td>
                     <div className="py-6 text-center text-gray-500">
-                      معاونی برای نمایش وجود ندارد.
+                      کادر اجرایی برای نمایش وجود ندارد.
                     </div>
                   </Td>
                 </Tr>
               ) : (
                 listItems.map((item) => {
                   const isEditOpen = editingId === item.id;
-
                   return (
                     <Tr key={item.id}>
+                      <Td>
+                        <span className="font-bold">
+                          {item.attendanceOrder}
+                        </span>
+                      </Td>
                       <Td>{item.firstName}</Td>
                       <Td>{item.lastName}</Td>
+                      <Td>{item.position || "-"}</Td>
                       <Td>{item.nationalCode}</Td>
                       <Td>{item.phone}</Td>
+                      <Td>
+                        <div className="flex flex-wrap gap-1">
+                          {item.attendanceDays.length === 0 ? (
+                            <span className="text-xs text-zinc-400">-</span>
+                          ) : (
+                            item.attendanceDays.map((d) => (
+                              <span
+                                key={d}
+                                className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
+                              >
+                                {DAYS_FA[d] || d}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </Td>
                       <Td>
                         <div className="flex items-center gap-1">
                           <Shield size={14} className="text-indigo-500" />
@@ -134,8 +173,8 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
                       <TdActions>
                         <div className="flex items-center justify-center gap-1">
                           <ActionModal
-                            title="ویرایش معاون"
-                            desc="ویرایش اطلاعات و دسترسی‌های معاون"
+                            title="ویرایش کادر اجرایی"
+                            desc="ویرایش اطلاعات و دسترسی‌ها"
                             open={isEditOpen}
                             setOpen={(isOpen) =>
                               setEditingId(isOpen ? item.id : null)
@@ -160,14 +199,18 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
                                 nationalCode: item.nationalCode,
                                 phone: item.phone,
                                 address: item.address,
+                                position: item.position,
+                                attendanceOrder: item.attendanceOrder,
+                                attendanceDays:
+                                  item.attendanceDays as AttendanceDay[],
                                 permissions: item.permissions,
                               }}
                             />
                           </ActionModal>
 
                           <ConfirmModal
-                            title="حذف معاون"
-                            desc={`آیا از حذف معاون "${item.firstName} ${item.lastName}" از این مدرسه مطمئن هستید؟`}
+                            title="حذف کادر اجرایی"
+                            desc={`آیا از حذف "${item.firstName} ${item.lastName}" از این مدرسه مطمئن هستید؟`}
                             open={deletingId === item.id}
                             setOpen={(isOpen) =>
                               setDeletingId(isOpen ? item.id : null)
@@ -188,11 +231,10 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
                           >
                             <div className="px-4 py-3 text-sm leading-7 text-gray-700">
                               <p className="font-medium text-rose-600">
-                                ⚠️ توجه: این عملیات معاون را از این مدرسه حذف
-                                می‌کند.
+                                ⚠️ توجه: این عملیات کادر اجرایی را از این مدرسه
+                                حذف می‌کند.
                               </p>
                               <p className="mt-2">
-                                معاون{" "}
                                 <strong>
                                   {item.firstName} {item.lastName}
                                 </strong>{" "}

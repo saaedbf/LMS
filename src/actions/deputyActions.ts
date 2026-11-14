@@ -45,9 +45,10 @@ export async function getDeputies() {
           },
         },
       },
-      orderBy: {
-        deputy: { firstName: "asc" },
-      },
+      orderBy: [
+        { deputy: { attendanceOrder: "asc" } }, // ⬅️ جدید
+        { deputy: { lastName: "asc" } }, // ⬅️ جدید
+      ],
     });
 
     return assignments.map((a) => ({
@@ -57,6 +58,9 @@ export async function getDeputies() {
       nationalCode: a.deputy.nationalCode,
       phone: a.deputy.phone,
       address: a.deputy.address,
+      position: a.deputy.position, // ⬅️ جدید
+      attendanceOrder: a.deputy.attendanceOrder, // ⬅️ جدید
+      attendanceDays: a.deputy.attendanceDays, // ⬅️ جدید
       permissions: a.deputy.permissions.map((p) => p.permission),
       assignmentId: a.id,
     }));
@@ -88,8 +92,17 @@ export async function createDeputy(input: unknown) {
       return error("فقط مدیر می‌تواند معاون تعریف کند");
     }
 
-    const { firstName, lastName, nationalCode, phone, address, permissions } =
-      parsed.data;
+    const {
+      firstName,
+      lastName,
+      nationalCode,
+      phone,
+      address,
+      permissions,
+      position,
+      attendanceOrder,
+      attendanceDays,
+    } = parsed.data;
 
     const username = currentUser.email || currentUser.name || "unknown";
     const deputyEmail = `${nationalCode}@lms.local`.toLowerCase();
@@ -116,6 +129,9 @@ export async function createDeputy(input: unknown) {
           phone,
           address: address || null,
           lastEditedByUsername: username,
+          position: position || null,
+          attendanceOrder: attendanceOrder ?? 0,
+          attendanceDays: attendanceDays ?? [],
         },
       });
 
@@ -247,6 +263,9 @@ export async function updateDeputy(input: unknown) {
       phone,
       address,
       permissions,
+      position,
+      attendanceOrder,
+      attendanceDays,
     } = parsed.data;
 
     const username = currentUser.email || currentUser.name || "unknown";
@@ -275,6 +294,9 @@ export async function updateDeputy(input: unknown) {
           phone,
           address: address || null,
           lastEditedByUsername: username,
+          position: position || null,
+          attendanceOrder: attendanceOrder ?? 0,
+          attendanceDays: attendanceDays ?? [],
         },
       });
 

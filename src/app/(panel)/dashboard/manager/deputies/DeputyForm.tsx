@@ -1,19 +1,34 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
-import { Check, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 
 import CoolInput from "@/components/widgets/Elements/CoolInput";
 import FormContainer from "@/components/widgets/Elements/FormContainer";
 import FromActionBtns from "@/components/widgets/Elements/FromActionBtns";
 import { handleFormServerErrors } from "@/lib/utils";
-import { createDeputySchema, CreateDeputyInput } from "@/lib/schemas/deputy";
+import {
+  createDeputySchema,
+  CreateDeputyInput,
+  DAYS,
+  AttendanceDay,
+} from "@/lib/schemas/deputy";
 import { createDeputy, updateDeputy } from "@/actions/deputyActions";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
+
+const DAYS_FA: Record<AttendanceDay, string> = {
+  SATURDAY: "شنبه",
+  SUNDAY: "یکشنبه",
+  MONDAY: "دوشنبه",
+  TUESDAY: "سه‌شنبه",
+  WEDNESDAY: "چهارشنبه",
+};
+
+const ATTENDANCE_DAYS: AttendanceDay[] = [...DAYS];
 
 type Props = {
   setOpen: (open: boolean) => void;
@@ -25,6 +40,9 @@ type Props = {
     nationalCode: string;
     phone: string;
     address?: string | null;
+    position?: string | null;
+    attendanceOrder?: number;
+    attendanceDays?: string[];
     permissions: string[];
   };
 };
@@ -39,6 +57,9 @@ export default function DeputyForm({
 
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
     initialData?.permissions || [],
+  );
+  const [selectedDays, setSelectedDays] = useState<AttendanceDay[]>(
+    (initialData?.attendanceDays as AttendanceDay[]) || [],
   );
 
   const {
@@ -55,6 +76,9 @@ export default function DeputyForm({
       nationalCode: initialData?.nationalCode || "",
       phone: initialData?.phone || "",
       address: initialData?.address || "",
+      position: initialData?.position || "",
+      attendanceOrder: initialData?.attendanceOrder ?? 0,
+      attendanceDays: (initialData?.attendanceDays as AttendanceDay[]) || [],
       permissions: initialData?.permissions || [],
     },
   });
@@ -70,7 +94,6 @@ export default function DeputyForm({
   const toggleGroup = (groupPermissions: { key: string }[]) => {
     const keys = groupPermissions.map((p) => p.key);
     const allSelected = keys.every((k) => selectedPermissions.includes(k));
-
     if (allSelected) {
       setSelectedPermissions((prev) => prev.filter((p) => !keys.includes(p)));
     } else {
@@ -83,23 +106,31 @@ export default function DeputyForm({
       g.permissions.map((p) => p.key),
     );
     const allSelected = allKeys.every((k) => selectedPermissions.includes(k));
-
     setSelectedPermissions(allSelected ? [] : allKeys);
+  };
+
+  const toggleDay = (day: AttendanceDay) => {
+    setSelectedDays((prev) =>
+      prev.includes(day)
+        ? prev.filter((d) => d !== day)
+        : ([...prev, day] as AttendanceDay[]),
+    );
   };
 
   const onSubmit = (data: CreateDeputyInput) => {
     const payload = {
       ...data,
       permissions: selectedPermissions,
+      attendanceDays: selectedDays,
+      attendanceOrder: Number(data.attendanceOrder) || 0,
     };
 
     if (isEdit && initialData) {
-      const res = updateDeputy({ ...payload, id: initialData.id });
-      res.then((r) => {
+      updateDeputy({ ...payload, id: initialData.id }).then((r) => {
         if (r.status === "error") {
           handleFormServerErrors(r, setError);
         } else {
-          toast.success("معاون با موفقیت ویرایش شد");
+          toast.success("کادر اجرایی با موفقیت ویرایش شد");
           router.refresh();
           setOpen(false);
         }
@@ -111,7 +142,7 @@ export default function DeputyForm({
       if (r.status === "error") {
         handleFormServerErrors(r, setError);
       } else {
-        toast.success("معاون با موفقیت ایجاد شد");
+        toast.success("کادر اجرایی با موفقیت ایجاد شد");
         router.refresh();
         setOpen(false);
       }
@@ -125,11 +156,10 @@ export default function DeputyForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <FormContainer className="pb-4">
-        {/* اطلاعات شخصی */}
         <CoolInput
           title="نام:"
           type="text"
-          placeholder="نام معاون"
+          placeholder="نام"
           {...register("firstName")}
           error={errors.firstName?.message}
         />
@@ -137,7 +167,7 @@ export default function DeputyForm({
         <CoolInput
           title="نام خانوادگی:"
           type="text"
-          placeholder="نام خانوادگی معاون"
+          placeholder="نام خانوادگی"
           {...register("lastName")}
           error={errors.lastName?.message}
         />
@@ -169,12 +199,61 @@ export default function DeputyForm({
           error={errors.address?.message}
         />
 
+        <CoolInput
+          title="سمت:"
+          type="text"
+          placeholder="مثلاً معاون آموزشی، مدیر، ..."
+          {...register("position")}
+          error={errors.position?.message}
+        />
+
+        <CoolInput
+          title="ترتیب در دفتر حضور و غیاب:"
+          type="number"
+          placeholder="مثلاً ۱، ۲، ۳"
+          inputMode="numeric"
+          {...register("attendanceOrder", { valueAsNumber: true })}
+          error={errors.attendanceOrder?.message}
+        />
+
+        {/* روزهای حضور */}
+        <div className="col-span-full">
+          <label className="mb-2 block text-sm font-medium text-zinc-700">
+            روزهای حضور:
+          </label>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+            {ATTENDANCE_DAYS.map((day) => {
+              const isSelected = selectedDays.includes(day);
+              return (
+                <label
+                  key={day}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs transition-colors ${
+                    isSelected
+                      ? "border-emerald-300 bg-emerald-50"
+                      : "border-zinc-200 bg-white hover:border-zinc-300"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleDay(day)}
+                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600"
+                  />
+                  <span className="font-medium text-zinc-700">
+                    {DAYS_FA[day]}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
         {/* راهنما */}
         <div className="col-span-full rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">
           <p className="font-medium">🔑 راهنما:</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
             <li>کلمه عبور اولیه = شماره تماس</li>
-            <li>معاون می‌تواند بعداً رمز خود را تغییر دهد</li>
+            <li>کادر اجرایی می‌تواند بعداً رمز خود را تغییر دهد</li>
           </ul>
         </div>
 
@@ -230,8 +309,8 @@ export default function DeputyForm({
                           key={perm.key}
                           className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs transition-colors ${
                             isSelected
-                              ? "border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950/30"
-                              : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700"
+                              ? "border-indigo-300 bg-indigo-50"
+                              : "border-zinc-200 bg-white hover:border-zinc-300"
                           }`}
                         >
                           <input
@@ -255,7 +334,7 @@ export default function DeputyForm({
       </FormContainer>
 
       <FromActionBtns
-        txtSubmit={isEdit ? "ذخیره تغییرات" : "ایجاد معاون"}
+        txtSubmit={isEdit ? "ذخیره تغییرات" : "ایجاد کادر اجرایی"}
         isSubmitting={isSubmitting}
         setOpen={setOpen}
       />

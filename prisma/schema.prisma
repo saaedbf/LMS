@@ -660,7 +660,9 @@ model Deputy {
   phone                String
   address              String?
   lastEditedByUsername String?
-
+ position             String?  // سمت (مثلاً "معاون آموزشی", "مدیر", ...)
+  attendanceOrder      Int      @default(0)  // ترتیب در دفتر حضور و غیاب
+  attendanceDays       String[] // روزهای حضور: ["SATURDAY", ...]
   // اگر معاون اکانت ورود دارد
   userId               String?  @unique
   user                 User?    @relation(fields: [userId], references: [id], onDelete: SetNull)

@@ -23,10 +23,11 @@ export async function getWeeklyTeacherAttendance(params?: {
 
   const { schoolId, academicYearId } = context;
 
+  // ۱. مدرسه + سال تحصیلی
   const [school, academicYear] = await Promise.all([
     prisma.school.findUnique({
       where: { id: schoolId },
-      select: { id: true, title: true },
+      select: { id: true, title: true, modirName: true },
     }),
     prisma.academicYear.findUnique({
       where: { id: academicYearId },
@@ -38,6 +39,39 @@ export async function getWeeklyTeacherAttendance(params?: {
     return { status: "error", error: "مدرسه یا سال تحصیلی یافت نشد" };
   }
 
+  // ۲. کادر اجرایی
+  const deputyAssignments = await prisma.deputyAssignment.findMany({
+    where: { schoolId, academicYearId, isActive: true },
+    include: {
+      deputy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          position: true,
+          attendanceOrder: true,
+          attendanceDays: true,
+        },
+      },
+    },
+  });
+
+  const deputies = deputyAssignments
+    .map((a) => a.deputy)
+    .sort((a, b) => {
+      // اول ترتیب
+      const orderDiff = a.attendanceOrder - b.attendanceOrder;
+      if (orderDiff !== 0) return orderDiff;
+      // بعد نام خانوادگی
+      const ln = a.lastName.localeCompare(b.lastName, "fa");
+      if (ln !== 0) return ln;
+      // بعد نام
+      return a.firstName.localeCompare(b.firstName, "fa");
+    });
+
+  const deputyIds = new Set(deputies.map((d) => d.id));
+
+  // ۳. معلمان (با برنامه هفتگی)
   const klasses = await prisma.klass.findMany({
     where: { schoolId, academicYearId },
     select: {
@@ -58,6 +92,7 @@ export async function getWeeklyTeacherAttendance(params?: {
     },
   });
 
+  // تجمیع معلمان بر اساس id
   type TeacherAgg = {
     teacherId: string;
     firstName: string;
@@ -74,6 +109,7 @@ export async function getWeeklyTeacherAttendance(params?: {
     for (const course of klass.classCourses) {
       const t = course.teacher;
       if (!t) continue;
+      if (deputyIds.has(t.id)) continue; // ⬅️ اگر در کادر اجرایی است، رد کن
 
       let agg = teacherMap.get(t.id);
       if (!agg) {
@@ -92,7 +128,6 @@ export async function getWeeklyTeacherAttendance(params?: {
       for (const sch of course.schedules) {
         const day = sch.day as WeekDay;
         if (!WEEK_DAYS.includes(day)) continue;
-
         const arr = agg.dayMap.get(day) ?? [];
         arr.push({
           klassTitle: klass.title,
@@ -104,10 +139,54 @@ export async function getWeeklyTeacherAttendance(params?: {
     }
   }
 
+  // ۴. ساخت ردیف‌ها
   const rows: WeeklyTeacherRow[] = [];
+
+  // ⬅️ ۴.۱ مدیر — با همه روزهای حضور (چون روزهای حضور مدیر تعریف نشده، همه روزها)
+  if (school.modirName) {
+    const managerDays = WEEK_DAYS.map(() => ({
+      hasClass: true,
+      lessonsCount: 0,
+      details: [],
+    })) as WeeklyTeacherDayInfo[];
+    rows.push({
+      teacherId: "manager",
+      firstName: school.modirName,
+      lastName: "",
+      position: "مدیر",
+      days: managerDays,
+    });
+  }
+
+  // ⬅️ ۴.۲ کادر اجرایی — با روزهای حضورشان
+  for (const d of deputies) {
+    const days = WEEK_DAYS.map((day) => {
+      const hasDay = d.attendanceDays.includes(day);
+      if (!hasDay) return null;
+      return {
+        hasClass: true,
+        lessonsCount: 0,
+        details: [],
+      } as WeeklyTeacherDayInfo;
+    });
+
+    // فقط اگر حداقل یک روز حضور دارد
+    if (days.some((x) => x !== null)) {
+      rows.push({
+        teacherId: `deputy-${d.id}`,
+        firstName: d.firstName,
+        lastName: d.lastName,
+        position: d.position || "کادر اجرایی",
+        days,
+      });
+    }
+  }
+
+  // ⬅️ ۴.۳ معلمان — با روزهای درسشان
+  const teacherRows: WeeklyTeacherRow[] = [];
   for (const agg of teacherMap.values()) {
-    const days = WEEK_DAYS.map((d) => {
-      const arr = agg.dayMap.get(d);
+    const days = WEEK_DAYS.map((day) => {
+      const arr = agg.dayMap.get(day);
       if (!arr || arr.length === 0) return null;
       return {
         hasClass: true,
@@ -116,22 +195,27 @@ export async function getWeeklyTeacherAttendance(params?: {
       } as WeeklyTeacherDayInfo;
     });
 
-    if (days.some((d) => d !== null)) {
-      rows.push({
-        teacherId: agg.teacherId,
+    if (days.some((x) => x !== null)) {
+      teacherRows.push({
+        teacherId: `teacher-${agg.teacherId}`,
         firstName: agg.firstName,
         lastName: agg.lastName,
+        position: "معلم",
         days,
       });
     }
   }
 
-  rows.sort((a, b) => {
+  // سورت معلمان بر اساس نام خانوادگی
+  teacherRows.sort((a, b) => {
     const ln = a.lastName.localeCompare(b.lastName, "fa");
     if (ln !== 0) return ln;
     return a.firstName.localeCompare(b.firstName, "fa");
   });
 
+  rows.push(...teacherRows);
+
+  // ۵. تاریخ‌های هفته
   const weekDates: (string | null)[] = Array.from({ length: 6 }, () => null);
   if (params?.weekStart) {
     const start = new Date(params.weekStart);
@@ -153,9 +237,9 @@ export async function getWeeklyTeacherAttendance(params?: {
     },
   };
 }
-// src/actions/weeklyTeacherAttendanceActions.ts
-// ⬇️ به انتهای همان فایل اضافه کنید (فقط تابع async)
-
+/* ═══════════════════════════════════════════════
+   اطلاعات مدرسه برای روکش
+   ═══════════════════════════════════════════════ */
 export async function getSchoolCoverInfo(): Promise<
   | {
       status: "success";
@@ -166,8 +250,8 @@ export async function getSchoolCoverInfo(): Promise<
         academicYearTitle: string;
         managerName: string | null;
         deputyName: string | null;
-        address: string | null; // ⬅️ دیگر استفاده نمی‌شود
-        phone: string | null; // ⬅️ دیگر استفاده نمی‌شود
+        address: string | null;
+        phone: string | null;
         doreTitle: string | null;
         teachersCount: number;
       };
@@ -187,8 +271,8 @@ export async function getSchoolCoverInfo(): Promise<
       select: {
         id: true,
         title: true,
-        subTitle: true, // ⬅️ جایگزین address
-        modirName: true, // ⬅️ نام مدیر
+        subTitle: true,
+        modirName: true,
         doreTahsili: { select: { title: true } },
       },
     }),
@@ -212,7 +296,7 @@ export async function getSchoolCoverInfo(): Promise<
       schoolSubTitle: school.subTitle ?? null,
       schoolId: school.id,
       academicYearTitle: academicYear.title,
-      managerName: school.modirName ?? null, // ⬅️ از modirName
+      managerName: school.modirName ?? null,
       deputyName: null,
       address: null,
       phone: null,
