@@ -249,10 +249,9 @@ const styles = StyleSheet.create({
 
 type Props = {
   data: WeeklyAttendanceData;
-  regularFont: string;
-  boldFont: string;
+  regularFont?: string;
+  boldFont?: string;
 };
-
 export function WeeklyAttendancePdfDocument({
   data,
   regularFont,
@@ -262,8 +261,16 @@ export function WeeklyAttendancePdfDocument({
     Font.register({
       family: "IRANSans",
       fonts: [
-        { src: regularFont, fontWeight: "normal" },
-        { src: boldFont, fontWeight: "bold" },
+        {
+          src:
+            regularFont || "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+          fontWeight: "normal",
+        },
+        {
+          src:
+            boldFont || "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+          fontWeight: "bold",
+        },
       ],
     });
     fontsRegistered = true;

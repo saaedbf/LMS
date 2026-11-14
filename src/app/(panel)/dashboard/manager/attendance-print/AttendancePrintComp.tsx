@@ -21,7 +21,12 @@ import {
 import TitlePage from "@/components/widgets/TitlePage";
 import BackButton from "@/components/widgets/Elements/BackButton";
 import SearchableSelect from "@/components/widgets/Elements/SearchableSelect";
+import dynamic from "next/dynamic";
 
+const WeeklyPdfButton = dynamic(() => import("@/components/WeeklyPdfButton"), {
+  ssr: false,
+  loading: () => <span className="text-sm">...</span>,
+});
 type Selection = Map<string, Set<string>>;
 
 export default function AttendancePrintComp({
@@ -511,24 +516,7 @@ export default function AttendancePrintComp({
               )}
               روکش دفتر حضور و غیاب دبیران
             </button>
-            <button
-              type="button"
-              onClick={handleDownloadWeekly}
-              disabled={downloadingWeekly}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {downloadingWeekly ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  در حال ساخت دفتر هفتگی...
-                </>
-              ) : (
-                <>
-                  <CalendarDays size={16} />
-                  دفتر حضور هفتگی دبیران
-                </>
-              )}
-            </button>
+            <WeeklyPdfButton />
             {/* <button
               type="button"
               onClick={handlePrint}
