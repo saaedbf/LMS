@@ -46,8 +46,6 @@ export async function POST(req: NextRequest) {
     const pdfBuffer = await renderToBuffer(
       TeacherCoverPdfDocument({
         teachers: res.data,
-        regularFont,
-        boldFont,
       }),
     );
 

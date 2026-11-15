@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       }
 
       const pdfBuffer = await renderToBuffer(
-        MultiAcademicReportPdf({ dataList: res.data, regularFont, boldFont }),
+        MultiAcademicReportPdf({ dataList: res.data }),
       );
 
       return new NextResponse(new Uint8Array(pdfBuffer), {

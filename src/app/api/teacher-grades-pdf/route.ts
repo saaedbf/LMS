@@ -100,8 +100,6 @@ export async function GET(req: NextRequest) {
           isTest,
           students: studentsData,
         },
-        regularFont,
-        boldFont,
       }),
     );
 

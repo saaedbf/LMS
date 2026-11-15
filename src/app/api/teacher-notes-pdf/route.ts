@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const boldFont = `data:font/ttf;base64,${boldFontBuffer.toString("base64")}`;
 
     const pdfBuffer = await renderToBuffer(
-      TeacherNotesPdfDocument({ sheets: res.data, regularFont, boldFont }),
+      TeacherNotesPdfDocument({ sheets: res.data }),
     );
 
     return new Response(new Uint8Array(pdfBuffer), {

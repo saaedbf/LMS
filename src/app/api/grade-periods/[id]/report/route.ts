@@ -59,8 +59,6 @@ export async function GET(
         periodTitle: res.meta?.periodTitle ?? "—",
         schoolTitle: res.meta?.schoolTitle ?? "—",
         academicYearTitle: res.meta?.academicYearTitle ?? "—",
-        regularFont,
-        boldFont,
       }),
     );
 
