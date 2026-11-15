@@ -1,4 +1,3 @@
-// app/(auth)/select-context/page.tsx  یا  app/select-context/page.tsx
 import {
   getCurrentContext,
   getUserAssignments,
@@ -7,7 +6,6 @@ import {
 import { redirect } from "next/navigation";
 import ContextSelectorClient from "./ContextSelectorClient";
 
-// ⬅️ تابع کمکی برای تعیین مسیر بر اساس نقش
 function getRedirectPathByRole(role: string | null): string {
   switch (role) {
     case "MANAGER":
@@ -25,61 +23,41 @@ function getRedirectPathByRole(role: string | null): string {
 export default async function SelectContextPage() {
   const { user, isMaster } = await getCurrentContext();
 
-  if (!user) {
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
+  if (user.isActive === false) redirect("/login?error=account_disabled");
+  if (isMaster || user.systemRole === "MASTER") redirect("/dashboard");
 
-  if (user.isActive === false) {
-    redirect("/login?error=account_disabled");
-  }
+  const assignments = await getUserAssignments(false);
 
-  // ⬅️ Master همیشه به /dashboard می‌رود
-  if (isMaster || user.systemRole === "MASTER") {
-    redirect("/dashboard");
-  }
-
-  const assignments = await getUserAssignments(true);
-  const hasTeacherRole = assignments.some((a) => a.role === "TEACHER");
-  if (hasTeacherRole) {
-    redirect("/teacher");
-  }
-  // اگر هیچ دسترسی فعالی نیست
   if (assignments.length === 0) {
-    const allAssignments = await getUserAssignments(false);
-
-    if (allAssignments.length === 0) {
-      return (
-        <div className="p-10 text-center">
-          شما هیچ دسترسی فعالی در سیستم ندارید. با مدیر تماس بگیرید.
-        </div>
-      );
-    }
-
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <ContextSelectorClient
-          initialAssignments={allAssignments}
-          title="دسترسی‌های سال‌های گذشته"
-        />
+      <div className="p-10 text-center">
+        شما هیچ دسترسی فعالی در سیستم ندارید. با مدیر تماس بگیرید.
       </div>
     );
   }
 
-  // ⬅️ اگر فقط یک دسترسی فعال دارد، مستقیم به پنل مربوطه برود
-  if (assignments.length === 1) {
-    const assignment = assignments[0];
-    await setActiveContext(assignment.id);
+  // ⬇⬇ اگر فقط معلم است (حتی چند مدرسه) → یک بار انتخاب نقش
+  const isOnlyTeacher = assignments.every((a) => a.role === "TEACHER");
 
-    // ⬅️ بر اساس نقش، به پنل مربوطه هدایت شود
-    const redirectPath = getRedirectPathByRole(assignment.role);
-    redirect(redirectPath);
+  if (isOnlyTeacher) {
+    // اولین assignment (معلم) را فعال کن و برو /teacher
+    await setActiveContext(assignments[0].id);
+    redirect("/teacher");
   }
 
+  // ⬇⬇ اگر فقط یک نقش دیگر دارد (مثلاً فقط کادر)
+  if (assignments.length === 1) {
+    await setActiveContext(assignments[0].id);
+    redirect(getRedirectPathByRole(assignments[0].role));
+  }
+
+  // ⬇⬇ چند نقش → صفحه انتخاب
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <ContextSelectorClient
         initialAssignments={assignments}
-        title="انتخاب واحد آموزشی و نقش (سال جاری)"
+        title="انتخاب واحد آموزشی و نقش"
       />
     </div>
   );

@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation"; // ⬅️ useRouter اضافه شد
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   Menu,
@@ -11,14 +11,11 @@ import {
   LogOut,
   User,
   ChevronLeft,
-  BookOpen,
-  ClipboardCheck,
-  Award,
-  Calendar,
   KeyRound,
 } from "lucide-react";
-import { authClient } from "@/lib/auth-client"; // ⬅️ authClient
+import { authClient } from "@/lib/auth-client";
 import ChangePasswordModal from "@/components/widgets/ChangePasswordModal";
+import SwitchContextButton from "@/components/SwitchContextButton";
 
 type Props = {
   schoolName: string;
@@ -28,11 +25,10 @@ type Props = {
 
 export default function TeacherHeader({ schoolName, year, userName }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false); // ⬅️ state برای خروج
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const pathname = usePathname();
-  const router = useRouter(); // ⬅️ router
+  const router = useRouter();
 
-  // ⬅️ تابع خروج مثل NewAside
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
@@ -45,13 +41,7 @@ export default function TeacherHeader({ schoolName, year, userName }: Props) {
     }
   };
 
-  const menuItems = [
-    { href: "/teacher", label: "صفحه اصلی", icon: Home },
-    // { href: "/teacher/classes", label: "کلاس‌ها", icon: BookOpen },
-    // { href: "/teacher/absences", label: "غیبت‌ها", icon: ClipboardCheck },
-    // { href: "/teacher/grades", label: "نمرات", icon: Award },
-    // { href: "/teacher/schedule", label: "برنامه هفتگی", icon: Calendar },
-  ];
+  const menuItems = [{ href: "/teacher", label: "صفحه اصلی", icon: Home }];
 
   return (
     <>
@@ -89,7 +79,7 @@ export default function TeacherHeader({ schoolName, year, userName }: Props) {
                 {userName}
               </span>
             </div>
-            {/* ⬅️ دکمه تغییر کلمه عبور */}
+
             <ChangePasswordModal
               themeColor="blue"
               trigger={
@@ -102,7 +92,9 @@ export default function TeacherHeader({ schoolName, year, userName }: Props) {
                 </button>
               }
             />
-            {/* ⬅️ دکمه خروج با handleSignOut */}
+
+            <SwitchContextButton className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-50" />
+
             <button
               type="button"
               onClick={handleSignOut}
@@ -143,7 +135,6 @@ export default function TeacherHeader({ schoolName, year, userName }: Props) {
         </nav>
       </header>
 
-      {/* منوی کشویی موبایل */}
       {menuOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/50 md:hidden"
@@ -219,8 +210,9 @@ export default function TeacherHeader({ schoolName, year, userName }: Props) {
               })}
             </nav>
 
-            <div className="absolute bottom-0 left-0 right-0 border-t border-zinc-100 p-4">
-              {/* دکمه تغییر کلمه عبور */}
+            <div className="absolute bottom-0 left-0 right-0 border-t border-zinc-100 p-4 space-y-2">
+              <SwitchContextButton className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50" />
+
               <ChangePasswordModal
                 themeColor="blue"
                 trigger={
@@ -233,7 +225,7 @@ export default function TeacherHeader({ schoolName, year, userName }: Props) {
                   </button>
                 }
               />
-              {/* ⬅️ دکمه خروج با handleSignOut */}
+
               <button
                 type="button"
                 onClick={handleSignOut}

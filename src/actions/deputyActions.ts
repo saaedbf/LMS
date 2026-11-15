@@ -89,7 +89,7 @@ export async function createDeputy(input: unknown) {
     }
 
     if (context.role !== "MANAGER") {
-      return error("فقط مدیر می‌تواند معاون تعریف کند");
+      return error("فقط مدیر می‌تواند کادر اجرایی تعریف کند");
     }
 
     const {
@@ -105,82 +105,118 @@ export async function createDeputy(input: unknown) {
     } = parsed.data;
 
     const username = currentUser.email || currentUser.name || "unknown";
-    const deputyEmail = `${nationalCode}@lms.local`.toLowerCase();
 
-    let createdDeputyId: string | null = null;
-    let createdUserId: string | null = null;
+    // ⬇⬇ چک: آیا Deputy با این کد ملی وجود دارد؟
+    let deputy = await prisma.deputy.findUnique({
+      where: { nationalCode },
+    });
 
-    try {
-      // ۱. بررسی وجود معاون با این کد ملی
-      const existingDeputy = await prisma.deputy.findUnique({
-        where: { nationalCode },
+    if (deputy) {
+      // چک: آیا در همین مدرسه/سال انتساب دارد؟
+      const existingAssignment = await prisma.deputyAssignment.findFirst({
+        where: {
+          deputyId: deputy.id,
+          schoolId: context.schoolId,
+          academicYearId: context.academicYearId,
+        },
       });
 
-      if (existingDeputy) {
-        return error("معاونی با این کد ملی قبلاً ثبت شده است");
+      if (existingAssignment) {
+        return error("این کادر اجرایی قبلاً در این مدرسه ثبت شده است");
       }
 
-      // ۲. ایجاد پروفایل معاون
-      const deputy = await prisma.deputy.create({
+      // Deputy موجود → فقط آپدیت
+      await prisma.deputy.update({
+        where: { id: deputy.id },
+        data: {
+          firstName,
+          lastName,
+          phone,
+          address: address || null,
+          position: position || null,
+          attendanceOrder: attendanceOrder ?? 0,
+          attendanceDays: attendanceDays ?? [],
+          lastEditedByUsername: username,
+        },
+      });
+    } else {
+      // Deputy جدید → بساز
+      deputy = await prisma.deputy.create({
         data: {
           firstName,
           lastName,
           nationalCode,
           phone,
           address: address || null,
-          lastEditedByUsername: username,
           position: position || null,
           attendanceOrder: attendanceOrder ?? 0,
           attendanceDays: attendanceDays ?? [],
+          lastEditedByUsername: username,
         },
       });
+    }
 
-      createdDeputyId = deputy.id;
+    // ⬇⬇ ۳. User: بررسی/ایجاد
+    const deputyEmail = `${nationalCode}@lms.local`.toLowerCase();
+    let authUser = await prisma.user.findUnique({
+      where: { email: deputyEmail },
+      select: { id: true },
+    });
 
-      // ۳. بررسی/ایجاد User
-      let authUser = await prisma.user.findUnique({
+    if (!authUser) {
+      // چک کن آیا معلمی با این nationalCode وجود دارد
+      const existingTeacher = await prisma.teacher.findFirst({
+        where: { nationalCode, userId: { not: null } },
+        select: { userId: true },
+      });
+      if (existingTeacher?.userId) {
+        authUser = { id: existingTeacher.userId };
+      }
+    }
+
+    if (!authUser) {
+      // ساخت User جدید
+      try {
+        await auth.api.signUpEmail({
+          headers: await headers(),
+          body: {
+            email: deputyEmail,
+            password: phone.trim(),
+            firstName,
+            lastName,
+            name: `${firstName} ${lastName}`,
+          },
+        });
+      } catch (e) {
+        // اگر خطا داد (مثلاً email تکراری)، ادامه بده
+      }
+      authUser = await prisma.user.findUnique({
         where: { email: deputyEmail },
         select: { id: true },
       });
+    }
 
-      if (!authUser) {
-        try {
-          await auth.api.signUpEmail({
-            headers: await headers(),
-            body: {
-              email: deputyEmail,
-              password: phone.trim(),
-              firstName,
-              lastName,
-              name: `${firstName} ${lastName}`,
-            },
-          });
+    if (!authUser) return error("خطا در ایجاد کاربر");
 
-          authUser = await prisma.user.findUnique({
-            where: { email: deputyEmail },
-            select: { id: true },
-          });
-        } catch (authError) {
-          authUser = await prisma.user.findUnique({
-            where: { email: deputyEmail },
-            select: { id: true },
-          });
-
-          if (!authUser) throw authError;
-        }
-      }
-
-      if (!authUser) throw new Error("AUTH_USER_NOT_FOUND");
-
-      createdUserId = authUser.id;
-
-      // ۴. اتصال Deputy به User
+    // اتصال Deputy به User
+    if (deputy.userId !== authUser.id) {
       await prisma.deputy.update({
         where: { id: deputy.id },
         data: { userId: authUser.id },
       });
+    }
 
-      // ۵. ساخت UserAssignment با نقش DEPUTY
+    // ⬇⬇ UserAssignment (اگر وجود ندارد)
+    const existingUA = await prisma.userAssignment.findFirst({
+      where: {
+        userId: authUser.id,
+        schoolId: context.schoolId,
+        academicYearId: context.academicYearId,
+        role: "DEPUTY",
+      },
+    });
+
+    if (!existingUA) {
       await prisma.userAssignment.create({
         data: {
           userId: authUser.id,
@@ -190,8 +226,18 @@ export async function createDeputy(input: unknown) {
           isActive: true,
         },
       });
+    }
 
-      // ۶. ساخت DeputyAssignment
+    // ⬇⬇ DeputyAssignment (اگر وجود ندارد)
+    const existingDA = await prisma.deputyAssignment.findFirst({
+      where: {
+        deputyId: deputy.id,
+        schoolId: context.schoolId,
+        academicYearId: context.academicYearId,
+      },
+    });
+
+    if (!existingDA) {
       await prisma.deputyAssignment.create({
         data: {
           deputyId: deputy.id,
@@ -201,39 +247,27 @@ export async function createDeputy(input: unknown) {
           lastEditedByUsername: username,
         },
       });
-
-      // ۷. ذخیره دسترسی‌ها
-      if (permissions.length > 0) {
-        await prisma.deputyPermission.createMany({
-          data: permissions.map((p) => ({
-            deputyId: deputy.id,
-            permission: p,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
-      revalidatePath(DEPUTY_ROUTE);
-      return success({ id: deputy.id });
-    } catch (err: any) {
-      // Rollback
-      if (createdDeputyId) {
-        await prisma.deputy
-          .delete({ where: { id: createdDeputyId } })
-          .catch(() => {});
-      }
-
-      if (createdUserId) {
-        await prisma.userAssignment
-          .deleteMany({ where: { userId: createdUserId } })
-          .catch(() => {});
-      }
-
-      throw err;
     }
+
+    // ⬇⬇ ذخیره دسترسی‌ها
+    await prisma.deputyPermission.deleteMany({
+      where: { deputyId: deputy.id },
+    });
+    if (permissions.length > 0) {
+      await prisma.deputyPermission.createMany({
+        data: permissions.map((p) => ({
+          deputyId: deputy.id,
+          permission: p,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    revalidatePath(DEPUTY_ROUTE);
+    return success({ id: deputy.id });
   } catch (err: any) {
     console.error("CREATE_DEPUTY_ERROR", err);
-    return error("خطا در ایجاد معاون");
+    return error("خطا در ایجاد کادر اجرایی");
   }
 }
 
@@ -398,5 +432,74 @@ export async function getDeputyPermissions(deputyId: string) {
   } catch (err) {
     console.error("getDeputyPermissions error:", err);
     return [];
+  }
+}
+export async function findDeputyByNationalCode({
+  nationalCode,
+}: {
+  nationalCode: string;
+}): Promise<
+  | {
+      status: "success";
+      data: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        nationalCode: string;
+        phone: string;
+        address: string | null;
+        position: string | null;
+        attendanceOrder: number;
+        attendanceDays: string[];
+        permissions: string[];
+        hasAssignmentInCurrentYear: boolean;
+      } | null;
+    }
+  | { status: "error"; error: string }
+> {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) return error("ابتدا وارد شوید");
+
+    const context = await getCurrentContext();
+    if (!context?.schoolId || !context.academicYearId) {
+      return error("کانتکست فعال یافت نشد");
+    }
+
+    const deputy = await prisma.deputy.findUnique({
+      where: { nationalCode },
+      include: {
+        permissions: { select: { permission: true } },
+        assignments: {
+          where: {
+            schoolId: context.schoolId,
+            academicYearId: context.academicYearId,
+            isActive: true,
+          },
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!deputy) {
+      return success(null);
+    }
+
+    return success({
+      id: deputy.id,
+      firstName: deputy.firstName,
+      lastName: deputy.lastName,
+      nationalCode: deputy.nationalCode,
+      phone: deputy.phone,
+      address: deputy.address,
+      position: deputy.position,
+      attendanceOrder: deputy.attendanceOrder,
+      attendanceDays: deputy.attendanceDays,
+      permissions: deputy.permissions.map((p) => p.permission),
+      hasAssignmentInCurrentYear: deputy.assignments.length > 0,
+    });
+  } catch (err) {
+    console.error("findDeputyByNationalCode error:", err);
+    return error("خطا در جستجوی کادر اجرایی");
   }
 }

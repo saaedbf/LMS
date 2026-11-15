@@ -7,7 +7,16 @@ import { prisma } from "@/lib/prisma";
 import { SchoolRole } from "@prisma/client";
 
 const IS_DEV = process.env.NODE_ENV === "development";
-
+export type UserAssignmentItem = {
+  id: number;
+  role: string;
+  schoolId: number;
+  academicYearId: number;
+  schoolTitle: string;
+  academicYearTitle: string;
+  isActive: boolean;
+  permissions?: string[];
+};
 /**
  * انتخاب کانتکست فعال برای سشن جاری
  */
@@ -142,7 +151,10 @@ export async function getCurrentContext() {
 /**
  * لیست assignment های کاربر
  */
-export async function getUserAssignments(onlyCurrentYear: boolean = false) {
+
+export async function getUserAssignments(
+  onlyCurrentYear: boolean = false,
+): Promise<UserAssignmentItem[]> {
   const sessionData = await auth.api.getSession({
     headers: await headers(),
   });
@@ -171,15 +183,43 @@ export async function getUserAssignments(onlyCurrentYear: boolean = false) {
     }
   }
 
-  return prisma.userAssignment.findMany({
+  const assignments = await prisma.userAssignment.findMany({
     where,
     select: {
       id: true,
       role: true,
       schoolId: true,
       academicYearId: true,
+      isActive: true,
       school: { select: { id: true, title: true } },
       academicYear: { select: { id: true, title: true } },
     },
+    orderBy: [
+      { academicYear: { title: "desc" } },
+      { school: { title: "asc" } },
+      { role: "asc" },
+    ],
   });
+
+  // دسترسی‌های Deputy
+  const hasDeputy = assignments.some((a) => a.role === "DEPUTY");
+  const deputyPermissions = hasDeputy
+    ? ((
+        await prisma.deputy.findUnique({
+          where: { userId: sessionData.user.id },
+          include: { permissions: { select: { permission: true } } },
+        })
+      )?.permissions.map((p) => p.permission) ?? [])
+    : [];
+
+  return assignments.map((a) => ({
+    id: a.id,
+    role: a.role as string,
+    schoolId: a.schoolId,
+    academicYearId: a.academicYearId,
+    schoolTitle: a.school.title,
+    academicYearTitle: a.academicYear.title,
+    isActive: a.isActive,
+    permissions: a.role === "DEPUTY" ? deputyPermissions : undefined,
+  }));
 }

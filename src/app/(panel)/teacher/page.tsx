@@ -1,4 +1,3 @@
-// app/(panel)/teacher/page.tsx
 import { getTeacherSchools } from "@/actions/teacherPanelActions";
 import SelectSchoolButton from "./SelectSchoolButton";
 

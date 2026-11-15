@@ -14,25 +14,20 @@ import type {
   LessonAbsenceStats,
 } from "@/actions/disciplinaryReportActions";
 
-let fontsRegistered = false;
-
-function ensureFonts() {
-  if (fontsRegistered) return;
-  Font.register({
-    family: "IRANSans",
-    fonts: [
-      {
-        src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
-        fontWeight: "normal",
-      },
-      {
-        src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
-        fontWeight: "bold",
-      },
-    ],
-  });
-  fontsRegistered = true;
-}
+// ⬇⬇⬇ ثبت فونت در سطح ماژول (قبل از هر رندری)
+Font.register({
+  family: "IRANSans",
+  fonts: [
+    {
+      src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+      fontWeight: "normal",
+    },
+    {
+      src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+      fontWeight: "bold",
+    },
+  ],
+});
 
 function toJalali(date: Date): string {
   return new Date(date).toLocaleDateString("fa-IR");
@@ -210,7 +205,6 @@ function BarChart({
           const h = (d.value / max) * maxBarHeight;
           return (
             <View key={i} style={styles.barSlot}>
-              {/* ⬅️ نمایش عدد بالای میله */}
               <Text
                 style={{ fontSize: 6, marginBottom: 2, fontWeight: "bold" }}
               >
@@ -243,7 +237,18 @@ export function DisciplinaryReportPdf({
 }: {
   data: StudentDisciplinaryReport;
 }) {
-  ensureFonts();
+  // ⬇⬇ چک ایمنی — اگر داده ناقص است
+  if (!data || !data.student || !data.school || !data.academicYear) {
+    return (
+      <Document>
+        <Page size="A4" style={styles.page}>
+          <Text style={{ textAlign: "center", fontSize: 12, marginTop: 50 }}>
+            داده‌ای برای کارنامه انضباطی یافت نشد
+          </Text>
+        </Page>
+      </Document>
+    );
+  }
 
   const {
     student,
@@ -259,12 +264,16 @@ export function DisciplinaryReportPdf({
     details,
   } = data;
 
-  // داده‌های نمودار ماهانه (سه سری)
-  const monthlyChart = monthly.flatMap((m) => [
-    { label: m.monthLabel.split(" ")[0], value: m.absence, type: "غیبت" },
-    { label: "", value: m.tardiness, type: "تاخیر" },
-    { label: "", value: m.disciplinary, type: "انضباطی" },
-  ]);
+  // ⬇⬇ محافظت در برابر undefined
+  const safeMonthly = monthly ?? [];
+  const safeWeekdays = weekdays ?? [];
+  const safeLessonAbsences = lessonAbsences ?? [];
+  const safeDetails = {
+    absences: details?.absences ?? [],
+    tardiness: details?.tardiness ?? [],
+    disciplinary: details?.disciplinary ?? [],
+    encouragements: details?.encouragements ?? [],
+  };
 
   return (
     <Document>
@@ -289,7 +298,6 @@ export function DisciplinaryReportPdf({
               <Text style={styles.bold}>
                 {student.firstName} {student.lastName}
               </Text>
-
               <Text>کد ملی: {student.nationalCode}</Text>
             </View>
           </View>
@@ -303,19 +311,21 @@ export function DisciplinaryReportPdf({
         {/* آمار کلی */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{summary.absences}</Text>
+            <Text style={styles.statNumber}>{summary?.absences ?? 0}</Text>
             <Text style={styles.statLabel}>غیبت (روز کامل)</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{summary.tardiness}</Text>
+            <Text style={styles.statNumber}>{summary?.tardiness ?? 0}</Text>
             <Text style={styles.statLabel}>تاخیر</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{summary.disciplinary}</Text>
+            <Text style={styles.statNumber}>{summary?.disciplinary ?? 0}</Text>
             <Text style={styles.statLabel}>موارد انضباطی</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{summary.encouragements}</Text>
+            <Text style={styles.statNumber}>
+              {summary?.encouragements ?? 0}
+            </Text>
             <Text style={styles.statLabel}>تشویق</Text>
           </View>
         </View>
@@ -325,14 +335,14 @@ export function DisciplinaryReportPdf({
           <Text style={styles.sectionTitle}>
             آمار ماهانه (غیبت / تاخیر / انضباطی)
           </Text>
-          {monthly.length === 0 ? (
+          {safeMonthly.length === 0 ? (
             <Text style={styles.emptyText}>داده‌ای برای نمایش نیست</Text>
           ) : (
             <>
               <View style={styles.chart}>
-                {monthly.map((m, i) => {
+                {safeMonthly.map((m, i) => {
                   const max = Math.max(
-                    ...monthly.flatMap((x) => [
+                    ...safeMonthly.flatMap((x) => [
                       x.absence,
                       x.tardiness,
                       x.disciplinary,
@@ -353,7 +363,6 @@ export function DisciplinaryReportPdf({
                           gap: 1,
                         }}
                       >
-                        {/* ⬅️ میله غیبت */}
                         <View style={{ width: "30%", alignItems: "center" }}>
                           <Text style={{ fontSize: 6, fontWeight: "bold" }}>
                             {m.absence > 0 ? m.absence : ""}
@@ -366,8 +375,6 @@ export function DisciplinaryReportPdf({
                             }}
                           />
                         </View>
-
-                        {/* ⬅️ میله تاخیر */}
                         <View style={{ width: "30%", alignItems: "center" }}>
                           <Text style={{ fontSize: 6, fontWeight: "bold" }}>
                             {m.tardiness > 0 ? m.tardiness : ""}
@@ -380,8 +387,6 @@ export function DisciplinaryReportPdf({
                             }}
                           />
                         </View>
-
-                        {/* ⬅️ میله انضباطی */}
                         <View style={{ width: "30%", alignItems: "center" }}>
                           <Text style={{ fontSize: 6, fontWeight: "bold" }}>
                             {m.disciplinary > 0 ? m.disciplinary : ""}
@@ -399,9 +404,8 @@ export function DisciplinaryReportPdf({
                   );
                 })}
               </View>
-              {/* برچسب ماه‌ها */}
               <View style={{ flexDirection: "row-reverse" }}>
-                {monthly.map((m, i) => (
+                {safeMonthly.map((m, i) => (
                   <Text key={i} style={{ ...styles.barLabel, flex: 1 }}>
                     {m.monthLabel}
                   </Text>
@@ -442,7 +446,7 @@ export function DisciplinaryReportPdf({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>غیبت‌ها به تفکیک روز هفته</Text>
           <BarChart
-            data={weekdays.map((w) => ({ label: w.day, value: w.count }))}
+            data={safeWeekdays.map((w) => ({ label: w.day, value: w.count }))}
             color="#ef4444"
           />
         </View>
@@ -451,7 +455,7 @@ export function DisciplinaryReportPdf({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>غیبت‌ها به تفکیک درس</Text>
           <BarChart
-            data={lessonAbsences.map((l) => ({
+            data={safeLessonAbsences.map((l) => ({
               label: l.lesson,
               value: l.count,
             }))}
@@ -487,9 +491,9 @@ export function DisciplinaryReportPdf({
         {/* غیبت‌ها */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            غیبت‌ها (روز کامل) - {details.absences.length} مورد
+            غیبت‌ها (روز کامل) - {safeDetails.absences.length} مورد
           </Text>
-          {details.absences.length === 0 ? (
+          {safeDetails.absences.length === 0 ? (
             <Text style={styles.emptyText}>غیبت روز کامل ثبت نشده است</Text>
           ) : (
             <View style={styles.table}>
@@ -510,7 +514,7 @@ export function DisciplinaryReportPdf({
                   <Text style={styles.thText}>علت</Text>
                 </View>
               </View>
-              {details.absences.map((a, i) => (
+              {safeDetails.absences.map((a, i) => (
                 <View key={i} style={styles.tableRow} wrap={false}>
                   <View style={{ ...styles.td, width: "6%" }}>
                     <Text style={styles.tdText}>{i + 1}</Text>
@@ -540,9 +544,9 @@ export function DisciplinaryReportPdf({
         {/* تاخیرها */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            تاخیرها - {details.tardiness.length} مورد
+            تاخیرها - {safeDetails.tardiness.length} مورد
           </Text>
-          {details.tardiness.length === 0 ? (
+          {safeDetails.tardiness.length === 0 ? (
             <Text style={styles.emptyText}>تاخیری ثبت نشده است</Text>
           ) : (
             <View style={styles.table}>
@@ -563,7 +567,7 @@ export function DisciplinaryReportPdf({
                   <Text style={styles.thText}>علت</Text>
                 </View>
               </View>
-              {details.tardiness.map((t, i) => (
+              {safeDetails.tardiness.map((t, i) => (
                 <View key={i} style={styles.tableRow} wrap={false}>
                   <View style={{ ...styles.td, width: "6%" }}>
                     <Text style={styles.tdText}>{i + 1}</Text>
@@ -591,9 +595,9 @@ export function DisciplinaryReportPdf({
         {/* موارد انضباطی */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            موارد انضباطی - {details.disciplinary.length} مورد
+            موارد انضباطی - {safeDetails.disciplinary.length} مورد
           </Text>
-          {details.disciplinary.length === 0 ? (
+          {safeDetails.disciplinary.length === 0 ? (
             <Text style={styles.emptyText}>مورد انضباطی ثبت نشده است</Text>
           ) : (
             <View style={styles.table}>
@@ -611,7 +615,7 @@ export function DisciplinaryReportPdf({
                   <Text style={styles.thText}>شرح</Text>
                 </View>
               </View>
-              {details.disciplinary.map((d, i) => (
+              {safeDetails.disciplinary.map((d, i) => (
                 <View key={i} style={styles.tableRow} wrap={false}>
                   <View style={{ ...styles.td, width: "6%" }}>
                     <Text style={styles.tdText}>{i + 1}</Text>
@@ -634,9 +638,9 @@ export function DisciplinaryReportPdf({
         {/* تشویق‌ها */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            تشویق‌ها - {details.encouragements.length} مورد
+            تشویق‌ها - {safeDetails.encouragements.length} مورد
           </Text>
-          {details.encouragements.length === 0 ? (
+          {safeDetails.encouragements.length === 0 ? (
             <Text style={styles.emptyText}>تشویقی ثبت نشده است</Text>
           ) : (
             <View style={styles.table}>
@@ -654,7 +658,7 @@ export function DisciplinaryReportPdf({
                   <Text style={styles.thText}>شرح</Text>
                 </View>
               </View>
-              {details.encouragements.map((e, i) => (
+              {safeDetails.encouragements.map((e, i) => (
                 <View key={i} style={styles.tableRow} wrap={false}>
                   <View style={{ ...styles.td, width: "6%" }}>
                     <Text style={styles.tdText}>{i + 1}</Text>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-toastify";
@@ -17,7 +17,11 @@ import {
   DAYS,
   AttendanceDay,
 } from "@/lib/schemas/deputy";
-import { createDeputy, updateDeputy } from "@/actions/deputyActions";
+import {
+  createDeputy,
+  updateDeputy,
+  findDeputyByNationalCode,
+} from "@/actions/deputyActions";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
 
 const DAYS_FA: Record<AttendanceDay, string> = {
@@ -55,6 +59,13 @@ export default function DeputyForm({
   const isEdit = mode === "edit";
   const router = useRouter();
 
+  // stateهای جستجو
+  const [searching, setSearching] = useState(false);
+  const [deputyFound, setDeputyFound] = useState<boolean | null>(
+    isEdit ? true : null,
+  );
+  const [showForm, setShowForm] = useState(isEdit);
+
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
     initialData?.permissions || [],
   );
@@ -64,8 +75,11 @@ export default function DeputyForm({
 
   const {
     register,
-    handleSubmit,
+    watch,
+    setValue,
     setError,
+    reset,
+    handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<CreateDeputyInput>({
     resolver: zodResolver(createDeputySchema) as any,
@@ -83,6 +97,96 @@ export default function DeputyForm({
     },
   });
 
+  // بارگذاری داده در حالت ویرایش
+  useEffect(() => {
+    if (!isEdit || !initialData) return;
+    reset({
+      firstName: initialData.firstName,
+      lastName: initialData.lastName,
+      nationalCode: initialData.nationalCode,
+      phone: initialData.phone,
+      address: initialData.address || "",
+      position: initialData.position || "",
+      attendanceOrder: initialData.attendanceOrder ?? 0,
+      attendanceDays: (initialData.attendanceDays as AttendanceDay[]) || [],
+      permissions: initialData.permissions,
+    });
+    setSelectedPermissions(initialData.permissions);
+    setSelectedDays((initialData.attendanceDays as AttendanceDay[]) || []);
+    setShowForm(true);
+    setDeputyFound(true);
+  }, [isEdit, initialData, reset]);
+
+  // جستجو با کد ملی
+  const handleSearchByNationalCode = async () => {
+    const nationalCode = String(watch("nationalCode") ?? "").trim();
+
+    if (!/^\d{10}$/.test(nationalCode)) {
+      setError("nationalCode", {
+        type: "manual",
+        message: "کد ملی باید ۱۰ رقم باشد",
+      });
+      setShowForm(false);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const res = await findDeputyByNationalCode({ nationalCode });
+
+      if (res.status === "error") {
+        toast.error(res.error);
+        setShowForm(false);
+        return;
+      }
+
+      if (!res.data) {
+        // پیدا نشد → فرم خالی
+        setDeputyFound(false);
+        setValue("firstName", "");
+        setValue("lastName", "");
+        setValue("phone", "");
+        setValue("address", "");
+        setValue("position", "");
+        setValue("attendanceOrder", 0);
+        setSelectedPermissions([]);
+        setSelectedDays([]);
+        toast.info("کادر اجرایی با این کد ملی پیدا نشد. اطلاعات را وارد کنید.");
+        setShowForm(true);
+        return;
+      }
+
+      // پیدا شد
+      if (res.data.hasAssignmentInCurrentYear) {
+        toast.error(
+          "این کادر اجرایی قبلاً در این مدرسه و سال تحصیلی ثبت شده است.",
+        );
+        setTimeout(() => setOpen(false), 500);
+        return;
+      }
+
+      setDeputyFound(true);
+      setValue("firstName", res.data.firstName);
+      setValue("lastName", res.data.lastName);
+      setValue("nationalCode", res.data.nationalCode);
+      setValue("phone", res.data.phone);
+      setValue("address", res.data.address || "");
+      setValue("position", res.data.position || "");
+      setValue("attendanceOrder", res.data.attendanceOrder);
+      setSelectedPermissions(res.data.permissions);
+      setSelectedDays((res.data.attendanceDays as AttendanceDay[]) || []);
+      toast.success("کادر اجرایی پیدا شد.");
+      setShowForm(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("خطا در جستجو");
+      setShowForm(false);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // toggle permission
   const togglePermission = (permission: string) => {
     setSelectedPermissions((prev) =>
       prev.includes(permission)
@@ -138,6 +242,13 @@ export default function DeputyForm({
       return;
     }
 
+    // در حالت create، اگر deputyFound === true، از updateDeputy استفاده می‌کنیم
+    if (deputyFound && data.nationalCode) {
+      // یعنی deputy موجود است → فقط به مدرسه جدید انتساب می‌دهیم
+      // باید یک اکشن assignDeputy به school اضافه کنیم
+      // فعلاً فقط createDeputy را صدا می‌زنیم (که در خودش چک می‌کند)
+    }
+
     createDeputy(payload).then((r) => {
       if (r.status === "error") {
         handleFormServerErrors(r, setError);
@@ -156,188 +267,250 @@ export default function DeputyForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <FormContainer className="pb-4">
-        <CoolInput
-          title="نام:"
-          type="text"
-          placeholder="نام"
-          {...register("firstName")}
-          error={errors.firstName?.message}
-        />
+        {/* ⬇⬇ جستجو با کد ملی — فقط در حالت create */}
+        {!isEdit && (
+          <div className="col-span-full flex flex-col gap-1 rounded-md border bg-gray-50 p-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end">
+              <div className="h-full flex-1">
+                <CoolInput
+                  title="کد ملی:"
+                  type="text"
+                  placeholder="۱۰ رقم کد ملی"
+                  inputMode="numeric"
+                  {...register("nationalCode")}
+                  error={errors.nationalCode?.message}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSearchByNationalCode}
+                disabled={searching}
+                className="h-10 whitespace-nowrap rounded-md bg-blue-600 px-4 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {searching ? "در حال جستجو..." : "جستجو"}
+              </button>
+            </div>
 
-        <CoolInput
-          title="نام خانوادگی:"
-          type="text"
-          placeholder="نام خانوادگی"
-          {...register("lastName")}
-          error={errors.lastName?.message}
-        />
+            {!showForm && !searching && (
+              <p className="mt-1 text-sm text-gray-500">
+                برای شروع، کد ملی را وارد کرده و دکمه جستجو را بزنید.
+              </p>
+            )}
 
-        <CoolInput
-          title="نام کاربری :"
-          type="text"
-          placeholder=""
-          readOnly={isEdit}
-          {...register("nationalCode")}
-          error={errors.nationalCode?.message}
-          className={isEdit ? "cursor-not-allowed bg-gray-100" : ""}
-        />
+            {deputyFound === true && showForm && (
+              <p className="text-sm text-green-600">
+                کادر اجرایی پیدا شد. اطلاعات را بررسی و در صورت نیاز ویرایش
+                کنید.
+              </p>
+            )}
 
-        <CoolInput
-          title="شماره تماس:"
-          type="text"
-          placeholder="مثلاً 09123456789"
-          inputMode="numeric"
-          {...register("phone")}
-          error={errors.phone?.message}
-        />
-
-        <CoolInput
-          title="آدرس (اختیاری):"
-          type="text"
-          placeholder="آدرس محل سکونت"
-          {...register("address")}
-          error={errors.address?.message}
-        />
-
-        <CoolInput
-          title="سمت:"
-          type="text"
-          placeholder="مثلاً معاون آموزشی، مدیر، ..."
-          {...register("position")}
-          error={errors.position?.message}
-        />
-
-        <CoolInput
-          title="ترتیب در دفتر حضور و غیاب:"
-          type="number"
-          placeholder="مثلاً ۱، ۲، ۳"
-          inputMode="numeric"
-          {...register("attendanceOrder", { valueAsNumber: true })}
-          error={errors.attendanceOrder?.message}
-        />
-
-        {/* روزهای حضور */}
-        <div className="col-span-full">
-          <label className="mb-2 block text-sm font-medium text-zinc-700">
-            روزهای حضور:
-          </label>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-            {ATTENDANCE_DAYS.map((day) => {
-              const isSelected = selectedDays.includes(day);
-              return (
-                <label
-                  key={day}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs transition-colors ${
-                    isSelected
-                      ? "border-emerald-300 bg-emerald-50"
-                      : "border-zinc-200 bg-white hover:border-zinc-300"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleDay(day)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600"
-                  />
-                  <span className="font-medium text-zinc-700">
-                    {DAYS_FA[day]}
-                  </span>
-                </label>
-              );
-            })}
+            {deputyFound === false && showForm && (
+              <p className="text-sm text-amber-700">
+                کادر اجرایی با این کد ملی وجود ندارد؛ اطلاعات را تکمیل و ثبت
+                نمایید.
+              </p>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* راهنما */}
-        <div className="col-span-full rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">
-          <p className="font-medium">🔑 راهنما:</p>
-          <ul className="mt-1 list-inside list-disc space-y-0.5">
-            <li>کلمه عبور اولیه = شماره تماس</li>
-            <li>کادر اجرایی می‌تواند بعداً رمز خود را تغییر دهد</li>
-          </ul>
-        </div>
+        {showForm && (
+          <>
+            {/* کد ملی در حالت ویرایش — غیرفعال */}
+            {isEdit && (
+              <CoolInput
+                title="کد ملی:"
+                type="text"
+                readOnly
+                {...register("nationalCode")}
+                error={errors.nationalCode?.message}
+                className="cursor-not-allowed bg-gray-100 text-gray-600"
+              />
+            )}
 
-        {/* دسترسی‌ها */}
-        <div className="col-span-full">
-          <div className="mb-3 flex items-center justify-between border-b border-zinc-200 pb-2">
-            <h3 className="flex items-center gap-2 text-sm font-bold text-zinc-800">
-              <Shield size={16} className="text-indigo-600" />
-              دسترسی‌ها
-              <span className="mr-2 text-xs text-indigo-600">
-                ({selectedPermissions.length} انتخاب شده)
-              </span>
-            </h3>
-            <button
-              type="button"
-              onClick={handleSelectAll}
-              className="text-xs text-indigo-600 hover:underline"
-            >
-              {allSelected ? "لغو انتخاب همه" : "انتخاب همه"}
-            </button>
-          </div>
+            <CoolInput
+              title="نام:"
+              type="text"
+              placeholder="نام"
+              {...register("firstName")}
+              error={errors.firstName?.message}
+            />
 
-          <div className="space-y-3">
-            {PERMISSION_GROUPS.map((group) => {
-              const groupKeys = group.permissions.map((p) => p.key);
-              const allGroupSelected =
-                groupKeys.length > 0 &&
-                groupKeys.every((k) => selectedPermissions.includes(k));
+            <CoolInput
+              title="نام خانوادگی:"
+              type="text"
+              placeholder="نام خانوادگی"
+              {...register("lastName")}
+              error={errors.lastName?.message}
+            />
 
-              return (
-                <div
-                  key={group.title}
-                  className="rounded-lg border border-zinc-200 bg-zinc-50 p-3"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-medium text-zinc-700">
-                      {group.title}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => toggleGroup(group.permissions)}
-                      className="text-xs text-indigo-600 hover:underline"
+            <CoolInput
+              title="شماره تماس:"
+              type="text"
+              placeholder="مثلاً 09123456789"
+              inputMode="numeric"
+              {...register("phone")}
+              error={errors.phone?.message}
+            />
+
+            <CoolInput
+              title="آدرس (اختیاری):"
+              type="text"
+              placeholder="آدرس محل سکونت"
+              {...register("address")}
+              error={errors.address?.message}
+            />
+
+            <CoolInput
+              title="سمت:"
+              type="text"
+              placeholder="مثلاً معاون آموزشی، مدیر، ..."
+              {...register("position")}
+              error={errors.position?.message}
+            />
+
+            <CoolInput
+              title="ترتیب در دفتر حضور و غیاب:"
+              type="number"
+              placeholder="مثلاً ۱، ۲، ۳"
+              inputMode="numeric"
+              {...register("attendanceOrder", { valueAsNumber: true })}
+              error={errors.attendanceOrder?.message}
+            />
+
+            {/* روزهای حضور */}
+            <div className="col-span-full">
+              <label className="mb-2 block text-sm font-medium text-zinc-700">
+                روزهای حضور:
+              </label>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                {ATTENDANCE_DAYS.map((day) => {
+                  const isSelected = selectedDays.includes(day);
+                  return (
+                    <label
+                      key={day}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs transition-colors ${
+                        isSelected
+                          ? "border-emerald-300 bg-emerald-50"
+                          : "border-zinc-200 bg-white hover:border-zinc-300"
+                      }`}
                     >
-                      {allGroupSelected ? "لغو همه" : "انتخاب همه"}
-                    </button>
-                  </div>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleDay(day)}
+                        className="h-4 w-4 rounded border-zinc-300 text-emerald-600"
+                      />
+                      <span className="font-medium text-zinc-700">
+                        {DAYS_FA[day]}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
 
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                    {group.permissions.map((perm) => {
-                      const isSelected = selectedPermissions.includes(perm.key);
-                      return (
-                        <label
-                          key={perm.key}
-                          className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs transition-colors ${
-                            isSelected
-                              ? "border-indigo-300 bg-indigo-50"
-                              : "border-zinc-200 bg-white hover:border-zinc-300"
-                          }`}
+            {/* راهنما */}
+            <div className="col-span-full rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700">
+              <p className="font-medium">🔑 راهنما:</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5">
+                <li>کلمه عبور اولیه = شماره تماس</li>
+                <li>کادر اجرایی می‌تواند بعداً رمز خود را تغییر دهد</li>
+              </ul>
+            </div>
+
+            {/* دسترسی‌ها */}
+            <div className="col-span-full">
+              <div className="mb-3 flex items-center justify-between border-b border-zinc-200 pb-2">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-zinc-800">
+                  <Shield size={16} className="text-indigo-600" />
+                  دسترسی‌ها
+                  <span className="mr-2 text-xs text-indigo-600">
+                    ({selectedPermissions.length} انتخاب شده)
+                  </span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="text-xs text-indigo-600 hover:underline"
+                >
+                  {allSelected ? "لغو انتخاب همه" : "انتخاب همه"}
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {PERMISSION_GROUPS.map((group) => {
+                  const groupKeys = group.permissions.map((p) => p.key);
+                  const allGroupSelected =
+                    groupKeys.length > 0 &&
+                    groupKeys.every((k) => selectedPermissions.includes(k));
+
+                  return (
+                    <div
+                      key={group.title}
+                      className="rounded-lg border border-zinc-200 bg-zinc-50 p-3"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-sm font-medium text-zinc-700">
+                          {group.title}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.permissions)}
+                          className="text-xs text-indigo-600 hover:underline"
                         >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => togglePermission(perm.key)}
-                            className="h-4 w-4 rounded border-zinc-300 text-indigo-600"
-                          />
-                          <span className="font-medium text-zinc-700">
-                            {perm.label}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                          {allGroupSelected ? "لغو همه" : "انتخاب همه"}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                        {group.permissions.map((perm) => {
+                          const isSelected = selectedPermissions.includes(
+                            perm.key,
+                          );
+                          return (
+                            <label
+                              key={perm.key}
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-xs transition-colors ${
+                                isSelected
+                                  ? "border-indigo-300 bg-indigo-50"
+                                  : "border-zinc-200 bg-white hover:border-zinc-300"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => togglePermission(perm.key)}
+                                className="h-4 w-4 rounded border-zinc-300 text-indigo-600"
+                              />
+                              <span className="font-medium text-zinc-700">
+                                {perm.label}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </FormContainer>
 
-      <FromActionBtns
-        txtSubmit={isEdit ? "ذخیره تغییرات" : "ایجاد کادر اجرایی"}
-        isSubmitting={isSubmitting}
-        setOpen={setOpen}
-      />
+      {showForm && (
+        <FromActionBtns
+          txtSubmit={
+            isEdit
+              ? "ذخیره تغییرات"
+              : deputyFound
+                ? "ذخیره و انتساب"
+                : "ایجاد و انتساب"
+          }
+          isSubmitting={isSubmitting}
+          setOpen={setOpen}
+        />
+      )}
     </form>
   );
 }
