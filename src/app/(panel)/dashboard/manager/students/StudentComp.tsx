@@ -521,7 +521,7 @@ export default function StudentComp({
                           {/* ⬅️ دکمه دانلود کارنامه انضباطی */}
                           {latestEnrollment && (
                             <DisciplinaryReportPdfButton
-                              enrollmentId={latestEnrollment.id}
+                              enrollmentId={student.enrollments[0].id}
                             />
                           )}
                           <AcademicReportModal
