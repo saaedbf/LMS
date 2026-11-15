@@ -41,7 +41,7 @@ export function AbsenceCreateForm({
   const [date, setDate] = useState<Date>(new Date());
 
   // ⬅️ state برای روز کامل / ساعتی
-  const [isFullDay, setIsFullDay] = useState(false);
+  const [isFullDay, setIsFullDay] = useState(true);
   const [startTime, setStartTime] = useState<string>(() => getNowHHmm());
   const [endTime, setEndTime] = useState<string>(() => getNowPlusHour());
 

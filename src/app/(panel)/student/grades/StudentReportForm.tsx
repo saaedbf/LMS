@@ -5,7 +5,8 @@ import { toast } from "react-toastify";
 import { getStudentReport } from "@/actions/studentReportActions";
 import { Loader2, Award, BookOpen, TrendingUp, Download } from "lucide-react";
 import type { AcademicReportData } from "@/actions/academicReportActions";
-
+import { pdf } from "@react-pdf/renderer";
+import { AcademicReportPdf } from "@/lib/pdf/AcademicReportPdf";
 export default function StudentReportForm({
   periods,
   enrollmentId,
@@ -36,12 +37,23 @@ export default function StudentReportForm({
     if (!selectedPeriod) return;
     setDownloading(true);
     try {
+      // ۱. داده از API
       const res = await fetch(
-        `/api/academic-report/${enrollmentId}?periodId=${selectedPeriod}`,
+        `/api/academic-report-data/${enrollmentId}?periodId=${selectedPeriod}`,
       );
-      if (!res.ok) throw new Error("خطا در دریافت فایل");
 
-      const blob = await res.blob();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "خطا در دریافت داده");
+        return;
+      }
+
+      const { data } = (await res.json()) as { data: AcademicReportData };
+
+      // ۲. PDF در مرورگر
+      const blob = await pdf(<AcademicReportPdf data={data} />).toBlob();
+
+      // ۳. دانلود
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -50,6 +62,7 @@ export default function StudentReportForm({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+
       toast.success("کارنامه دانلود شد");
     } catch (error) {
       console.error(error);

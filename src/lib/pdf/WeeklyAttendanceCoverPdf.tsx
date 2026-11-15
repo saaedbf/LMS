@@ -205,21 +205,21 @@ type CoverData = {
 
 type Props = {
   data: CoverData;
-  regularFont: string;
-  boldFont: string;
 };
 
-export function WeeklyAttendanceCoverPdf({
-  data,
-  regularFont,
-  boldFont,
-}: Props) {
+export function WeeklyAttendanceCoverPdf({ data }: Props) {
   if (!fontsRegistered) {
     Font.register({
       family: "IRANSans",
       fonts: [
-        { src: regularFont, fontWeight: "normal" },
-        { src: boldFont, fontWeight: "bold" },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+          fontWeight: "normal",
+        },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+          fontWeight: "bold",
+        },
       ],
     });
     fontsRegistered = true;

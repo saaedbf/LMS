@@ -23,7 +23,6 @@ export async function getWeeklyTeacherAttendance(params?: {
 
   const { schoolId, academicYearId } = context;
 
-  // ۱. مدرسه + سال تحصیلی
   const [school, academicYear] = await Promise.all([
     prisma.school.findUnique({
       where: { id: schoolId },
@@ -39,7 +38,7 @@ export async function getWeeklyTeacherAttendance(params?: {
     return { status: "error", error: "مدرسه یا سال تحصیلی یافت نشد" };
   }
 
-  // ۲. کادر اجرایی
+  // ⬇⬇ کادر اجرایی — با nationalCode
   const deputyAssignments = await prisma.deputyAssignment.findMany({
     where: { schoolId, academicYearId, isActive: true },
     include: {
@@ -48,6 +47,7 @@ export async function getWeeklyTeacherAttendance(params?: {
           id: true,
           firstName: true,
           lastName: true,
+          nationalCode: true, // ⬅️
           position: true,
           attendanceOrder: true,
           attendanceDays: true,
@@ -59,19 +59,19 @@ export async function getWeeklyTeacherAttendance(params?: {
   const deputies = deputyAssignments
     .map((a) => a.deputy)
     .sort((a, b) => {
-      // اول ترتیب
       const orderDiff = a.attendanceOrder - b.attendanceOrder;
       if (orderDiff !== 0) return orderDiff;
-      // بعد نام خانوادگی
       const ln = a.lastName.localeCompare(b.lastName, "fa");
       if (ln !== 0) return ln;
-      // بعد نام
       return a.firstName.localeCompare(b.firstName, "fa");
     });
 
-  const deputyIds = new Set(deputies.map((d) => d.id));
+  // ⬇⬇ مجموعه کد ملی کادر اجرایی
+  const deputyNationalCodes = new Set(
+    deputies.map((d) => d.nationalCode).filter(Boolean),
+  );
 
-  // ۳. معلمان (با برنامه هفتگی)
+  // ⬇⬇ معلمان — با nationalCode
   const klasses = await prisma.klass.findMany({
     where: { schoolId, academicYearId },
     select: {
@@ -81,7 +81,12 @@ export async function getWeeklyTeacherAttendance(params?: {
         select: {
           id: true,
           teacher: {
-            select: { id: true, firstName: true, lastName: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              nationalCode: true, // ⬅️
+            },
           },
           darsPayeReshteh: {
             select: { reshtehTadris: { select: { title: true } } },
@@ -92,7 +97,6 @@ export async function getWeeklyTeacherAttendance(params?: {
     },
   });
 
-  // تجمیع معلمان بر اساس id
   type TeacherAgg = {
     teacherId: string;
     firstName: string;
@@ -109,7 +113,9 @@ export async function getWeeklyTeacherAttendance(params?: {
     for (const course of klass.classCourses) {
       const t = course.teacher;
       if (!t) continue;
-      if (deputyIds.has(t.id)) continue; // ⬅️ اگر در کادر اجرایی است، رد کن
+
+      // ⬇⬇ فیلتر با کد ملی (نه id)
+      if (deputyNationalCodes.has(t.nationalCode)) continue;
 
       let agg = teacherMap.get(t.id);
       if (!agg) {
@@ -139,10 +145,9 @@ export async function getWeeklyTeacherAttendance(params?: {
     }
   }
 
-  // ۴. ساخت ردیف‌ها
+  // ⬇⬇ ساخت ردیف‌ها (بدون تغییر)
   const rows: WeeklyTeacherRow[] = [];
 
-  // ⬅️ ۴.۱ مدیر — با همه روزهای حضور (چون روزهای حضور مدیر تعریف نشده، همه روزها)
   if (school.modirName) {
     const managerDays = WEEK_DAYS.map(() => ({
       hasClass: true,
@@ -158,7 +163,6 @@ export async function getWeeklyTeacherAttendance(params?: {
     });
   }
 
-  // ⬅️ ۴.۲ کادر اجرایی — با روزهای حضورشان
   for (const d of deputies) {
     const days = WEEK_DAYS.map((day) => {
       const hasDay = d.attendanceDays.includes(day);
@@ -170,7 +174,6 @@ export async function getWeeklyTeacherAttendance(params?: {
       } as WeeklyTeacherDayInfo;
     });
 
-    // فقط اگر حداقل یک روز حضور دارد
     if (days.some((x) => x !== null)) {
       rows.push({
         teacherId: `deputy-${d.id}`,
@@ -182,7 +185,6 @@ export async function getWeeklyTeacherAttendance(params?: {
     }
   }
 
-  // ⬅️ ۴.۳ معلمان — با روزهای درسشان
   const teacherRows: WeeklyTeacherRow[] = [];
   for (const agg of teacherMap.values()) {
     const days = WEEK_DAYS.map((day) => {
@@ -200,13 +202,12 @@ export async function getWeeklyTeacherAttendance(params?: {
         teacherId: `teacher-${agg.teacherId}`,
         firstName: agg.firstName,
         lastName: agg.lastName,
-        position: "دبیر",
+        position: "معلم",
         days,
       });
     }
   }
 
-  // سورت معلمان بر اساس نام خانوادگی
   teacherRows.sort((a, b) => {
     const ln = a.lastName.localeCompare(b.lastName, "fa");
     if (ln !== 0) return ln;
@@ -215,7 +216,6 @@ export async function getWeeklyTeacherAttendance(params?: {
 
   rows.push(...teacherRows);
 
-  // ۵. تاریخ‌های هفته
   const weekDates: (string | null)[] = Array.from({ length: 6 }, () => null);
   if (params?.weekStart) {
     const start = new Date(params.weekStart);

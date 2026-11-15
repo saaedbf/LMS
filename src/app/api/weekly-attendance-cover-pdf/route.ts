@@ -37,8 +37,6 @@ export async function POST(_req: NextRequest) {
     const pdfBuffer = await renderToBuffer(
       WeeklyAttendanceCoverPdf({
         data: res.data,
-        regularFont,
-        boldFont,
       }),
     );
 

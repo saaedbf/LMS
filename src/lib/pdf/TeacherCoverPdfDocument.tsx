@@ -226,21 +226,21 @@ let fontsRegistered = false;
 
 type Props = {
   teachers: TeacherCoverSheet[];
-  regularFont: string;
-  boldFont: string;
 };
 
-export function TeacherCoverPdfDocument({
-  teachers,
-  regularFont,
-  boldFont,
-}: Props) {
+export function TeacherCoverPdfDocument({ teachers }: Props) {
   if (!fontsRegistered) {
     Font.register({
       family: "IRANSans",
       fonts: [
-        { src: regularFont, fontWeight: "normal" },
-        { src: boldFont, fontWeight: "bold" },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+          fontWeight: "normal",
+        },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+          fontWeight: "bold",
+        },
       ],
     });
     fontsRegistered = true;

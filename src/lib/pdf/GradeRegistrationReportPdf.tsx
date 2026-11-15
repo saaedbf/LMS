@@ -16,20 +16,25 @@ type Props = {
   periodTitle: string;
   schoolTitle: string;
   academicYearTitle: string;
-  regularFont: string;
-  boldFont: string;
 };
 
-function ensureFonts(regularFont: string, boldFont: string) {
-  if (fontsRegistered) return;
-  Font.register({
-    family: "IRANSans",
-    fonts: [
-      { src: regularFont, fontWeight: "normal" },
-      { src: boldFont, fontWeight: "bold" },
-    ],
-  });
-  fontsRegistered = true;
+function ensureFonts() {
+  if (!fontsRegistered) {
+    Font.register({
+      family: "IRANSans",
+      fonts: [
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+          fontWeight: "normal",
+        },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+          fontWeight: "bold",
+        },
+      ],
+    });
+    fontsRegistered = true;
+  }
 }
 
 function pct(a: number, b: number) {
@@ -160,10 +165,8 @@ export function GradeRegistrationReportPdf({
   periodTitle,
   schoolTitle,
   academicYearTitle,
-  regularFont,
-  boldFont,
 }: Props) {
-  ensureFonts(regularFont, boldFont);
+  ensureFonts();
 
   // ستون‌ها — فقط: ردیف، نام، دروس تخصیصی، ثبت‌شده، ثبت‌نشده، پیشرفت (نوار)
   const cols = {

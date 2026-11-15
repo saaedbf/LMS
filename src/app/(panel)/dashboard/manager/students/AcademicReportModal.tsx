@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { FileText, Download, Loader2 } from "lucide-react";
+import { pdf } from "@react-pdf/renderer";
+import { toast } from "react-toastify";
 import ActionModal from "@/components/widgets/ActionModal";
 import { getPeriodsForReport } from "@/actions/academicReportActions";
+import { AcademicReportPdf } from "@/lib/pdf/AcademicReportPdf";
+import type { AcademicReportData } from "@/actions/academicReportActions";
 
 export default function AcademicReportModal({
   enrollmentId,
@@ -24,18 +28,29 @@ export default function AcademicReportModal({
         setLoading(false);
       });
     }
-  }, [open]);
+  }, [open, periods.length]);
 
   const handleDownload = async () => {
     if (!selectedPeriod) return;
     setDownloading(true);
     try {
+      // ۱. داده از API
       const res = await fetch(
-        `/api/academic-report/${enrollmentId}?periodId=${selectedPeriod}`,
+        `/api/academic-report-data/${enrollmentId}?periodId=${encodeURIComponent(selectedPeriod)}`,
       );
-      if (!res.ok) throw new Error("خطا در دریافت فایل");
 
-      const blob = await res.blob();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "خطا در دریافت داده");
+        return;
+      }
+
+      const { data } = (await res.json()) as { data: AcademicReportData };
+
+      // ۲. PDF در مرورگر
+      const blob = await pdf(<AcademicReportPdf data={data} />).toBlob();
+
+      // ۳. دانلود
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -44,8 +59,11 @@ export default function AcademicReportModal({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+
+      toast.success("کارنامه آماده شد");
     } catch (error) {
-      alert("خطا در دریافت کارنامه");
+      console.error(error);
+      toast.error("خطا در ساخت کارنامه");
     } finally {
       setDownloading(false);
     }
@@ -106,7 +124,7 @@ export default function AcademicReportModal({
                 ) : (
                   <Download size={16} />
                 )}
-                مشاهده کارنامه
+                {downloading ? "در حال ساخت..." : "دانلود کارنامه"}
               </button>
             </div>
           </>

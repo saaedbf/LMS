@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { FileSpreadsheet, FileText, Loader2 } from "lucide-react";
+import { pdf } from "@react-pdf/renderer";
 
 import { getGradeRegistrationReport } from "@/actions/gradePeriodReportActions";
 import { exportToExcel } from "@/lib/utils/exportExcel";
+import { GradeRegistrationReportPdf } from "@/lib/pdf/GradeRegistrationReportPdf";
 
 function pct(a: number, b: number) {
   if (b <= 0) return 0;
@@ -75,23 +77,46 @@ export default function ReportButtons({
   const handlePdf = async () => {
     setLoading("pdf");
     try {
-      const res = await fetch(`/api/grade-periods/${gradePeriodId}/report`, {
-        method: "GET",
-      });
+      // ۱. داده از API
+      const res = await fetch(
+        `/api/grade-registration-report-data/${gradePeriodId}`,
+      );
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        toast.error(err.error ?? "خطا در تولید PDF");
+        toast.error(err.error ?? "خطا در دریافت داده");
         return;
       }
 
-      const blob = await res.blob();
+      const { data, meta } = (await res.json()) as {
+        data: any[];
+        meta: {
+          periodTitle: string;
+          schoolTitle: string;
+          academicYearTitle: string;
+        };
+      };
+
+      // ۲. PDF در مرورگر
+      const blob = await pdf(
+        <GradeRegistrationReportPdf
+          rows={data}
+          periodTitle={meta.periodTitle}
+          schoolTitle={meta.schoolTitle}
+          academicYearTitle={meta.academicYearTitle}
+        />,
+      ).toBlob();
+
+      // ۳. دانلود
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `grade-report-${new Date().toISOString().split("T")[0]}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      a.remove();
       URL.revokeObjectURL(url);
+
       toast.success("فایل PDF دانلود شد");
     } catch (e) {
       console.error(e);

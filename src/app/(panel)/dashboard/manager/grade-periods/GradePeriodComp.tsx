@@ -45,7 +45,12 @@ import ReportButtons from "./ReportButtons";
 import Link from "next/link";
 import AnswerKeyModal from "./AnswerKeyModal";
 import BulkAnswersModal from "./BulkAnswersModal";
+import dynamic from "next/dynamic";
 
+const GradeRegistrationReportPdfButton = dynamic(
+  () => import("@/components/GradeRegistrationReportPdfButton"),
+  { ssr: false, loading: () => <span className="text-xs">...</span> },
+);
 // ==========================================
 // Types
 // ==========================================

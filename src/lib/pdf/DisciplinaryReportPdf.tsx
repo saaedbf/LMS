@@ -16,13 +16,19 @@ import type {
 
 let fontsRegistered = false;
 
-function ensureFonts(regularFont: string, boldFont: string) {
+function ensureFonts() {
   if (fontsRegistered) return;
   Font.register({
     family: "IRANSans",
     fonts: [
-      { src: regularFont, fontWeight: "normal" },
-      { src: boldFont, fontWeight: "bold" },
+      {
+        src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+        fontWeight: "normal",
+      },
+      {
+        src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+        fontWeight: "bold",
+      },
     ],
   });
   fontsRegistered = true;
@@ -234,14 +240,10 @@ function BarChart({
    ═══════════════════════════════════════════════ */
 export function DisciplinaryReportPdf({
   data,
-  regularFont,
-  boldFont,
 }: {
   data: StudentDisciplinaryReport;
-  regularFont: string;
-  boldFont: string;
 }) {
-  ensureFonts(regularFont, boldFont);
+  ensureFonts();
 
   const {
     student,

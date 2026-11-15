@@ -949,11 +949,20 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
 }
 
 // ⬅️ ۲. کامپوننت تکی
-export function AcademicReportPdf({ data, regularFont, boldFont }: any) {
+export function AcademicReportPdf({ data }: any) {
   if (!fontsRegistered) {
     Font.register({
       family: "IRANSans",
-      fonts: [{ src: regularFont }, { src: boldFont, fontWeight: "bold" }],
+      fonts: [
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+          fontWeight: "normal",
+        },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+          fontWeight: "bold",
+        },
+      ],
     });
     fontsRegistered = true;
   }

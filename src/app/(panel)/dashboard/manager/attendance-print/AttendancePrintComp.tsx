@@ -27,6 +27,22 @@ const WeeklyPdfButton = dynamic(() => import("@/components/WeeklyPdfButton"), {
   ssr: false,
   loading: () => <span className="text-sm">...</span>,
 });
+const WeeklyCoverPdfButton = dynamic(
+  () => import("@/components/WeeklyCoverPdfButton"),
+  { ssr: false, loading: () => <span className="text-sm">...</span> },
+);
+const AttendancePdfButton = dynamic(
+  () => import("@/components/AttendancePdfButton"),
+  { ssr: false, loading: () => <span className="text-sm">...</span> },
+);
+const TeacherCoverPdfButton = dynamic(
+  () => import("@/components/TeacherCoverPdfButton"),
+  { ssr: false, loading: () => <span className="text-sm">...</span> },
+);
+const TeacherNotesPdfButton = dynamic(
+  () => import("@/components/TeacherNotesPdfButton"),
+  { ssr: false, loading: () => <span className="text-sm">...</span> },
+);
 type Selection = Map<string, Set<string>>;
 
 export default function AttendancePrintComp({
@@ -485,56 +501,12 @@ export default function AttendancePrintComp({
 
           {/* دکمه‌ها */}
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handlePdf}
-              disabled={downloading || totalSelected === 0}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {downloading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  در حال ساخت PDF...
-                </>
-              ) : (
-                <>
-                  <FileDown size={16} />
-                  دانلود PDF ({totalSelected} برگه)
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadWeeklyCover}
-              disabled={downloadingCover}
-              className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-            >
-              {downloadingCover ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <BookOpen size={16} />
-              )}
-              روکش دفتر حضور و غیاب دبیران
-            </button>
-            <WeeklyPdfButton />
-            {/* <button
-              type="button"
-              onClick={handlePrint}
-              disabled={loading || totalSelected === 0}
-              className="inline-flex items-center gap-2 rounded-lg border border-blue-300 bg-white px-5 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  در حال آماده‌سازی...
-                </>
-              ) : (
-                <>
-                  <Printer size={16} />
-                  چاپ مرورگر
-                </>
-              )}
-            </button> */}
+            <AttendancePdfButton
+              selections={buildSelections()}
+              splitLargeClasses={splitLargeClasses}
+              count={totalSelected}
+            />
+
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50">
               <input
                 type="checkbox"
@@ -544,37 +516,15 @@ export default function AttendancePrintComp({
               />
               چاپ بیش از ۲۵ نفر در دو صفحه
             </label>
-            {/* ⬅️ دکمه جدید: روکش دبیران */}
-            <button
-              type="button"
-              onClick={handleDownloadCovers}
-              disabled={downloadingCovers}
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-            >
-              {downloadingCovers ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  در حال ساخت روکش...
-                </>
-              ) : (
-                <>
-                  <BookOpen size={16} />
-                  دانلود روکش
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleDownloadNotes}
-              disabled={downloadingNotes || totalSelected === 0}
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-            >
-              {downloadingNotes ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <FileText size={16} />
-              )}
-              دانلود فرم یادداشت
-            </button>
+
+            <TeacherCoverPdfButton />
+            <TeacherNotesPdfButton
+              selections={buildSelections()}
+              count={totalSelected}
+            />
+
+            <WeeklyPdfButton />
+            <WeeklyCoverPdfButton />
           </div>
         </div>
       </div>

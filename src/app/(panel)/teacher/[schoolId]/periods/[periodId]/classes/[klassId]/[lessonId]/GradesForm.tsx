@@ -166,11 +166,42 @@ export default function GradesForm({
   };
 
   // ⬅️ خروجی PDF
-  const handleExportPdf = () => {
-    window.open(
-      `/api/teacher-grades-pdf?periodId=${periodId}&klassId=${klassId}&lessonId=${lessonId}`,
-      "_blank",
-    );
+  const handleExportPdf = async () => {
+    try {
+      // ۱. داده از API
+      const res = await fetch(
+        `/api/teacher-grades-data?periodId=${periodId}&klassId=${klassId}&lessonId=${lessonId}`,
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "خطا در دریافت داده");
+        return;
+      }
+
+      const { data } = (await res.json()) as { data: any };
+
+      // ۲. PDF در مرورگر
+      const { pdf } = await import("@react-pdf/renderer");
+      const { TeacherGradesPdf } = await import("@/lib/pdf/TeacherGradesPdf");
+
+      const blob = await pdf(<TeacherGradesPdf data={data} />).toBlob();
+
+      // ۳. دانلود
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `grades-${klassId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success("PDF دانلود شد");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "خطا در ساخت PDF");
+    }
   };
 
   const stats = useMemo(() => {

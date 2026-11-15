@@ -6,7 +6,7 @@ import { FileText, FileSpreadsheet, Loader2 } from "lucide-react";
 import TitlePage from "@/components/widgets/TitlePage";
 import BackButton from "@/components/widgets/Elements/BackButton";
 import { getReportFilterData } from "@/actions/reportActions";
-
+import dynamic from "next/dynamic";
 export default function ReportsPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [periods, setPeriods] = useState<any[]>([]);
@@ -21,6 +21,14 @@ export default function ReportsPage() {
   const [downloadingAcademic, setDownloadingAcademic] = useState(false);
   const [downloadingDetailed, setDownloadingDetailed] = useState(false);
 
+  const AcademicReportListPdfButton = dynamic(
+    () => import("@/components/AcademicReportListPdfButton"),
+    { ssr: false, loading: () => <span className="text-xs">...</span> },
+  );
+  const DetailedReportListPdfButton = dynamic(
+    () => import("@/components/DetailedReportListPdfButton"),
+    { ssr: false, loading: () => <span className="text-xs">...</span> },
+  );
   useEffect(() => {
     async function load() {
       const res = await getReportFilterData();
@@ -187,35 +195,19 @@ export default function ReportsPage() {
           )}
 
           {/* دکمه‌ها */}
+
           <div className="flex flex-col gap-3 border-t border-zinc-100 pt-4 sm:flex-row">
-            <button
-              onClick={() => handleDownload("academic")}
-              disabled={
-                downloadingAcademic || !selectedPeriod || !selectedKlass
-              }
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {downloadingAcademic ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <FileText size={16} />
-              )}
-              {downloadingAcademic ? "در حال ساخت..." : "کارنامه"}
-            </button>
-            <button
-              onClick={() => handleDownload("detailed")}
-              disabled={
-                downloadingDetailed || !selectedPeriod || !selectedKlass
-              }
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {downloadingDetailed ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <FileSpreadsheet size={16} />
-              )}
-              {downloadingDetailed ? "در حال ساخت..." : "گزارش تفضیلی"}
-            </button>
+            <AcademicReportListPdfButton
+              periodId={selectedPeriod}
+              klassId={selectedKlass}
+              includeAnswerKey={isTestPeriod ? includeAnswerKey : undefined}
+              disabled={!selectedPeriod || !selectedKlass}
+            />
+            <DetailedReportListPdfButton
+              periodId={selectedPeriod}
+              klassId={selectedKlass}
+              disabled={!selectedPeriod || !selectedKlass}
+            />
           </div>
         </div>
       </div>

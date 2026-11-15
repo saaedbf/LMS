@@ -34,6 +34,16 @@ import { exportToExcel } from "@/lib/utils/exportExcel";
 import ExportExcelBtn from "@/components/widgets/ExportExcelBtn";
 import { getAllStudentsForExport } from "@/actions/studentActions";
 import AcademicReportModal from "./AcademicReportModal";
+import dynamic from "next/dynamic";
+
+const DisciplinaryReportPdfButton = dynamic(
+  () => import("@/components/DisciplinaryReportPdfButton"),
+  { ssr: false, loading: () => <span className="text-xs">...</span> },
+);
+const AcademicReportPdfButton = dynamic(
+  () => import("@/components/AcademicReportPdfButton"),
+  { ssr: false, loading: () => <span className="text-xs">...</span> },
+);
 type EnrollmentForTable = {
   id: string;
   schoolId: number;
@@ -510,17 +520,9 @@ export default function StudentComp({
                           )}
                           {/* ⬅️ دکمه دانلود کارنامه انضباطی */}
                           {latestEnrollment && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDownloadReport(latestEnrollment.id)
-                              }
-                              title="دانلود کارنامه انضباطی"
-                              className="inline-flex h-9 items-center justify-center rounded-md border border-emerald-300 px-2 text-xs text-emerald-700 transition hover:bg-emerald-50"
-                            >
-                              <FileText size={16} className="ml-1" />
-                              کارنامه انضباطی
-                            </button>
+                            <DisciplinaryReportPdfButton
+                              enrollmentId={latestEnrollment.id}
+                            />
                           )}
                           <AcademicReportModal
                             enrollmentId={student.enrollments[0].id}

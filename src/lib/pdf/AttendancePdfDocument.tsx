@@ -312,23 +312,26 @@ let fontsRegistered = false;
 
 type Props = {
   sheets: AttendanceSheet[];
-  regularFont: string;
-  boldFont: string;
+
   splitLargeClasses?: boolean;
 };
 
 export function AttendancePdfDocument({
   sheets,
-  regularFont,
-  boldFont,
   splitLargeClasses = false,
 }: Props) {
   if (!fontsRegistered) {
     Font.register({
       family: "IRANSans",
       fonts: [
-        { src: regularFont, fontWeight: "normal" },
-        { src: boldFont, fontWeight: "bold" },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+          fontWeight: "normal",
+        },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+          fontWeight: "bold",
+        },
       ],
     });
     fontsRegistered = true;
