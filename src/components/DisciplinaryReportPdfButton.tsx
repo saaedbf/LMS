@@ -17,6 +17,7 @@ export default function DisciplinaryReportPdfButton({ enrollmentId }: Props) {
   const handleDownload = async () => {
     setLoading(true);
     try {
+      // ۱. داده از API
       const res = await fetch(`/api/disciplinary-report-data/${enrollmentId}`);
 
       if (!res.ok) {
@@ -24,13 +25,21 @@ export default function DisciplinaryReportPdfButton({ enrollmentId }: Props) {
         toast.error(err.error || "خطا در دریافت داده");
         return;
       }
+
       const { data } = (await res.json()) as {
         data: StudentDisciplinaryReport;
       };
-      console.log("DISCIPLINARY DATA:", data); // ⬅️ این را اضافه کنید
 
+      // ⬇⬇ چک داده
+      if (!data) {
+        toast.error("داده‌ای برای کارنامه یافت نشد");
+        return;
+      }
+
+      // ۲. PDF در مرورگر
       const blob = await pdf(<DisciplinaryReportPdf data={data} />).toBlob();
 
+      // ۳. دانلود
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
