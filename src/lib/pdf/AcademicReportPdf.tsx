@@ -982,7 +982,16 @@ export function MultiAcademicReportPdf({
   if (!fontsRegistered) {
     Font.register({
       family: "IRANSans",
-      fonts: [{ src: regularFont }, { src: boldFont, fontWeight: "bold" }],
+      fonts: [
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+          fontWeight: "normal",
+        },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+          fontWeight: "bold",
+        },
+      ],
     });
     fontsRegistered = true;
   }

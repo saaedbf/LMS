@@ -15,19 +15,8 @@ import type {
 } from "@/actions/disciplinaryReportActions";
 
 // ⬇⬇⬇ ثبت فونت در سطح ماژول (قبل از هر رندری)
-Font.register({
-  family: "IRANSans",
-  fonts: [
-    {
-      src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
-      fontWeight: "normal",
-    },
-    {
-      src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
-      fontWeight: "bold",
-    },
-  ],
-});
+
+let fontsRegistered = false;
 
 function toJalali(date: Date): string {
   return new Date(date).toLocaleDateString("fa-IR");
@@ -237,6 +226,22 @@ export function DisciplinaryReportPdf({
 }: {
   data: StudentDisciplinaryReport;
 }) {
+  if (!fontsRegistered) {
+    Font.register({
+      family: "IRANSans",
+      fonts: [
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+          fontWeight: "normal",
+        },
+        {
+          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+          fontWeight: "bold",
+        },
+      ],
+    });
+    fontsRegistered = true;
+  }
   // ⬇⬇ چک ایمنی — اگر داده ناقص است
   if (!data || !data.student || !data.school || !data.academicYear) {
     return (
