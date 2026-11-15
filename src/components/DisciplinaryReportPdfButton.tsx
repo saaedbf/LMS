@@ -24,10 +24,10 @@ export default function DisciplinaryReportPdfButton({ enrollmentId }: Props) {
         toast.error(err.error || "خطا در دریافت داده");
         return;
       }
-
       const { data } = (await res.json()) as {
         data: StudentDisciplinaryReport;
       };
+      console.log("DISCIPLINARY DATA:", data); // ⬅️ این را اضافه کنید
 
       const blob = await pdf(<DisciplinaryReportPdf data={data} />).toBlob();
 
