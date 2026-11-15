@@ -350,18 +350,12 @@ export function WeeklyAttendanceCoverPdf({
                     <Text style={styles.infoValue}>{data.doreTitle}</Text>
                   </View>
                 )}
-
-                <View style={styles.infoRowLast}>
-                  <Text style={styles.infoLabel}>سال تحصیلی</Text>
-                  <Text style={styles.infoColon}>:</Text>
-                  <Text style={styles.infoValue}>{data.academicYearTitle}</Text>
-                </View>
               </View>
 
               {/* ستون چپ */}
               <View style={styles.infoCol}>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>تعداد دبیران</Text>
+                  <Text style={styles.infoLabel}>تعداد همکاران</Text>
                   <Text style={styles.infoColon}>:</Text>
                   <Text style={styles.infoValue}>{data.teachersCount} نفر</Text>
                 </View>
@@ -396,8 +390,8 @@ export function WeeklyAttendanceCoverPdf({
 
         {/* ═══ نوار پایین ═══ */}
         <View style={styles.bottomBand}>
-          <Text style={styles.bottomText}>تهیه شده در واحد آموزش مدرسه</Text>
-          <Text style={styles.bottomBold}>تاریخ تنظیم: {today}</Text>
+          <Text style={styles.bottomText}>تهیه شده در واحد فناوری مدرسه</Text>
+          <Text style={styles.bottomBold}>sch7.ir : سامانه مدیریت مدارس</Text>
         </View>
       </Page>
     </Document>

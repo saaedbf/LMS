@@ -236,13 +236,13 @@ const styles = StyleSheet.create({
   approvalTitle: {
     fontSize: 9,
     fontWeight: "bold",
-    textAlign: "center",
+    textAlign: "right",
     marginBottom: 4,
   },
   approvalHint: {
     fontSize: 7,
     color: "#6b7280",
-    textAlign: "center",
+    textAlign: "right",
     marginTop: 8,
   },
 });
@@ -478,12 +478,7 @@ function WeeklyPage({
       {showApproval && (
         <View style={styles.approvalRow} wrap={false}>
           <View style={styles.approvalBox}>
-            <Text style={styles.approvalTitle}>تایید معاون</Text>
-            <Text style={styles.approvalHint}>محل امضا و مهر</Text>
-          </View>
-          <View style={styles.approvalBox}>
-            <Text style={styles.approvalTitle}>تایید مدیر</Text>
-            <Text style={styles.approvalHint}>محل امضا و مهر</Text>
+            <Text style={styles.approvalTitle}>توضیحات </Text>
           </View>
         </View>
       )}

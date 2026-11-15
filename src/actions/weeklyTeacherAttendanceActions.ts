@@ -200,7 +200,7 @@ export async function getWeeklyTeacherAttendance(params?: {
         teacherId: `teacher-${agg.teacherId}`,
         firstName: agg.firstName,
         lastName: agg.lastName,
-        position: "معلم",
+        position: "دبیر",
         days,
       });
     }
@@ -240,6 +240,7 @@ export async function getWeeklyTeacherAttendance(params?: {
 /* ═══════════════════════════════════════════════
    اطلاعات مدرسه برای روکش
    ═══════════════════════════════════════════════ */
+
 export async function getSchoolCoverInfo(): Promise<
   | {
       status: "success";
@@ -265,7 +266,7 @@ export async function getSchoolCoverInfo(): Promise<
 
   const { schoolId, academicYearId } = context;
 
-  const [school, academicYear, teachersCount] = await Promise.all([
+  const [school, academicYear, weekly] = await Promise.all([
     prisma.school.findUnique({
       where: { id: schoolId },
       select: {
@@ -280,14 +281,21 @@ export async function getSchoolCoverInfo(): Promise<
       where: { id: academicYearId },
       select: { title: true },
     }),
-    prisma.teacherAssignment.count({
-      where: { schoolId, academicYearId, isActive: true },
-    }),
+    // ⬇⬇ همان تابعی که لیست حضور را می‌سازد
+    getWeeklyTeacherAttendance(),
   ]);
 
   if (!school || !academicYear) {
     return { status: "error", error: "مدرسه یا سال تحصیلی یافت نشد" };
   }
+
+  // تعداد دقیقاً همان چیزی که در لیست حضور می‌آید
+  const totalCount =
+    weekly.status === "success"
+      ? weekly.data.rows.filter((r) =>
+          [0, 1, 2, 3, 4].some((i) => r.days[i] !== null),
+        ).length
+      : 0;
 
   return {
     status: "success",
@@ -301,7 +309,7 @@ export async function getSchoolCoverInfo(): Promise<
       address: null,
       phone: null,
       doreTitle: school.doreTahsili?.title ?? null,
-      teachersCount,
+      teachersCount: totalCount, // ⬅️ هماهنگ با لیست حضور
     },
   };
 }
