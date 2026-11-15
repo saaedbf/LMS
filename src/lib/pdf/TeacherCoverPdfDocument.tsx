@@ -11,6 +11,21 @@ import {
 } from "@react-pdf/renderer";
 import type { TeacherCoverSheet } from "@/actions/attendanceActions";
 
+// ⬇⬇⬇ ثبت فونت در سطح ماژول (قبل از هر رندری)
+Font.register({
+  family: "IRANSans",
+  fonts: [
+    {
+      src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
+      fontWeight: "normal",
+    },
+    {
+      src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
+      fontWeight: "bold",
+    },
+  ],
+});
+
 /* ═══════════════════════════════════════════════
    استایل‌ها
    ═══════════════════════════════════════════════ */
@@ -222,30 +237,11 @@ const styles = StyleSheet.create({
 /* ═══════════════════════════════════════════════
    کامپوننت اصلی
    ═══════════════════════════════════════════════ */
-let fontsRegistered = false;
-
 type Props = {
   teachers: TeacherCoverSheet[];
 };
 
 export function TeacherCoverPdfDocument({ teachers }: Props) {
-  if (!fontsRegistered) {
-    Font.register({
-      family: "IRANSans",
-      fonts: [
-        {
-          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum).ttf",
-          fontWeight: "normal",
-        },
-        {
-          src: "/fonts/iransans-fanum/ttf/IRANSansWeb(FaNum)_Bold.ttf",
-          fontWeight: "bold",
-        },
-      ],
-    });
-    fontsRegistered = true;
-  }
-
   return (
     <Document>
       {teachers.map((teacher) => (
@@ -276,7 +272,6 @@ function TeacherCoverPage({ teacher }: { teacher: TeacherCoverSheet }) {
     "THURSDAY",
   ];
 
-  /* ⬅️ هر (day, bell) می‌تونه ۱ یا ۲ درس داشته باشه (نصف‌زنگ) */
   const scheduleMap = new Map<
     string,
     Array<{
@@ -411,7 +406,6 @@ function BellCellContent({
   if (items.length === 1 && items[0].isHalfBell) {
     return (
       <View style={{ width: "100%", height: "100%", position: "relative" }}>
-        {/* خط مورب */}
         <Svg
           width="100%"
           height="100%"
@@ -430,7 +424,6 @@ function BellCellContent({
         <View
           style={{ width: "100%", height: "100%", flexDirection: "column" }}
         >
-          {/* نیمه اول (بالا) — راست‌چین */}
           <View
             style={{
               flex: 1,
@@ -447,7 +440,6 @@ function BellCellContent({
               {items[0].darsTitle}
             </Text>
           </View>
-          {/* نیمه دوم خالی */}
           <View style={{ flex: 1, width: "100%" }} />
         </View>
       </View>
@@ -461,7 +453,6 @@ function BellCellContent({
 
     return (
       <View style={{ width: "100%", height: "100%", position: "relative" }}>
-        {/* خط مورب */}
         <Svg
           width="100%"
           height="100%"
@@ -480,7 +471,6 @@ function BellCellContent({
         <View
           style={{ width: "100%", height: "100%", flexDirection: "column" }}
         >
-          {/* نیمه اول (بالا) — راست‌چین */}
           <View
             style={{
               flex: 1,
@@ -498,7 +488,6 @@ function BellCellContent({
             </Text>
           </View>
 
-          {/* نیمه دوم (پایین) — چپ‌چین */}
           <View
             style={{
               flex: 1,

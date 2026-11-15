@@ -7,14 +7,7 @@ import {
   StyleSheet,
   Font,
 } from "@react-pdf/renderer";
-import type {
-  StudentDisciplinaryReport,
-  MonthlyStats,
-  WeekdayStats,
-  LessonAbsenceStats,
-} from "@/actions/disciplinaryReportActions";
-
-// ⬇⬇⬇ ثبت فونت در سطح ماژول (قبل از هر رندری)
+import type { StudentDisciplinaryReport } from "@/actions/disciplinaryReportActions";
 
 let fontsRegistered = false;
 
@@ -62,7 +55,6 @@ const styles = StyleSheet.create({
   },
   titleText: { fontSize: 11, fontWeight: "bold", textAlign: "center" },
 
-  /* کارت آمار */
   statsRow: {
     flexDirection: "row-reverse",
     gap: 6,
@@ -78,7 +70,6 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: 18, fontWeight: "bold" },
   statLabel: { fontSize: 8, marginTop: 2 },
 
-  /* بخش */
   section: {
     borderWidth: 1,
     borderColor: "#000",
@@ -95,7 +86,6 @@ const styles = StyleSheet.create({
     paddingBottom: 3,
   },
 
-  /* نمودار میله‌ای عمودی */
   chart: {
     flexDirection: "row-reverse",
     alignItems: "flex-end",
@@ -126,7 +116,6 @@ const styles = StyleSheet.create({
   legendDot: { width: 6, height: 6, marginLeft: 3, borderRadius: 3 },
   legendText: { fontSize: 7 },
 
-  /* جدول ریز */
   table: { width: "100%", borderWidth: 1, borderColor: "#000" },
   tableHeader: {
     flexDirection: "row-reverse",
@@ -169,9 +158,6 @@ const styles = StyleSheet.create({
   },
 });
 
-/* ═══════════════════════════════════════════════
-   نمودار میله‌ای ساده
-   ═══════════════════════════════════════════════ */
 function BarChart({
   data,
   color = "#3b82f6",
@@ -219,7 +205,433 @@ function BarChart({
 }
 
 /* ═══════════════════════════════════════════════
-   کامپوننت اصلی
+   صفحه ۱: آمار + نمودارها
+   ═══════════════════════════════════════════════ */
+function DisciplinaryReportPage1({
+  data,
+}: {
+  data: StudentDisciplinaryReport;
+}) {
+  const {
+    student,
+    school,
+    academicYear,
+    klass,
+    paye,
+    reshtehTahsili,
+    summary,
+    monthly,
+    weekdays,
+    lessonAbsences,
+  } = data;
+
+  return (
+    <Page size="A4" style={styles.page}>
+      <View style={styles.headerBox} fixed>
+        <View style={styles.headerRow}>
+          <View style={styles.headerCell}>
+            <Text>جمهوری اسلامی ایران</Text>
+            <Text>وزارت آموزش و پرورش</Text>
+            <Text>سال تحصیلی: {academicYear.title}</Text>
+            <Text style={styles.bold}>کارنامه انضباطی</Text>
+          </View>
+          <View style={styles.headerCell}>
+            <Text>مدرسه: {school.title}</Text>
+            <Text>کلاس: {klass.title}</Text>
+            <Text>پایه: {paye.title}</Text>
+            <Text>رشته: {reshtehTahsili.title}</Text>
+          </View>
+          <View style={styles.headerCellLast}>
+            <Text style={styles.bold}>
+              {student.firstName} {student.lastName}
+            </Text>
+            <Text>کد ملی: {student.nationalCode}</Text>
+          </View>
+        </View>
+        <View style={styles.titleBar}>
+          <Text style={styles.titleText}>
+            کارنامه انضباطی - صفحه ۱ (آمار کلی)
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{summary.absences}</Text>
+          <Text style={styles.statLabel}>غیبت (روز کامل)</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{summary.tardiness}</Text>
+          <Text style={styles.statLabel}>تاخیر</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{summary.disciplinary}</Text>
+          <Text style={styles.statLabel}>موارد انضباطی</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{summary.encouragements}</Text>
+          <Text style={styles.statLabel}>تشویق</Text>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          آمار ماهانه (غیبت / تاخیر / انضباطی)
+        </Text>
+        {monthly.length === 0 ? (
+          <Text style={styles.emptyText}>داده‌ای برای نمایش نیست</Text>
+        ) : (
+          <>
+            <View style={styles.chart}>
+              {monthly.map((m, i) => {
+                const max = Math.max(
+                  ...monthly.flatMap((x) => [
+                    x.absence,
+                    x.tardiness,
+                    x.disciplinary,
+                  ]),
+                  1,
+                );
+                const h1 = (m.absence / max) * 60;
+                const h2 = (m.tardiness / max) * 60;
+                const h3 = (m.disciplinary / max) * 60;
+                return (
+                  <View key={i} style={styles.barSlot}>
+                    <View
+                      style={{
+                        flexDirection: "row-reverse",
+                        alignItems: "flex-end",
+                        width: "100%",
+                        justifyContent: "center",
+                        gap: 1,
+                      }}
+                    >
+                      <View style={{ width: "30%", alignItems: "center" }}>
+                        <Text style={{ fontSize: 6, fontWeight: "bold" }}>
+                          {m.absence > 0 ? m.absence : ""}
+                        </Text>
+                        <View
+                          style={{
+                            width: "100%",
+                            height: h1,
+                            backgroundColor: "#ef4444",
+                          }}
+                        />
+                      </View>
+                      <View style={{ width: "30%", alignItems: "center" }}>
+                        <Text style={{ fontSize: 6, fontWeight: "bold" }}>
+                          {m.tardiness > 0 ? m.tardiness : ""}
+                        </Text>
+                        <View
+                          style={{
+                            width: "100%",
+                            height: h2,
+                            backgroundColor: "#f59e0b",
+                          }}
+                        />
+                      </View>
+                      <View style={{ width: "30%", alignItems: "center" }}>
+                        <Text style={{ fontSize: 6, fontWeight: "bold" }}>
+                          {m.disciplinary > 0 ? m.disciplinary : ""}
+                        </Text>
+                        <View
+                          style={{
+                            width: "100%",
+                            height: h3,
+                            backgroundColor: "#8b5cf6",
+                          }}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+            <View style={{ flexDirection: "row-reverse" }}>
+              {monthly.map((m, i) => (
+                <Text key={i} style={{ ...styles.barLabel, flex: 1 }}>
+                  {m.monthLabel}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.chartLegend}>
+              <View
+                style={{ flexDirection: "row-reverse", alignItems: "center" }}
+              >
+                <View
+                  style={{ ...styles.legendDot, backgroundColor: "#ef4444" }}
+                />
+                <Text style={styles.legendText}>غیبت</Text>
+              </View>
+              <View
+                style={{ flexDirection: "row-reverse", alignItems: "center" }}
+              >
+                <View
+                  style={{ ...styles.legendDot, backgroundColor: "#f59e0b" }}
+                />
+                <Text style={styles.legendText}>تاخیر</Text>
+              </View>
+              <View
+                style={{ flexDirection: "row-reverse", alignItems: "center" }}
+              >
+                <View
+                  style={{ ...styles.legendDot, backgroundColor: "#8b5cf6" }}
+                />
+                <Text style={styles.legendText}>انضباطی</Text>
+              </View>
+            </View>
+          </>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>غیبت‌ها به تفکیک روز هفته</Text>
+        <BarChart
+          data={weekdays.map((w) => ({ label: w.day, value: w.count }))}
+          color="#ef4444"
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>غیبت‌ها به تفکیک درس</Text>
+        <BarChart
+          data={lessonAbsences.map((l) => ({
+            label: l.lesson,
+            value: l.count,
+          }))}
+          color="#10b981"
+        />
+      </View>
+    </Page>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   صفحه ۲: ریز جزئیات
+   ═══════════════════════════════════════════════ */
+function DisciplinaryReportPage2({
+  data,
+}: {
+  data: StudentDisciplinaryReport;
+}) {
+  const { student, school, academicYear, klass, details } = data;
+
+  return (
+    <Page size="A4" style={styles.page}>
+      <View style={styles.headerBox} fixed>
+        <View style={styles.headerRow}>
+          <View style={styles.headerCell}>
+            <Text>کارنامه انضباطی</Text>
+            <Text>
+              {student.firstName} {student.lastName}
+            </Text>
+          </View>
+          <View style={styles.headerCell}>
+            <Text>مدرسه: {school.title}</Text>
+            <Text>کلاس: {klass.title}</Text>
+          </View>
+          <View style={styles.headerCellLast}>
+            <Text>سال: {academicYear.title}</Text>
+            <Text>تاریخ: {new Date().toLocaleDateString("fa-IR")}</Text>
+          </View>
+        </View>
+        <View style={styles.titleBar}>
+          <Text style={styles.titleText}>صفحه ۲ - ریز جزئیات</Text>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          غیبت‌ها (روز کامل) - {details.absences.length} مورد
+        </Text>
+        {details.absences.length === 0 ? (
+          <Text style={styles.emptyText}>غیبت روز کامل ثبت نشده است</Text>
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <View style={{ ...styles.th, width: "6%" }}>
+                <Text style={styles.thText}>#</Text>
+              </View>
+              <View style={{ ...styles.th, width: "18%" }}>
+                <Text style={styles.thText}>تاریخ</Text>
+              </View>
+              <View style={{ ...styles.th, width: "14%" }}>
+                <Text style={styles.thText}>روز</Text>
+              </View>
+              <View style={{ ...styles.th, width: "30%" }}>
+                <Text style={styles.thText}>دروس غیبت‌شده</Text>
+              </View>
+              <View style={{ ...styles.thLast, width: "32%" }}>
+                <Text style={styles.thText}>علت</Text>
+              </View>
+            </View>
+            {details.absences.map((a, i) => (
+              <View key={i} style={styles.tableRow} wrap={false}>
+                <View style={{ ...styles.td, width: "6%" }}>
+                  <Text style={styles.tdText}>{i + 1}</Text>
+                </View>
+                <View style={{ ...styles.td, width: "18%" }}>
+                  <Text style={styles.tdText}>{toJalali(a.date)}</Text>
+                </View>
+                <View style={{ ...styles.td, width: "14%" }}>
+                  <Text style={styles.tdText}>
+                    {a.date.toLocaleDateString("fa-IR", { weekday: "long" })}
+                  </Text>
+                </View>
+                <View style={{ ...styles.td, width: "30%" }}>
+                  <Text style={styles.tdTextRight}>
+                    {a.lessons.join("، ") || "-"}
+                  </Text>
+                </View>
+                <View style={{ ...styles.tdLast, width: "32%" }}>
+                  <Text style={styles.tdTextRight}>{a.reason || "-"}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          تاخیرها - {details.tardiness.length} مورد
+        </Text>
+        {details.tardiness.length === 0 ? (
+          <Text style={styles.emptyText}>تاخیری ثبت نشده است</Text>
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <View style={{ ...styles.th, width: "6%" }}>
+                <Text style={styles.thText}>#</Text>
+              </View>
+              <View style={{ ...styles.th, width: "20%" }}>
+                <Text style={styles.thText}>تاریخ</Text>
+              </View>
+              <View style={{ ...styles.th, width: "14%" }}>
+                <Text style={styles.thText}>روز</Text>
+              </View>
+              <View style={{ ...styles.th, width: "18%" }}>
+                <Text style={styles.thText}>ساعت</Text>
+              </View>
+              <View style={{ ...styles.thLast, width: "42%" }}>
+                <Text style={styles.thText}>علت</Text>
+              </View>
+            </View>
+            {details.tardiness.map((t, i) => (
+              <View key={i} style={styles.tableRow} wrap={false}>
+                <View style={{ ...styles.td, width: "6%" }}>
+                  <Text style={styles.tdText}>{i + 1}</Text>
+                </View>
+                <View style={{ ...styles.td, width: "20%" }}>
+                  <Text style={styles.tdText}>{toJalali(t.date)}</Text>
+                </View>
+                <View style={{ ...styles.td, width: "14%" }}>
+                  <Text style={styles.tdText}>
+                    {t.date.toLocaleDateString("fa-IR", { weekday: "long" })}
+                  </Text>
+                </View>
+                <View style={{ ...styles.td, width: "18%" }}>
+                  <Text style={styles.tdText}>{t.startTime ?? "-"}</Text>
+                </View>
+                <View style={{ ...styles.tdLast, width: "42%" }}>
+                  <Text style={styles.tdTextRight}>{t.reason || "-"}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          موارد انضباطی - {details.disciplinary.length} مورد
+        </Text>
+        {details.disciplinary.length === 0 ? (
+          <Text style={styles.emptyText}>مورد انضباطی ثبت نشده است</Text>
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <View style={{ ...styles.th, width: "6%" }}>
+                <Text style={styles.thText}>#</Text>
+              </View>
+              <View style={{ ...styles.th, width: "20%" }}>
+                <Text style={styles.thText}>تاریخ</Text>
+              </View>
+              <View style={{ ...styles.th, width: "14%" }}>
+                <Text style={styles.thText}>ساعت</Text>
+              </View>
+              <View style={{ ...styles.thLast, width: "60%" }}>
+                <Text style={styles.thText}>شرح</Text>
+              </View>
+            </View>
+            {details.disciplinary.map((d, i) => (
+              <View key={i} style={styles.tableRow} wrap={false}>
+                <View style={{ ...styles.td, width: "6%" }}>
+                  <Text style={styles.tdText}>{i + 1}</Text>
+                </View>
+                <View style={{ ...styles.td, width: "20%" }}>
+                  <Text style={styles.tdText}>{toJalali(d.date)}</Text>
+                </View>
+                <View style={{ ...styles.td, width: "14%" }}>
+                  <Text style={styles.tdText}>{d.startTime}</Text>
+                </View>
+                <View style={{ ...styles.tdLast, width: "60%" }}>
+                  <Text style={styles.tdTextRight}>{d.reason}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          تشویق‌ها - {details.encouragements.length} مورد
+        </Text>
+        {details.encouragements.length === 0 ? (
+          <Text style={styles.emptyText}>تشویقی ثبت نشده است</Text>
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <View style={{ ...styles.th, width: "6%" }}>
+                <Text style={styles.thText}>#</Text>
+              </View>
+              <View style={{ ...styles.th, width: "18%" }}>
+                <Text style={styles.thText}>تاریخ</Text>
+              </View>
+              <View style={{ ...styles.th, width: "14%" }}>
+                <Text style={styles.thText}>نوع</Text>
+              </View>
+              <View style={{ ...styles.thLast, width: "62%" }}>
+                <Text style={styles.thText}>شرح</Text>
+              </View>
+            </View>
+            {details.encouragements.map((e, i) => (
+              <View key={i} style={styles.tableRow} wrap={false}>
+                <View style={{ ...styles.td, width: "6%" }}>
+                  <Text style={styles.tdText}>{i + 1}</Text>
+                </View>
+                <View style={{ ...styles.td, width: "18%" }}>
+                  <Text style={styles.tdText}>{toJalali(e.date)}</Text>
+                </View>
+                <View style={{ ...styles.td, width: "14%" }}>
+                  <Text style={styles.tdText}>{e.type}</Text>
+                </View>
+                <View style={{ ...styles.tdLast, width: "62%" }}>
+                  <Text style={styles.tdTextRight}>{e.reason}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </Page>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   کامپوننت اصلی — دقیقاً مثل AcademicReportPdf
    ═══════════════════════════════════════════════ */
 export function DisciplinaryReportPdf({
   data,
@@ -242,447 +654,11 @@ export function DisciplinaryReportPdf({
     });
     fontsRegistered = true;
   }
-  // ⬇⬇ چک ایمنی — اگر داده ناقص است
-  if (!data || !data.student || !data.school || !data.academicYear) {
-    return (
-      <Document>
-        <Page size="A4" style={styles.page}>
-          <Text style={{ textAlign: "center", fontSize: 12, marginTop: 50 }}>
-            داده‌ای برای کارنامه انضباطی یافت نشد
-          </Text>
-        </Page>
-      </Document>
-    );
-  }
-
-  const {
-    student,
-    school,
-    academicYear,
-    klass,
-    paye,
-    reshtehTahsili,
-    summary,
-    monthly,
-    weekdays,
-    lessonAbsences,
-    details,
-  } = data;
-
-  // ⬇⬇ محافظت در برابر undefined
-  const safeMonthly = monthly ?? [];
-  const safeWeekdays = weekdays ?? [];
-  const safeLessonAbsences = lessonAbsences ?? [];
-  const safeDetails = {
-    absences: details?.absences ?? [],
-    tardiness: details?.tardiness ?? [],
-    disciplinary: details?.disciplinary ?? [],
-    encouragements: details?.encouragements ?? [],
-  };
 
   return (
     <Document>
-      {/* ═══════════════════ صفحه ۱: آمار + نمودارها ═══════════════════ */}
-      <Page size="A4" style={styles.page}>
-        {/* هدر */}
-        <View style={styles.headerBox} fixed>
-          <View style={styles.headerRow}>
-            <View style={styles.headerCell}>
-              <Text>جمهوری اسلامی ایران</Text>
-              <Text>وزارت آموزش و پرورش</Text>
-              <Text>سال تحصیلی: {academicYear.title}</Text>
-              <Text style={styles.bold}>کارنامه انضباطی</Text>
-            </View>
-            <View style={styles.headerCell}>
-              <Text>مدرسه: {school.title}</Text>
-              <Text>کلاس: {klass.title}</Text>
-              <Text>پایه: {paye.title}</Text>
-              <Text>رشته: {reshtehTahsili.title}</Text>
-            </View>
-            <View style={styles.headerCellLast}>
-              <Text style={styles.bold}>
-                {student.firstName} {student.lastName}
-              </Text>
-              <Text>کد ملی: {student.nationalCode}</Text>
-            </View>
-          </View>
-          <View style={styles.titleBar}>
-            <Text style={styles.titleText}>
-              کارنامه انضباطی - صفحه ۱ (آمار کلی)
-            </Text>
-          </View>
-        </View>
-
-        {/* آمار کلی */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{summary?.absences ?? 0}</Text>
-            <Text style={styles.statLabel}>غیبت (روز کامل)</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{summary?.tardiness ?? 0}</Text>
-            <Text style={styles.statLabel}>تاخیر</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{summary?.disciplinary ?? 0}</Text>
-            <Text style={styles.statLabel}>موارد انضباطی</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>
-              {summary?.encouragements ?? 0}
-            </Text>
-            <Text style={styles.statLabel}>تشویق</Text>
-          </View>
-        </View>
-
-        {/* نمودار ماهانه */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            آمار ماهانه (غیبت / تاخیر / انضباطی)
-          </Text>
-          {safeMonthly.length === 0 ? (
-            <Text style={styles.emptyText}>داده‌ای برای نمایش نیست</Text>
-          ) : (
-            <>
-              <View style={styles.chart}>
-                {safeMonthly.map((m, i) => {
-                  const max = Math.max(
-                    ...safeMonthly.flatMap((x) => [
-                      x.absence,
-                      x.tardiness,
-                      x.disciplinary,
-                    ]),
-                    1,
-                  );
-                  const h1 = (m.absence / max) * 60;
-                  const h2 = (m.tardiness / max) * 60;
-                  const h3 = (m.disciplinary / max) * 60;
-                  return (
-                    <View key={i} style={styles.barSlot}>
-                      <View
-                        style={{
-                          flexDirection: "row-reverse",
-                          alignItems: "flex-end",
-                          width: "100%",
-                          justifyContent: "center",
-                          gap: 1,
-                        }}
-                      >
-                        <View style={{ width: "30%", alignItems: "center" }}>
-                          <Text style={{ fontSize: 6, fontWeight: "bold" }}>
-                            {m.absence > 0 ? m.absence : ""}
-                          </Text>
-                          <View
-                            style={{
-                              width: "100%",
-                              height: h1,
-                              backgroundColor: "#ef4444",
-                            }}
-                          />
-                        </View>
-                        <View style={{ width: "30%", alignItems: "center" }}>
-                          <Text style={{ fontSize: 6, fontWeight: "bold" }}>
-                            {m.tardiness > 0 ? m.tardiness : ""}
-                          </Text>
-                          <View
-                            style={{
-                              width: "100%",
-                              height: h2,
-                              backgroundColor: "#f59e0b",
-                            }}
-                          />
-                        </View>
-                        <View style={{ width: "30%", alignItems: "center" }}>
-                          <Text style={{ fontSize: 6, fontWeight: "bold" }}>
-                            {m.disciplinary > 0 ? m.disciplinary : ""}
-                          </Text>
-                          <View
-                            style={{
-                              width: "100%",
-                              height: h3,
-                              backgroundColor: "#8b5cf6",
-                            }}
-                          />
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-              <View style={{ flexDirection: "row-reverse" }}>
-                {safeMonthly.map((m, i) => (
-                  <Text key={i} style={{ ...styles.barLabel, flex: 1 }}>
-                    {m.monthLabel}
-                  </Text>
-                ))}
-              </View>
-
-              <View style={styles.chartLegend}>
-                <View
-                  style={{ flexDirection: "row-reverse", alignItems: "center" }}
-                >
-                  <View
-                    style={{ ...styles.legendDot, backgroundColor: "#ef4444" }}
-                  />
-                  <Text style={styles.legendText}>غیبت</Text>
-                </View>
-                <View
-                  style={{ flexDirection: "row-reverse", alignItems: "center" }}
-                >
-                  <View
-                    style={{ ...styles.legendDot, backgroundColor: "#f59e0b" }}
-                  />
-                  <Text style={styles.legendText}>تاخیر</Text>
-                </View>
-                <View
-                  style={{ flexDirection: "row-reverse", alignItems: "center" }}
-                >
-                  <View
-                    style={{ ...styles.legendDot, backgroundColor: "#8b5cf6" }}
-                  />
-                  <Text style={styles.legendText}>انضباطی</Text>
-                </View>
-              </View>
-            </>
-          )}
-        </View>
-
-        {/* نمودار روز هفته */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>غیبت‌ها به تفکیک روز هفته</Text>
-          <BarChart
-            data={safeWeekdays.map((w) => ({ label: w.day, value: w.count }))}
-            color="#ef4444"
-          />
-        </View>
-
-        {/* نمودار درس */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>غیبت‌ها به تفکیک درس</Text>
-          <BarChart
-            data={safeLessonAbsences.map((l) => ({
-              label: l.lesson,
-              value: l.count,
-            }))}
-            color="#10b981"
-          />
-        </View>
-      </Page>
-
-      {/* ═══════════════════ صفحه ۲: ریز جزئیات ═══════════════════ */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.headerBox} fixed>
-          <View style={styles.headerRow}>
-            <View style={styles.headerCell}>
-              <Text>کارنامه انضباطی</Text>
-              <Text>
-                {student.firstName} {student.lastName}
-              </Text>
-            </View>
-            <View style={styles.headerCell}>
-              <Text>مدرسه: {school.title}</Text>
-              <Text>کلاس: {klass.title}</Text>
-            </View>
-            <View style={styles.headerCellLast}>
-              <Text>سال: {academicYear.title}</Text>
-              <Text>تاریخ: {new Date().toLocaleDateString("fa-IR")}</Text>
-            </View>
-          </View>
-          <View style={styles.titleBar}>
-            <Text style={styles.titleText}>صفحه ۲ - ریز جزئیات</Text>
-          </View>
-        </View>
-
-        {/* غیبت‌ها */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            غیبت‌ها (روز کامل) - {safeDetails.absences.length} مورد
-          </Text>
-          {safeDetails.absences.length === 0 ? (
-            <Text style={styles.emptyText}>غیبت روز کامل ثبت نشده است</Text>
-          ) : (
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <View style={{ ...styles.th, width: "6%" }}>
-                  <Text style={styles.thText}>#</Text>
-                </View>
-                <View style={{ ...styles.th, width: "18%" }}>
-                  <Text style={styles.thText}>تاریخ</Text>
-                </View>
-                <View style={{ ...styles.th, width: "14%" }}>
-                  <Text style={styles.thText}>روز</Text>
-                </View>
-                <View style={{ ...styles.th, width: "30%" }}>
-                  <Text style={styles.thText}>دروس غیبت‌شده</Text>
-                </View>
-                <View style={{ ...styles.thLast, width: "32%" }}>
-                  <Text style={styles.thText}>علت</Text>
-                </View>
-              </View>
-              {safeDetails.absences.map((a, i) => (
-                <View key={i} style={styles.tableRow} wrap={false}>
-                  <View style={{ ...styles.td, width: "6%" }}>
-                    <Text style={styles.tdText}>{i + 1}</Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "18%" }}>
-                    <Text style={styles.tdText}>{toJalali(a.date)}</Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "14%" }}>
-                    <Text style={styles.tdText}>
-                      {a.date.toLocaleDateString("fa-IR", { weekday: "long" })}
-                    </Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "30%" }}>
-                    <Text style={styles.tdTextRight}>
-                      {a.lessons.join("، ") || "-"}
-                    </Text>
-                  </View>
-                  <View style={{ ...styles.tdLast, width: "32%" }}>
-                    <Text style={styles.tdTextRight}>{a.reason || "-"}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* تاخیرها */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            تاخیرها - {safeDetails.tardiness.length} مورد
-          </Text>
-          {safeDetails.tardiness.length === 0 ? (
-            <Text style={styles.emptyText}>تاخیری ثبت نشده است</Text>
-          ) : (
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <View style={{ ...styles.th, width: "6%" }}>
-                  <Text style={styles.thText}>#</Text>
-                </View>
-                <View style={{ ...styles.th, width: "20%" }}>
-                  <Text style={styles.thText}>تاریخ</Text>
-                </View>
-                <View style={{ ...styles.th, width: "14%" }}>
-                  <Text style={styles.thText}>روز</Text>
-                </View>
-                <View style={{ ...styles.th, width: "18%" }}>
-                  <Text style={styles.thText}>ساعت</Text>
-                </View>
-                <View style={{ ...styles.thLast, width: "42%" }}>
-                  <Text style={styles.thText}>علت</Text>
-                </View>
-              </View>
-              {safeDetails.tardiness.map((t, i) => (
-                <View key={i} style={styles.tableRow} wrap={false}>
-                  <View style={{ ...styles.td, width: "6%" }}>
-                    <Text style={styles.tdText}>{i + 1}</Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "20%" }}>
-                    <Text style={styles.tdText}>{toJalali(t.date)}</Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "14%" }}>
-                    <Text style={styles.tdText}>
-                      {t.date.toLocaleDateString("fa-IR", { weekday: "long" })}
-                    </Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "18%" }}>
-                    <Text style={styles.tdText}>{t.startTime ?? "-"}</Text>
-                  </View>
-                  <View style={{ ...styles.tdLast, width: "42%" }}>
-                    <Text style={styles.tdTextRight}>{t.reason || "-"}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* موارد انضباطی */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            موارد انضباطی - {safeDetails.disciplinary.length} مورد
-          </Text>
-          {safeDetails.disciplinary.length === 0 ? (
-            <Text style={styles.emptyText}>مورد انضباطی ثبت نشده است</Text>
-          ) : (
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <View style={{ ...styles.th, width: "6%" }}>
-                  <Text style={styles.thText}>#</Text>
-                </View>
-                <View style={{ ...styles.th, width: "20%" }}>
-                  <Text style={styles.thText}>تاریخ</Text>
-                </View>
-                <View style={{ ...styles.th, width: "14%" }}>
-                  <Text style={styles.thText}>ساعت</Text>
-                </View>
-                <View style={{ ...styles.thLast, width: "60%" }}>
-                  <Text style={styles.thText}>شرح</Text>
-                </View>
-              </View>
-              {safeDetails.disciplinary.map((d, i) => (
-                <View key={i} style={styles.tableRow} wrap={false}>
-                  <View style={{ ...styles.td, width: "6%" }}>
-                    <Text style={styles.tdText}>{i + 1}</Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "20%" }}>
-                    <Text style={styles.tdText}>{toJalali(d.date)}</Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "14%" }}>
-                    <Text style={styles.tdText}>{d.startTime}</Text>
-                  </View>
-                  <View style={{ ...styles.tdLast, width: "60%" }}>
-                    <Text style={styles.tdTextRight}>{d.reason}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* تشویق‌ها */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            تشویق‌ها - {safeDetails.encouragements.length} مورد
-          </Text>
-          {safeDetails.encouragements.length === 0 ? (
-            <Text style={styles.emptyText}>تشویقی ثبت نشده است</Text>
-          ) : (
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <View style={{ ...styles.th, width: "6%" }}>
-                  <Text style={styles.thText}>#</Text>
-                </View>
-                <View style={{ ...styles.th, width: "18%" }}>
-                  <Text style={styles.thText}>تاریخ</Text>
-                </View>
-                <View style={{ ...styles.th, width: "14%" }}>
-                  <Text style={styles.thText}>نوع</Text>
-                </View>
-                <View style={{ ...styles.thLast, width: "62%" }}>
-                  <Text style={styles.thText}>شرح</Text>
-                </View>
-              </View>
-              {safeDetails.encouragements.map((e, i) => (
-                <View key={i} style={styles.tableRow} wrap={false}>
-                  <View style={{ ...styles.td, width: "6%" }}>
-                    <Text style={styles.tdText}>{i + 1}</Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "18%" }}>
-                    <Text style={styles.tdText}>{toJalali(e.date)}</Text>
-                  </View>
-                  <View style={{ ...styles.td, width: "14%" }}>
-                    <Text style={styles.tdText}>{e.type}</Text>
-                  </View>
-                  <View style={{ ...styles.tdLast, width: "62%" }}>
-                    <Text style={styles.tdTextRight}>{e.reason}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </Page>
+      <DisciplinaryReportPage1 data={data} />
+      <DisciplinaryReportPage2 data={data} />
     </Document>
   );
 }
