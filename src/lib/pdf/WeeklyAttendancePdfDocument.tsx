@@ -154,11 +154,11 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     borderBottomWidth: 0.5,
     borderBottomColor: "#000",
-    minHeight: 34,
+    minHeight: 40, // ⬅️ از 34 به 40
   },
   rowLast: {
     flexDirection: "row-reverse",
-    minHeight: 34,
+    minHeight: 40, // ⬅️ از 34 به 40
   },
   tdRowNo: {
     width: ROWNO_W,
@@ -175,14 +175,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "flex-end",
     paddingHorizontal: 3,
-    paddingVertical: 0,
+    paddingVertical: 4, // ⬅️ از 0 به 4
     overflow: "hidden",
   },
   tdNameText: {
     fontSize: 8.5,
     textAlign: "right",
     fontWeight: "bold",
-    lineHeight: 1,
+    lineHeight: 1.3, // ⬅️ از 1 به 1.3
     width: "100%",
   },
   tdPos: {
@@ -192,9 +192,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 2,
-    paddingVertical: 2,
+    paddingVertical: 4, // ⬅️ از 2 به 4
   },
-  tdPosText: { fontSize: 7, textAlign: "center", color: "#374151" },
+  tdPosText: {
+    fontSize: 7,
+    textAlign: "center",
+    color: "#374151",
+    lineHeight: 1.3, // ⬅️ اضافه شد
+  },
   tdDayWrap: {
     width: DAY_W,
     borderLeftWidth: 0.5,
