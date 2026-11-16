@@ -200,11 +200,69 @@ export async function createTeacher(
 
     createdTeacherId = teacher.id;
 
-    let authUser = await prisma.user.findUnique({
-      where: { email: teacherEmail },
-      select: { id: true },
+    // ⬇⬇ User: بررسی/ایجاد (با اولویت Deputy)
+    let authUser: { id: string } | null = null;
+
+    // ۱. چک Deputy
+    const existingDeputy = await prisma.deputy.findFirst({
+      where: { nationalCode },
+      select: { id: true, userId: true },
     });
 
+    if (existingDeputy) {
+      if (existingDeputy.userId) {
+        authUser = { id: existingDeputy.userId };
+      } else {
+        try {
+          await auth.api.signUpEmail({
+            headers: await headers(),
+            body: {
+              email: teacherEmail,
+              password: phone.trim(),
+              firstName,
+              lastName,
+              name: `${firstName} ${lastName}`,
+            },
+          });
+        } catch (e) {
+          console.error("signUpEmail (deputy no user) error:", e);
+        }
+
+        const newUser = await prisma.user.findUnique({
+          where: { email: teacherEmail },
+          select: { id: true },
+        });
+
+        if (newUser) {
+          authUser = { id: newUser.id };
+          await prisma.deputy.update({
+            where: { id: existingDeputy.id },
+            data: { userId: newUser.id },
+          });
+        }
+      }
+    }
+
+    // ۲. چک email
+    if (!authUser) {
+      authUser = await prisma.user.findUnique({
+        where: { email: teacherEmail },
+        select: { id: true },
+      });
+    }
+
+    // ۳. چک Teacher
+    if (!authUser) {
+      const existingTeacherWithUser = await prisma.teacher.findFirst({
+        where: { nationalCode, userId: { not: null } },
+        select: { userId: true },
+      });
+      if (existingTeacherWithUser?.userId) {
+        authUser = { id: existingTeacherWithUser.userId };
+      }
+    }
+
+    // ۴. اگر هیچ‌کدام نبود، User جدید بساز
     if (!authUser) {
       try {
         await auth.api.signUpEmail({
@@ -217,39 +275,49 @@ export async function createTeacher(
             name: `${firstName} ${lastName}`,
           },
         });
-
-        authUser = await prisma.user.findUnique({
-          where: { email: teacherEmail },
-          select: { id: true },
-        });
-      } catch (authError) {
-        authUser = await prisma.user.findUnique({
-          where: { email: teacherEmail },
-          select: { id: true },
-        });
-        if (!authUser) throw authError;
+      } catch (e) {
+        console.error("signUpEmail error:", e);
       }
+
+      authUser = await prisma.user.findUnique({
+        where: { email: teacherEmail },
+        select: { id: true },
+      });
     }
 
     if (!authUser) throw new Error("AUTH_USER_NOT_FOUND");
 
     createdUserId = authUser.id;
 
+    // اتصال Teacher به User
     await prisma.teacher.update({
       where: { id: teacher.id },
       data: { userId: authUser.id },
     });
 
-    await prisma.userAssignment.create({
-      data: {
+    // UserAssignment (اگر وجود ندارد)
+    const existingUA = await prisma.userAssignment.findFirst({
+      where: {
         userId: authUser.id,
         schoolId,
         academicYearId,
         role: "TEACHER",
-        isActive: true,
       },
     });
 
+    if (!existingUA) {
+      await prisma.userAssignment.create({
+        data: {
+          userId: authUser.id,
+          schoolId,
+          academicYearId,
+          role: "TEACHER",
+          isActive: true,
+        },
+      });
+    }
+
+    // TeacherAssignment
     await prisma.teacherAssignment.create({
       data: {
         teacherId: teacher.id,

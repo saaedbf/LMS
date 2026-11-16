@@ -73,6 +73,9 @@ export async function getDeputies() {
 // ==========================================
 // ایجاد معاون جدید
 // ==========================================
+// ==========================================
+// ایجاد معاون جدید
+// ==========================================
 export async function createDeputy(input: unknown) {
   try {
     const parsed = createDeputySchema.safeParse(input);
@@ -106,7 +109,7 @@ export async function createDeputy(input: unknown) {
 
     const username = currentUser.email || currentUser.name || "unknown";
 
-    // ⬇⬇ چک: آیا Deputy با این کد ملی وجود دارد؟
+    // ⬇⬇ ۱. بررسی وجود Deputy با این کد ملی
     let deputy = await prisma.deputy.findUnique({
       where: { nationalCode },
     });
@@ -156,26 +159,72 @@ export async function createDeputy(input: unknown) {
       });
     }
 
-    // ⬇⬇ ۳. User: بررسی/ایجاد
+    // ⬇⬇ ۲. User: بررسی/ایجاد
+    let authUser: { id: string } | null = null;
     const deputyEmail = `${nationalCode}@lms.local`.toLowerCase();
-    let authUser = await prisma.user.findUnique({
-      where: { email: deputyEmail },
-      select: { id: true },
+
+    // ۲.۱ چک Teacher (اولویت اول — چون ممکن است معلم باشد)
+    const existingTeacher = await prisma.teacher.findFirst({
+      where: { nationalCode },
+      select: { id: true, userId: true },
     });
 
-    if (!authUser) {
-      // چک کن آیا معلمی با این nationalCode وجود دارد
-      const existingTeacher = await prisma.teacher.findFirst({
-        where: { nationalCode, userId: { not: null } },
-        select: { userId: true },
-      });
-      if (existingTeacher?.userId) {
+    if (existingTeacher) {
+      if (existingTeacher.userId) {
         authUser = { id: existingTeacher.userId };
+      } else {
+        // Teacher هست ولی User ندارد → User بساز و به Teacher وصل کن
+        try {
+          await auth.api.signUpEmail({
+            headers: await headers(),
+            body: {
+              email: deputyEmail,
+              password: phone.trim(),
+              firstName,
+              lastName,
+              name: `${firstName} ${lastName}`,
+            },
+          });
+        } catch (e) {
+          console.error("signUpEmail (teacher no user) error:", e);
+        }
+
+        const newUser = await prisma.user.findUnique({
+          where: { email: deputyEmail },
+          select: { id: true },
+        });
+
+        if (newUser) {
+          authUser = { id: newUser.id };
+          await prisma.teacher.update({
+            where: { id: existingTeacher.id },
+            data: { userId: newUser.id },
+          });
+        }
       }
     }
 
+    // ۲.۲ چک email (اگر Teacher نبود یا User نداشت)
     if (!authUser) {
-      // ساخت User جدید
+      authUser = await prisma.user.findUnique({
+        where: { email: deputyEmail },
+        select: { id: true },
+      });
+    }
+
+    // ۲.۳ چک Deputy
+    if (!authUser) {
+      const existingDeputy = await prisma.deputy.findFirst({
+        where: { nationalCode, userId: { not: null } },
+        select: { userId: true },
+      });
+      if (existingDeputy?.userId) {
+        authUser = { id: existingDeputy.userId };
+      }
+    }
+
+    // ۲.۴ اگر هیچ‌کدام نبود، User جدید بساز
+    if (!authUser) {
       try {
         await auth.api.signUpEmail({
           headers: await headers(),
@@ -188,28 +237,33 @@ export async function createDeputy(input: unknown) {
           },
         });
       } catch (e) {
-        // اگر خطا داد (مثلاً email تکراری)، ادامه بده
+        console.error("signUpEmail error:", e);
       }
+
       authUser = await prisma.user.findUnique({
         where: { email: deputyEmail },
         select: { id: true },
       });
     }
 
-    if (!authUser) return error("خطا در ایجاد کاربر");
+    if (!authUser) {
+      return error("خطا در ایجاد یا یافتن حساب کاربری");
+    }
 
-    // اتصال Deputy به User
-    if (deputy.userId !== authUser.id) {
+    const userId = authUser.id;
+
+    // ⬇⬇ ۳. اتصال Deputy به User (اگر متفاوت بود)
+    if (deputy.userId !== userId) {
       await prisma.deputy.update({
         where: { id: deputy.id },
-        data: { userId: authUser.id },
+        data: { userId },
       });
     }
 
-    // ⬇⬇ UserAssignment (اگر وجود ندارد)
+    // ⬇⬇ ۴. UserAssignment (اگر وجود ندارد)
     const existingUA = await prisma.userAssignment.findFirst({
       where: {
-        userId: authUser.id,
+        userId,
         schoolId: context.schoolId,
         academicYearId: context.academicYearId,
         role: "DEPUTY",
@@ -219,7 +273,7 @@ export async function createDeputy(input: unknown) {
     if (!existingUA) {
       await prisma.userAssignment.create({
         data: {
-          userId: authUser.id,
+          userId,
           schoolId: context.schoolId,
           academicYearId: context.academicYearId,
           role: "DEPUTY",
@@ -228,7 +282,7 @@ export async function createDeputy(input: unknown) {
       });
     }
 
-    // ⬇⬇ DeputyAssignment (اگر وجود ندارد)
+    // ⬇⬇ ۵. DeputyAssignment (اگر وجود ندارد)
     const existingDA = await prisma.deputyAssignment.findFirst({
       where: {
         deputyId: deputy.id,
@@ -249,7 +303,7 @@ export async function createDeputy(input: unknown) {
       });
     }
 
-    // ⬇⬇ ذخیره دسترسی‌ها
+    // ⬇⬇ ۶. ذخیره دسترسی‌ها
     await prisma.deputyPermission.deleteMany({
       where: { deputyId: deputy.id },
     });
