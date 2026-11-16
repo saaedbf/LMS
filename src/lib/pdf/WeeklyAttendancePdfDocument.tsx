@@ -337,7 +337,7 @@ function WeeklyPage({
           <View style={styles.headerCell}>
             <Text>مدرسه: {data.schoolTitle}</Text>
             <Text>کد مدرسه: {data.schoolId}</Text>
-            <Text>تعداد افراد: {totalRows}</Text>
+            <Text>تعداد پرسنل: {totalRows}</Text>
           </View>
           <View style={styles.headerCellLast}>
             <Text
@@ -380,7 +380,7 @@ function WeeklyPage({
             <View key={i} style={styles.thDay}>
               <Text style={styles.thText}>{WEEK_DAYS_FA[WEEK_DAYS[i]]}</Text>
               <Text style={styles.dateText}>
-                تاریخ: {data.weekDates[i] ?? ".............."}
+                تاریخ: {data.weekDates[i] ?? "........................."}
               </Text>
             </View>
           ))}

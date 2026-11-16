@@ -355,14 +355,14 @@ export function WeeklyAttendanceCoverPdf({ data }: Props) {
               {/* ستون چپ */}
               <View style={styles.infoCol}>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>تعداد همکاران</Text>
+                  <Text style={styles.infoLabel}>تعداد پرسنل</Text>
                   <Text style={styles.infoColon}>:</Text>
                   <Text style={styles.infoValue}>{data.teachersCount} نفر</Text>
                 </View>
 
                 {data.schoolSubTitle && (
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>عنوان دوم</Text>
+                    <Text style={styles.infoLabel}> نوبت</Text>
                     <Text style={styles.infoColon}>:</Text>
                     <Text style={styles.infoValue}>{data.schoolSubTitle}</Text>
                   </View>
