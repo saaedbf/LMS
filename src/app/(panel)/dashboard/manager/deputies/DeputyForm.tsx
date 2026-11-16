@@ -23,6 +23,10 @@ import {
   findDeputyByNationalCode,
 } from "@/actions/deputyActions";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
+import {
+  checkExistingAssignment,
+  findPersonByNationalCode,
+} from "@/actions/personActions";
 
 const DAYS_FA: Record<AttendanceDay, string> = {
   SATURDAY: "شنبه",
@@ -36,6 +40,8 @@ const ATTENDANCE_DAYS: AttendanceDay[] = [...DAYS];
 
 type Props = {
   setOpen: (open: boolean) => void;
+  schoolId: number; // ⬅️ جدید
+  academicYearId: number; // ⬅️ جدید
   mode?: "create" | "edit";
   initialData?: {
     id: string;
@@ -55,6 +61,8 @@ export default function DeputyForm({
   setOpen,
   mode = "create",
   initialData,
+  schoolId, // ⬅️ جدید
+  academicYearId, // ⬅️ جدید
 }: Props) {
   const isEdit = mode === "edit";
   const router = useRouter();
@@ -132,7 +140,8 @@ export default function DeputyForm({
 
     setSearching(true);
     try {
-      const res = await findDeputyByNationalCode({ nationalCode });
+      // ⬇⬇ جستجو در همه نقش‌ها
+      const res = await findPersonByNationalCode({ nationalCode });
 
       if (res.status === "error") {
         toast.error(res.error);
@@ -151,31 +160,61 @@ export default function DeputyForm({
         setValue("attendanceOrder", 0);
         setSelectedPermissions([]);
         setSelectedDays([]);
-        toast.info("کادر اجرایی با این کد ملی پیدا نشد. اطلاعات را وارد کنید.");
+        toast.info("شخصی با این کد ملی پیدا نشد. اطلاعات را وارد کنید.");
         setShowForm(true);
         return;
       }
 
-      // پیدا شد
-      if (res.data.hasAssignmentInCurrentYear) {
-        toast.error(
-          "این کادر اجرایی قبلاً در این مدرسه و سال تحصیلی ثبت شده است.",
-        );
-        setTimeout(() => setOpen(false), 500);
-        return;
+      const person = res.data;
+
+      // ⬇⬇ اگر قبلاً Deputy بوده و در این مدرسه/سال انتساب دارد
+      // ⬇⬇ اگر قبلاً Deputy بوده، چک انتساب با اکشن
+      if (person.roles.includes("DEPUTY")) {
+        const checkRes = await checkExistingAssignment({
+          nationalCode: person.nationalCode,
+          role: "DEPUTY",
+          schoolId, // ⬅️ از props
+          academicYearId, // ⬅️ از props
+        });
+
+        if (checkRes.status === "success" && checkRes.data.exists) {
+          toast.error("این کادر اجرایی قبلاً در این مدرسه ثبت شده است");
+          setTimeout(() => setOpen(false), 500);
+          return;
+        }
       }
 
+      // ⬇⬇ پر کردن فرم با اطلاعات موجود
       setDeputyFound(true);
-      setValue("firstName", res.data.firstName);
-      setValue("lastName", res.data.lastName);
-      setValue("nationalCode", res.data.nationalCode);
-      setValue("phone", res.data.phone);
-      setValue("address", res.data.address || "");
-      setValue("position", res.data.position || "");
-      setValue("attendanceOrder", res.data.attendanceOrder);
-      setSelectedPermissions(res.data.permissions);
-      setSelectedDays((res.data.attendanceDays as AttendanceDay[]) || []);
-      toast.success("کادر اجرایی پیدا شد.");
+      setValue("firstName", person.firstName);
+      setValue("lastName", person.lastName);
+      setValue("nationalCode", person.nationalCode);
+      setValue("phone", person.phone);
+
+      // اگر Deputy بوده، اطلاعات Deputy را پر کن
+      if (person.deputy) {
+        setValue("address", person.address ?? "");
+        setValue("position", person.deputy.position ?? "");
+        setValue("attendanceOrder", person.deputy.attendanceOrder);
+        setSelectedPermissions(person.deputy.permissions);
+        setSelectedDays(person.deputy.attendanceDays as AttendanceDay[]);
+      } else {
+        // اگر Teacher بوده، فقط اطلاعات پایه را پر کن
+        setValue("address", person.address ?? "");
+        setValue("position", "");
+        setValue("attendanceOrder", 0);
+        setSelectedPermissions([]);
+        setSelectedDays([]);
+      }
+
+      // پیام مناسب
+      if (person.roles.length > 1) {
+        toast.success(
+          `شخص پیدا شد (${person.roles.join(" + ")}). اطلاعات پر شد.`,
+        );
+      } else {
+        toast.success("شخص پیدا شد. اطلاعات پر شد.");
+      }
       setShowForm(true);
     } catch (err) {
       console.error(err);

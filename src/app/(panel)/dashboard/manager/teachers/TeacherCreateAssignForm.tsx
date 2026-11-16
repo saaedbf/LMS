@@ -17,6 +17,10 @@ import {
   updateTeacher,
 } from "@/actions/teacherActions";
 import { createTeacherAssignment } from "@/actions/teacherAssignmentActions";
+import {
+  checkExistingAssignment,
+  findPersonByNationalCode,
+} from "@/actions/personActions";
 
 type FormMode = "create" | "edit";
 
@@ -132,7 +136,8 @@ export default function TeacherCreateAssignForm({
     setLoadingSearch(true);
 
     try {
-      const res = await findTeacherByNationalCode({ nationalCode });
+      // ⬇⬇ جستجو در همه نقش‌ها (معلم، کادر اجرایی، دانش‌آموز)
+      const res = await findPersonByNationalCode({ nationalCode });
 
       if (res.status === "error") {
         toast.error(res.error);
@@ -140,6 +145,7 @@ export default function TeacherCreateAssignForm({
         return;
       }
 
+      // ⬇⬇ پیدا نشد → فرم خالی
       if (!res.data) {
         setTeacherFound(false);
         setTeacherId(null);
@@ -151,37 +157,55 @@ export default function TeacherCreateAssignForm({
         setValue("personnelCode", "");
         setValue("address", "");
 
-        toast.info("معلمی با این کد ملی پیدا نشد. اطلاعات را وارد کنید.");
+        toast.info("شخصی با این کد ملی پیدا نشد. اطلاعات را وارد کنید.");
         setShowForm(true);
         return;
       }
 
-      const teacher = res.data;
+      const person = res.data;
 
-      if (checkTeacherAssignmentInCurrentYear(teacher)) {
-        toast.error(
-          "این معلم قبلاً در این سال تحصیلی در مدرسه شما ثبت شده است.",
-        );
-        setTimeout(() => setOpen(false), 500);
-        return;
+      // ⬇⬇ اگر قبلاً Teacher بوده، چک انتساب با اکشن
+      if (person.teacher) {
+        const checkRes = await checkExistingAssignment({
+          nationalCode: person.nationalCode,
+          role: "TEACHER",
+          schoolId,
+          academicYearId,
+        });
+
+        if (checkRes.status === "success" && checkRes.data.exists) {
+          toast.error(
+            "این معلم قبلاً در این سال تحصیلی در مدرسه شما ثبت شده است.",
+          );
+          setTimeout(() => setOpen(false), 500);
+          return;
+        }
       }
 
+      // ⬇⬇ پر کردن فرم با اطلاعات موجود
       setTeacherFound(true);
-      setTeacherId(teacher.id);
+      setTeacherId(person.teacher?.id ?? null);
 
-      setValue("id", teacher.id);
-      setValue("firstName", teacher.firstName);
-      setValue("lastName", teacher.lastName);
-      setValue("nationalCode", teacher.nationalCode);
-      setValue("phone", teacher.phone ?? "");
-      setValue("personnelCode", teacher.personnelCode ?? "");
-      setValue("address", teacher.address ?? "");
+      setValue("id", person.teacher?.id ?? "");
+      setValue("firstName", person.firstName);
+      setValue("lastName", person.lastName);
+      setValue("nationalCode", person.nationalCode);
+      setValue("phone", person.phone ?? "");
+      setValue("personnelCode", person.personnelCode ?? "");
+      setValue("address", person.address ?? "");
 
-      toast.success("معلم پیدا شد.");
+      // ⬇⬇ پیام مناسب بر اساس نقش‌ها
+      if (person.roles.length > 1) {
+        toast.success(
+          `شخص پیدا شد (${person.roles.join(" + ")}). اطلاعات پر شد.`,
+        );
+      } else {
+        toast.success("شخص پیدا شد. اطلاعات پر شد.");
+      }
       setShowForm(true);
     } catch (error) {
-      console.error("findTeacherByNationalCode error:", error);
-      toast.error("خطای غیرمنتظره در جست‌وجوی معلم.");
+      console.error("findPersonByNationalCode error:", error);
+      toast.error("خطای غیرمنتظره در جست‌وجو.");
       setShowForm(false);
     } finally {
       setLoadingSearch(false);

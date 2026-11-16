@@ -49,9 +49,17 @@ type Props = {
   listItems: DeputyItem[];
   totalCount: number;
   pageSize: number;
+  schoolId: number; // ⬅️ جدید
+  academicYearId: number; // ⬅️ جدید
 };
 
-export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
+export default function DeputyComp({
+  listItems,
+  totalCount,
+  pageSize,
+  schoolId,
+  academicYearId,
+}: Props) {
   const [openCreate, setOpenCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -87,7 +95,12 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
               trigger={<CreateBtn>تعریف کادر اجرایی جدید</CreateBtn>}
               contentClassName="w-[95vw] max-w-4xl"
             >
-              <DeputyForm setOpen={setOpenCreate} mode="create" />
+              <DeputyForm
+                setOpen={setOpenCreate}
+                mode="create"
+                schoolId={schoolId} // ⬅️ پاس دادن
+                academicYearId={academicYearId}
+              />
             </ActionModal>
           }
         >
@@ -192,6 +205,8 @@ export default function DeputyComp({ listItems, totalCount, pageSize }: Props) {
                                 if (!isOpen) setEditingId(null);
                               }}
                               mode="edit"
+                              schoolId={schoolId}
+                              academicYearId={academicYearId}
                               initialData={{
                                 id: item.id,
                                 firstName: item.firstName,
