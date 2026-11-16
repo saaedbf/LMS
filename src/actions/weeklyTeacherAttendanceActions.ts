@@ -202,7 +202,7 @@ export async function getWeeklyTeacherAttendance(params?: {
         teacherId: `teacher-${agg.teacherId}`,
         firstName: agg.firstName,
         lastName: agg.lastName,
-        position: "معلم",
+        position: "دبیر",
         days,
       });
     }
