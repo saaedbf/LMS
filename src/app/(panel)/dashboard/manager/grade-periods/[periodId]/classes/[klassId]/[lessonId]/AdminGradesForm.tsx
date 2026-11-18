@@ -2,7 +2,14 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { toast } from "react-toastify";
-import { Check, Loader2, Users, BookOpen, Trash2 } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  Users,
+  BookOpen,
+  Trash2,
+  FileDown,
+} from "lucide-react";
 import {
   saveGradeByAdmin,
   getStudentsForAdminGrading,
@@ -201,7 +208,40 @@ export default function AdminGradesForm({
       }
     });
   };
+  const handleExportPdf = async () => {
+    try {
+      const res = await fetch(
+        `/api/admin-grades-data?periodId=${periodId}&klassId=${klassId}&lessonId=${lessonId}`,
+      );
 
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "خطا در دریافت داده");
+        return;
+      }
+
+      const { data } = (await res.json()) as { data: any };
+
+      const { pdf } = await import("@react-pdf/renderer");
+      const { TeacherGradesPdf } = await import("@/lib/pdf/TeacherGradesPdf");
+
+      const blob = await pdf(<TeacherGradesPdf data={data} />).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `grades-${klassId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      toast.success("PDF دانلود شد");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "خطا در ساخت PDF");
+    }
+  };
   return (
     <div className="space-y-4 p-2">
       <div className="flex items-center justify-between">
@@ -211,6 +251,15 @@ export default function AdminGradesForm({
         />
 
         <div className="flex gap-2">
+          {/* ⬇⬇ دکمه PDF جدید */}
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            className="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 sm:text-sm"
+          >
+            <FileDown size={16} />
+            PDF
+          </button>
           <BulkSameGradeModal
             periodId={periodId}
             lessonId={lessonId}
