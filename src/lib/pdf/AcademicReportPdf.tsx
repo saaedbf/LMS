@@ -17,9 +17,6 @@ import { toPersianNum } from "../utils";
 
 let fontsRegistered = false;
 
-/**
- * تبدیل questionRange مثل "1-10" یا "1-10,15-20" یا "1 تا 10" به آرایه شماره سوال
- */
 function expandQuestionRange(range: string | null | undefined): number[] {
   if (!range) return [];
   const nums: number[] = [];
@@ -89,7 +86,7 @@ const styles = StyleSheet.create({
   },
   statsBox: {
     flexDirection: "row-reverse",
-    gap: 10,
+    gap: 8,
     marginBottom: 10,
   },
   statCard: {
@@ -223,16 +220,26 @@ const styles = StyleSheet.create({
   },
 });
 
-// ⬅️ ۱. کامپوننت سازنده یک صفحه
 function AcademicReportPage({ data }: { data: AcademicReportData }) {
   const maxScore = 20;
   const chartWidth = 480;
-  // ⬅️ ارتفاع نمودار کمی کمتر شد تا در صفحه بعد نیفتد
   const chartHeight = 110;
   const barWidth = 25;
   const gap =
     (chartWidth - 25 - data.lessons.length * barWidth) /
     (data.lessons.length + 1);
+
+  // ⬇⬇ پیدا کردن درس انضباط
+  const disciplineLesson = data.lessons.find((l) =>
+    l.lessonTitle.includes("انضباط"),
+  );
+  const disciplineScore =
+    disciplineLesson?.score ?? disciplineLesson?.descriptiveValue ?? null;
+
+  // ⬇⬇ دروس بدون انضباط
+  const lessonsWithoutDiscipline = data.lessons.filter(
+    (l) => !l.lessonTitle.includes("انضباط"),
+  );
 
   return (
     <Page size="A4" style={styles.page}>
@@ -308,6 +315,14 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
             <Text style={styles.statValue}>{data.gradeSize}</Text>
           </View>
         </View>
+
+        {/* ⬇⬇ کارت انضباط — فقط اگر نمره انضباط وجود دارد */}
+        {disciplineScore !== null && disciplineScore !== undefined && (
+          <View style={styles.statCard}>
+            <Text style={styles.statTitle}>انضباط</Text>
+            <Text style={styles.statValue}>{disciplineScore}</Text>
+          </View>
+        )}
       </View>
 
       {/* جدول */}
@@ -354,7 +369,8 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
           </View>
         </View>
 
-        {data.lessons.map((l, i) => (
+        {/* ⬇⬇ فیلتر: دروس بدون انضباط */}
+        {lessonsWithoutDiscipline.map((l, i) => (
           <View key={i} style={styles.tableRow}>
             <View style={[styles.td, { flex: 2.5 }]}>
               <Text
@@ -478,7 +494,6 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
       </View>
 
       {/* نمودار */}
-      {/* ⬅️ کادر دور نمودار برای زیبایی */}
       <View style={styles.chartBox}>
         <View style={{ width: chartWidth, alignSelf: "flex-start" }}>
           <View style={{ flexDirection: "row", width: chartWidth }}>
@@ -536,7 +551,7 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
                   left: 0,
                 }}
               >
-                {data.lessons.map((l, i) => {
+                {lessonsWithoutDiscipline.map((l, i) => {
                   const score = l.score ?? 0;
                   const barHeight = (score / 20) * chartHeight;
                   return (
@@ -591,8 +606,8 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
                 }}
               >
                 <Svg width="100%" height="100%">
-                  {data.lessons.map((l, i) => {
-                    if (i === data.lessons.length - 1) return null;
+                  {lessonsWithoutDiscipline.map((l, i) => {
+                    if (i === lessonsWithoutDiscipline.length - 1) return null;
                     const step = barWidth + gap;
                     const plotWidth = chartWidth - 25;
                     const currentXFromRight = step * i + step / 2;
@@ -603,7 +618,8 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
                       chartHeight - ((l.classAvg ?? 0) / 20) * chartHeight;
                     const nextY =
                       chartHeight -
-                      ((data.lessons[i + 1].classAvg ?? 0) / 20) * chartHeight;
+                      ((lessonsWithoutDiscipline[i + 1].classAvg ?? 0) / 20) *
+                        chartHeight;
                     return (
                       <Line
                         key={i}
@@ -616,7 +632,7 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
                       />
                     );
                   })}
-                  {data.lessons.map((l, i) => {
+                  {lessonsWithoutDiscipline.map((l, i) => {
                     const step = barWidth + gap;
                     const plotWidth = chartWidth - 25;
                     const xFromRight = step * i + step / 2;
@@ -650,7 +666,7 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
           >
             <View style={{ width: 25 }} />
             <View style={{ flex: 1, flexDirection: "row-reverse" }}>
-              {data.lessons.map((l, i) => (
+              {lessonsWithoutDiscipline.map((l, i) => (
                 <View
                   key={i}
                   style={{
@@ -693,9 +709,9 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
         </View>
       </View>
 
-      {/* ═══════════ پاسخ‌نامه (فقط آزمون تستی) ═══════════ */}
+      {/* پاسخ‌نامه (فقط آزمون تستی) */}
       {data.period.examType === "TEST" &&
-        data.lessons.some((l) => l.answerKey) && (
+        lessonsWithoutDiscipline.some((l) => l.answerKey) && (
           <View style={{ marginTop: 15 }} break>
             <Text
               style={{
@@ -712,7 +728,6 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
               پاسخ‌نامه آزمون
             </Text>
 
-            {/* ⬅️ راهنمای علائم */}
             <View
               style={{
                 flexDirection: "row-reverse",
@@ -783,7 +798,7 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
               </View>
             </View>
 
-            {data.lessons.map((lesson, lessonIdx) => {
+            {lessonsWithoutDiscipline.map((lesson, lessonIdx) => {
               if (!lesson.answerKey) return null;
 
               const lessonRange = expandQuestionRange(lesson.questionRange);
@@ -801,7 +816,6 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
 
               return (
                 <View key={lessonIdx} style={{ marginBottom: 10 }} wrap={false}>
-                  {/* عنوان درس */}
                   <View
                     style={{
                       flexDirection: "row-reverse",
@@ -837,7 +851,6 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
                     )}
                   </View>
 
-                  {/* گرید ۴ ستونی سوالات */}
                   <View
                     style={{
                       flexDirection: "row-reverse",
@@ -948,7 +961,6 @@ function AcademicReportPage({ data }: { data: AcademicReportData }) {
   );
 }
 
-// ⬅️ ۲. کامپوننت تکی
 export function AcademicReportPdf({ data }: any) {
   if (!fontsRegistered) {
     Font.register({
@@ -973,12 +985,7 @@ export function AcademicReportPdf({ data }: any) {
   );
 }
 
-// ⬅️ ۳. کامپوننت چندتایی
-export function MultiAcademicReportPdf({
-  dataList,
-  regularFont,
-  boldFont,
-}: any) {
+export function MultiAcademicReportPdf({ dataList }: any) {
   if (!fontsRegistered) {
     Font.register({
       family: "IRANSans",
