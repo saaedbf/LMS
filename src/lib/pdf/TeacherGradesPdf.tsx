@@ -23,6 +23,9 @@ Font.register({
   ],
 });
 
+/* ═══════════════════════════════════════════════
+   تنظیمات پویا بر اساس تعداد دانش‌آموزان
+   ═══════════════════════════════════════════════ */
 function getSizeConfig(count: number) {
   if (count <= 20) {
     return {
@@ -60,18 +63,39 @@ function getSizeConfig(count: number) {
       padding: 12,
     };
   }
+  if (count <= 40) {
+    return {
+      rowFont: 8,
+      headerFont: 7.5,
+      rowHeight: 16,
+      headerHeight: 26,
+      padding: 10,
+    };
+  }
+  if (count <= 45) {
+    return {
+      rowFont: 7.5,
+      headerFont: 7,
+      rowHeight: 15,
+      headerHeight: 24,
+      padding: 8,
+    };
+  }
   return {
-    rowFont: 8,
-    headerFont: 7.5,
-    rowHeight: 16,
-    headerHeight: 26,
-    padding: 10,
+    rowFont: 7,
+    headerFont: 6.5,
+    rowHeight: 14,
+    headerHeight: 22,
+    padding: 8,
   };
 }
 
 const A4_HEIGHT = 842;
-const HEADER_APPROX = 90;
+const HEADER_APPROX = 120; // ⬅️ هدر سه ستونه بلندتر است
 
+/* ═══════════════════════════════════════════════
+   استایل‌ها
+   ═══════════════════════════════════════════════ */
 const styles = StyleSheet.create({
   page: {
     paddingTop: 14,
@@ -83,7 +107,7 @@ const styles = StyleSheet.create({
     direction: "rtl",
   },
 
-  /* هدر سه ستونه */
+  /* ═══ هدر سه ستونه (مثل کاربرگ دبیر) ═══ */
   headerBox: {
     borderWidth: 1.5,
     borderColor: "#000",
@@ -121,8 +145,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
+  bold: {
+    fontWeight: "bold",
+  },
 
-  /* جدول */
+  /* ═══ جدول ═══ */
   table: {
     width: "100%",
     borderWidth: 1,
@@ -182,34 +209,33 @@ const styles = StyleSheet.create({
   },
 });
 
+/* ═══════════════════════════════════════════════
+   کامپوننت اصلی
+   ═══════════════════════════════════════════════ */
 export function TeacherGradesPdf({ data }: any) {
   const config = getSizeConfig(data.students.length);
   const totalRows = data.students.length;
+
+  // ⬇⬇ محاسبه دقیق ارتفاع ردیف
   const available =
     A4_HEIGHT - config.padding * 2 - HEADER_APPROX - config.headerHeight;
-  const calculatedRowHeight = Math.min(
-    config.rowHeight,
-    Math.max(available / Math.max(totalRows, 1), 10),
-  );
+  const calculatedRowHeight = Math.max(available / Math.max(totalRows, 1), 8);
 
   // ⬇⬇ عرض ستون‌ها — یکسان در هدر و جدول
   const COL = {
     rowNo: "4%",
-    name: "22%",
+    name: "48%", // (100 - 4 - 14 - 8 - 8 - 8 - 10)
     nationalCode: "14%",
     correct: "8%",
     wrong: "8%",
     blank: "8%",
     score: "10%",
   };
-  // مجموع: ۴ + ۲۲ + ۱۴ + ۸ + ۸ + ۸ + ۱۰ = ۷۴٪
-  // ۲۶٪ باقی‌مانده → به نام اضافه می‌کنیم
-  const NAME_W = "48%"; // (۱۰۰ - ۴ - ۱۴ - ۸ - ۸ - ۸ - ۱۰)
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        {/* ═══ هدر سه ستونه (بدون ارتباط با جدول) ═══ */}
+      <Page size="A4" style={styles.page} wrap>
+        {/* ═══ هدر سه ستونه ═══ */}
         <View style={styles.headerBox} fixed>
           <View style={styles.headerRow}>
             <View style={styles.headerCell}>
@@ -244,14 +270,14 @@ export function TeacherGradesPdf({ data }: any) {
           </View>
         </View>
 
-        {/* ═══ جدول — با عرض ستون‌های ثابت ═══ */}
+        {/* ═══ جدول ═══ */}
         <View style={styles.table}>
           {/* سرستون */}
-          <View style={styles.tableHeader}>
+          <View style={styles.tableHeader} fixed>
             <View style={[styles.th, { width: COL.rowNo }]}>
               <Text style={{ fontSize: config.headerFont }}>#</Text>
             </View>
-            <View style={[styles.th, { width: NAME_W }]}>
+            <View style={[styles.th, { width: COL.name }]}>
               <Text style={{ fontSize: config.headerFont }}>
                 نام و نام خانوادگی
               </Text>
@@ -279,21 +305,21 @@ export function TeacherGradesPdf({ data }: any) {
             </View>
           </View>
 
-          {/* ردیف‌ها */}
+          {/* ردیف‌ها — با minHeight (نه height) و بدون wrap={false} */}
           {data.students.map((s: any, i: number) => (
             <View
               key={i}
-              style={
+              style={[
                 i === data.students.length - 1
-                  ? [styles.tableRowLast, { height: calculatedRowHeight }]
-                  : [styles.tableRow, { height: calculatedRowHeight }]
-              }
-              wrap={false}
+                  ? styles.tableRowLast
+                  : styles.tableRow,
+                { minHeight: calculatedRowHeight },
+              ]}
             >
               <View style={[styles.td, { width: COL.rowNo }]}>
                 <Text style={{ fontSize: config.rowFont }}>{i + 1}</Text>
               </View>
-              <View style={[styles.tdRight, { width: NAME_W }]}>
+              <View style={[styles.tdRight, { width: COL.name }]}>
                 <Text style={{ fontSize: config.rowFont, fontWeight: "bold" }}>
                   {s.fullName}
                 </Text>
